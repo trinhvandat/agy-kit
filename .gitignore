@@ -1,0 +1,57 @@
+# === Sepia ===
+# Sách mẫu để thử pipeline — có thể dính bản quyền, KHÔNG commit (SPIKE-0, docs/03)
+samples/
+# EPUB / PDF sinh ra khi chạy pipeline
+*.epub
+*.pdf
+pdf-pipeline/out/
+pdf-pipeline/output/
+
+# oh-my-claudecode / trạng thái Ag­ent cục bộ
+.omc/
+
+# === Python (pdf-pipeline) ===
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# === Gradle / Kotlin / KMP ===
+.gradle/
+**/build/
+local.properties
+.kotlin/
+*.hprof
+
+# === Android ===
+*.apk
+*.aab
+*.keystore
+captures/
+
+# === Xcode / iOS ===
+xcuserdata/
+*.xcuserstate
+DerivedData/
+*.xcworkspace/xcuserdata/
+Pods/
+.swiftpm/
+
+# === IDE / Editor ===
+.idea/
+*.iml
+.fleet/
+.vscode/
+*.swp
+
+# === macOS ===
+.DS_Store
