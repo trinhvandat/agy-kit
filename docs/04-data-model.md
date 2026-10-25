@@ -59,17 +59,17 @@ Metadata một cuốn sách + vị trí đọc hiện tại. **Không** nhúng n
 | Trường | Kiểu | Ý nghĩa |
 |--------|------|---------|
 | `id` | String (UUID) | Khóa chính nội bộ |
-| `bookUid` | String (unique) | **Định danh sách ổn định** do pipeline sinh = `dc:identifier` trong EPUB (vd `sepia:` + SHA-256 của **PDF gốc**). **Không đổi giữa các lần build lại** → dùng để nhận ra "cùng một cuốn" khi nhập bản EPUB mới (xem §6, R2-1) |
+| `bookUid` | String (unique) | **Định danh sách ổn định** do pipeline sinh = `dc:identifier` trong EPUB (vd `sepia:` + SHA-256 của **PDF gốc**). **Không đổi giữa các lần build lại** → dùng để nhận ra "cùng một cuốn" khi nhập bản EPUB mới (xem §6) |
 | `title`, `author` | String | Hiển thị thư viện |
 | `filePath` | String | Đường dẫn `.epub` đã copy vào bộ nhớ app |
 | `coverPath` | String? | Ảnh bìa |
-| `contentHash` | String | Hash nội dung file EPUB (vd SHA-256 của **file EPUB**). **Dùng để phát hiện EPUB đã bị build lại** → quyết định có tin CFI không (xem §3, A4). *Khác `bookUid`*: contentHash đổi mỗi lần build, bookUid thì không |
+| `contentHash` | String | Hash nội dung file EPUB (vd SHA-256 của **file EPUB**). **Dùng để phát hiện EPUB đã bị build lại** → quyết định có tin CFI không (xem §3). *Khác `bookUid`*: contentHash đổi mỗi lần build, bookUid thì không |
 | `pipelineVersion` | Int | Phiên bản pipeline đã tạo EPUB này — truy vết khi reflow đổi cấu trúc |
-| `sourcePdfName` | String? | **Chỉ tên** file PDF gốc (metadata). *Không* lưu đường dẫn máy tính — điện thoại không có file đó (xem B2) |
+| `sourcePdfName` | String? | **Chỉ tên** file PDF gốc (metadata). *Không* lưu đường dẫn máy tính — điện thoại không có file đó |
 | `addedAt` | Long (epoch ms) | Ngày thêm, để sắp xếp |
 | `sortIndex` | Int | Thứ tự người dùng kéo-thả |
 | `positionCfi` | String? | **Vị trí đọc hiện tại** dạng EPUB CFI (gộp từ ReadingPosition cũ) |
-| `positionSnippet` | String? | Đoạn text ngay tại vị trí đọc — để **re-anchor vị trí đọc** khi build lại EPUB (R2-2) |
+| `positionSnippet` | String? | Đoạn text ngay tại vị trí đọc — để **re-anchor vị trí đọc** khi build lại EPUB |
 | `positionPrefix` | String? | ~32 ký tự trước vị trí đọc (W3C `TextQuoteSelector`) |
 | `positionSuffix` | String? | ~32 ký tự sau vị trí đọc |
 | `progress` | Float | 0.0–1.0, hiện % tiến độ (US-E3); cũng là phao thô khi re-anchor |
@@ -83,7 +83,7 @@ Metadata một cuốn sách + vị trí đọc hiện tại. **Không** nhúng n
 | `kind` | String (enum) | `highlight` \| `note` \| `bookmark`. `bookmark` và `note` rời có thể có `cfiRange` độ dài 0 (một điểm neo) |
 | `cfiRange` | String | Vùng tô dạng CFI range (hoặc điểm neo cho bookmark/note rời) |
 | `textSnippet` | String | **Bản sao text** được tô — nền tảng để re-anchor + xuất Markdown kể cả khi CFI lỗi |
-| `prefix` | String | ~32 ký tự **trước** đoạn (kiểu W3C `TextQuoteSelector`) — giúp định vị lại chính xác (A4) |
+| `prefix` | String | ~32 ký tự **trước** đoạn (kiểu W3C `TextQuoteSelector`) — giúp định vị lại chính xác |
 | `suffix` | String | ~32 ký tự **sau** đoạn |
 | `contentHash` | String | Hash EPUB lúc tạo highlight — so với `Book.contentHash` để biết CFI còn đáng tin không |
 | `color` | String | Tên màu trong bảng màu highlight (nhiều màu — US-D1) |
@@ -91,13 +91,13 @@ Metadata một cuốn sách + vị trí đọc hiện tại. **Không** nhúng n
 | `status` | String (enum) | `active` \| `orphan` (mồ côi — không re-anchor được nhưng **không xóa**) |
 | `progress` | Float | Vị trí thô 0.0–1.0 để tìm gần đúng khi re-anchor |
 
-## 3. Định vị bền vững & khôi phục (re-anchoring) — A4
+## 3. Định vị bền vững & khôi phục (re-anchoring)
 
 **Vấn đề 1 — đổi hiển thị**: đổi cỡ chữ/giãn dòng/lề làm pixel/trang đổi. → Dùng **EPUB CFI** (neo theo cấu trúc tài liệu, không theo hiển thị). foliate-js có sẵn parser CFI (↔ DOM Range). Đổi cỡ chữ không làm CFI sai.
 
 **Vấn đề 2 — build lại EPUB (rủi ro thật của dự án)**: pipeline sẽ còn chỉnh nhiều lần; mỗi lần build lại, **cấu trúc EPUB có thể đổi → CFI cũ trỏ sai**. Nếu chỉ dựa CFI, highlight **và vị trí đọc** sẽ trôi hoặc mất. Vì vậy:
 - mỗi **Highlight** lưu thêm `textSnippet` + `prefix` + `suffix` + `contentHash`;
-- **Book** lưu thêm `positionSnippet` + `positionPrefix` + `positionSuffix` cho **vị trí đọc** (R2-2).
+- **Book** lưu thêm `positionSnippet` + `positionPrefix` + `positionSuffix` cho **vị trí đọc**.
 
 Cả hai dùng **chung một thuật toán re-anchor** dưới đây (vị trí đọc coi như một neo điểm độ dài 0).
 
@@ -118,7 +118,7 @@ Cả hai dùng **chung một thuật toán re-anchor** dưới đây (vị trí 
 
 > Nguyên tắc: **không bao giờ mất ghi chú** (NFR-3). Highlight mồ côi vẫn còn text + ghi chú của người dùng; chỉ là không nhảy được tới đúng chỗ trong sách. Vị trí đọc mồ côi → mở lại ở đầu chương gần nhất theo `progress`. Xem [06-risks.md](./06-risks.md) R-07.
 
-### 3.1 Nơi chạy re-anchor (R2-3)
+### 3.1 Nơi chạy re-anchor (ADR-008)
 
 **Quyết định: chạy trong JS bằng `search` của foliate-js, gọi qua bridge** — **không** viết parser EPUB phía Kotlin. Lý do:
 - foliate-js đã có sẵn bộ máy duyệt nội dung + CFI; tìm chuỗi `prefix+snippet+suffix` và quy ra CFI nằm **trong WebView** là tự nhiên nhất, tránh thêm một parser EPUB (zip + XHTML) ở Kotlin (NFR-4, ít phụ thuộc).
@@ -169,18 +169,18 @@ Quy ước:
 - HTML comment chứa `color/kind/status/cfi/hash/prefix/suffix` → đủ để **import ngược** và để re-anchor lại kể cả từ file Markdown.
 - Highlight `orphan` vẫn được xuất, có nhãn rõ ràng.
 - Sắp theo `progress`/CFI (thứ tự xuất hiện trong sách).
-- **Escape trong HTML comment (R2-8)**: nội dung `prefix/suffix/snippet/cfi` có thể chứa `--` hoặc `-->` làm **vỡ** HTML comment. → **JSON-encode** các trường này trước khi nhét vào comment (JSON tự escape; thêm bước thay `--` còn sót bằng `--` cho chắc). Khi import ngược thì JSON-decode. Ví dụ: `<!-- meta: {"color":"vàng","cfi":"epubcfi(...)","prefix":"...","suffix":"..."} -->`.
+- **Escape trong HTML comment**: nội dung `prefix/suffix/snippet/cfi` có thể chứa cặp gạch nối (`-` liền `-`) hoặc chuỗi đóng comment làm **vỡ** HTML comment. → **JSON-encode** các trường này trước khi nhét vào comment (JSON tự escape dấu ngoặc kép, newline…); thêm bước thay mỗi gạch nối còn sót bằng dạng escape `-` cho chắc. Khi import ngược thì JSON-decode. Ví dụ: `<!-- meta: {"color":"vàng","cfi":"epubcfi(...)","prefix":"...","suffix":"..."} -->`.
 
-## 5. Lưu trữ vật lý & sao lưu (NFR-3) — B1
+## 5. Lưu trữ vật lý & sao lưu (NFR-3)
 
 - DB và file `.epub`/`.md` nằm trong **vùng lưu trữ riêng của app** (`filesDir` trên Android, Documents trên iOS). **Lưu ý**: `filesDir` trên Android **người dùng không mở xem trực tiếp được** bằng app Files — nên không gọi là "thư mục thấy được".
-- Vì vậy, **sao lưu = xuất chủ động ra ngoài** (xem [02-architecture.md](./02-architecture.md) bảng expect/actual, B1):
+- Vì vậy, **sao lưu = xuất chủ động ra ngoài** (xem [02-architecture.md](./02-architecture.md) bảng expect/actual):
   - **Xuất Markdown** qua share sheet / trình chọn nơi lưu (Android `ACTION_CREATE_DOCUMENT`/share; iOS share sheet).
   - **Xuất cả file DB** (không chỉ Markdown) ra ngoài để sao lưu toàn bộ highlight/vị trí.
   - iOS có thể bật `UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInPlace` để thư mục Documents hiện trong app Files (tùy chọn).
 - Ghi DB **transactional** (không mất khi crash giữa chừng). Giai đoạn đầu **không** cloud sync — đường thoát dữ liệu = Markdown + xuất DB + copy file.
 
-## 6. Nhập sách & khử trùng theo `bookUid` (R2-1)
+## 6. Nhập sách & khử trùng theo `bookUid`
 
 Pipeline ghi **`dc:identifier` cố định** vào EPUB (vd `sepia:` + SHA-256 của **PDF gốc**) — **không đổi giữa các lần build lại**. App đọc giá trị này thành `Book.bookUid`. Nhờ đó, khi bạn build lại một cuốn (sửa pipeline) rồi nhập bản mới, app biết đây là **cùng một cuốn** chứ không phải sách mới.
 
