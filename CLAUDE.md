@@ -56,5 +56,5 @@ sepia/
 
 ## Mốc hiện tại & việc kế tiếp
 
-- **Hiện tại**: hoàn tất bộ tài liệu thiết kế (`docs/` 01–07) — chờ tác giả duyệt.
-- **Việc kế tiếp (Mốc 0)**: SPIKE-0 (kiểm kê kho PDF) → quyết định OCR; SPIKE-2 (template KMP chạy Android + iOS). Xem [07-roadmap.md](./docs/07-roadmap.md).
+- **Hiện tại**: đang làm **Mốc 0**. Đã dựng khung `pdf-pipeline/` (uv + PyMuPDF 1.27.x) với bước **`detect`** (phân loại PDF theo trang/span) + test.
+- **Việc kế tiếp (Mốc 0)**: SPIKE-0 = chạy `detect` trên **vài sách mẫu** (`samples/`) → quyết định OCR; SPIKE-2 (template KMP chạy Android + iOS). Xem [07-roadmap.md](./docs/07-roadmap.md).

@@ -15,12 +15,12 @@
 - Thiết bị: **có cả Android lẫn iPhone** → làm Android trước (dogfood ngay trên Android), iOS là đích cuối, không bỏ.
 - Kỹ năng: vững **Java backend**, từng làm **KMP cho Android**, **chưa từng build iOS** → các việc iOS phải **cộng thêm thời gian**; rủi ro toolchain iOS (xem [06-risks.md](./06-risks.md) R-02).
 - Quỹ thời gian: **~10 giờ/tuần** → roadmap chia theo **mốc (milestone)**, mỗi mốc ước tính tổng giờ và ra được một bản dùng được (xem [07-roadmap.md](./07-roadmap.md)).
-- Kho PDF: **đủ loại** — sách có chữ (text layer), sách có **hình/sơ đồ/bảng biểu**, có thể có sách dùng **font cũ TCVN3/VNI** (vấn đề chung của PDF tiếng Việt đời cũ: rút chữ ra bị lỗi ký tự). **Cần kiểm kê kho thật trước khi thiết kế pipeline chi tiết** (SPIKE-0 — xem [06-risks.md](./06-risks.md), [03-pdf-pipeline.md](./03-pdf-pipeline.md)).
+- Kho PDF: **đủ loại** — sách có chữ (text layer), sách có **hình/sơ đồ/bảng biểu**, có thể có sách dùng **font cũ TCVN3/VNI** (vấn đề chung của PDF tiếng Việt đời cũ: rút chữ ra bị lỗi ký tự). **Kiểm tra vài sách mẫu bằng lệnh `detect` trước khi đi sâu vào các bước sau** (SPIKE-0 — xem [06-risks.md](./06-risks.md), [03-pdf-pipeline.md](./03-pdf-pipeline.md)).
 
 ## 1. User Stories (theo thứ tự ưu tiên)
 
 ### Nhóm A — Chuyển PDF sang EPUB sạch (ưu tiên 1, chạy trên máy tính)
-- **US-A0**: Là người dùng, tôi muốn **quét toàn bộ kho PDF** và phân loại mỗi cuốn (`text_unicode | legacy_tcvn3 | legacy_vni | scan | mixed`) kèm thống kê, để biết pipeline cần ưu tiên gì (SPIKE-0).
+- **US-A0**: Là người dùng, tôi muốn chạy lệnh **`detect`** trên **vài cuốn sách mẫu** (trong `samples/`) để phân loại mỗi cuốn (`text_unicode | legacy_tcvn3 | legacy_vni | legacy_other | scan | empty | mixed`) kèm phân bố theo trang, để biết pipeline cần ưu tiên gì và liệu OCR có phải lên sớm không (SPIKE-0). *(Giai đoạn đầu kiểm **sách mẫu**, không quét toàn bộ kho; lệnh nhận danh sách file, không tự quét thư mục.)*
 - **US-A1**: Là người dùng, tôi muốn chạy một script trên máy tính để biến một PDF thành EPUB reflow, để đọc với chữ tự dàn.
 - **US-A2**: Là người dùng, tôi muốn script **tự phát hiện** PDF là loại có chữ / scan ảnh / dùng font TCVN3–VNI, để chọn đúng cách xử lý.
 - **US-A3**: Là người dùng, tôi muốn chữ bị mã hóa font cũ (TCVN3/VNI) được **chuyển sang Unicode** đúng, để không còn lỗi ký tự.
@@ -76,6 +76,7 @@
 - Tính năng tra cứu/từ điển đặc thù theo lĩnh vực (US-F2) và gom ghi chú theo nhãn/chủ đề (US-F1) — giai đoạn sau; phần đặc thù lĩnh vực xem [variants/dongy.md](./variants/dongy.md).
 - **Xem lại PDF gốc trong app (US-F4)** — giai đoạn sau.
 - Chuyển PDF→EPUB **ngay trên điện thoại** (giai đoạn đầu chạy bằng script Python trên máy tính).
+- **App nhận PDF trực tiếp** (chuyển đổi ngay trên máy hoặc qua server) — **cân nhắc sau khi dogfood**; giai đoạn đầu app chỉ nhận EPUB, PDF chuyển bằng pipeline trên máy tính.
 - Text-to-speech, media overlays, đọc PDF fixed-layout nâng cao — tối giản lúc đầu.
 
 ## 4. Giả định & ràng buộc

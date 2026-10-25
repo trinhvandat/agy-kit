@@ -76,8 +76,8 @@ sepia/
 ├── pdf-pipeline/                 # Python CLI, KHÔNG thuộc app KMP
 │   ├── pyproject.toml
 │   ├── sepia_pipeline/
-│   │   ├── inventory.py          # SPIKE-0: quét & phân loại kho PDF
-│   │   ├── detect.py             # phát hiện text/scan/font cũ (theo span)
+│   │   ├── __main__.py           # CLI mỏng (argparse): lệnh `detect` (Mốc 0)
+│   │   ├── detect.py             # SPIKE-0 + phát hiện text/scan/font cũ (theo span)
 │   │   ├── legacy_encoding.py    # TCVN3/VNI → Unicode (sau trích, theo span)
 │   │   ├── extract.py            # PyMuPDF (bắt buộc cho font cũ) / Docling
 │   │   ├── reflow.py             # ghép đoạn, bỏ header/footer (không de-hyphen)

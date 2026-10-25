@@ -35,13 +35,13 @@ graph TD
 
 > Không ra tính năng đọc, nhưng là mốc quan trọng nhất về rủi ro. **Bản dùng được** = báo cáo kho PDF + app KMP rỗng chạy 2 OS + quyết định OCR.
 
-- [ ] **SPIKE-0** — script `inventory.py` quét kho PDF, phân loại + thống kê (R-11). **2h**
-- [ ] Quy ước `samples/` + `.gitignore`. **0.5h**
-- [ ] **Cửa quyết định OCR**: scan chiếm phần lớn? → nâng US-A7 lên giai đoạn đầu. **0.5h**
+- [x] Dựng khung `pdf-pipeline` (uv, PyMuPDF 1.27.x) + `detect.py` (phân loại theo trang/span) + CLI `detect` + test. **2h**
+- [x] Quy ước `samples/` + `.gitignore` (samples/ không commit; giữ `tests/fixtures/`). **0.5h**
+- [ ] **SPIKE-0** — chạy `detect` trên **vài sách mẫu** (`samples/`), xem phân bố loại (R-11). **~0.5h**
+- [ ] **Cửa quyết định OCR**: sách mẫu nhiều scan? → nâng US-A7 lên giai đoạn đầu. **0.5h**
 - [ ] **SPIKE-2** — app KMP + Compose MP từ template, chạy **Android**. **2h**
 - [ ] SPIKE-2 (tiếp) — chạy **iOS simulator** (lần đầu build iOS → cộng giờ). **5h**
-- [ ] Dựng khung `pdf-pipeline` + `detect.py` sơ bộ (phân loại theo span). **2h**
-- **Thành quả**: biết cơ cấu kho, biết OCR có phải làm sớm không, app rỗng chạy cả 2 OS.
+- **Thành quả**: khung pipeline + `detect` chạy được, biết cơ cấu sách mẫu + OCR có phải làm sớm không, app rỗng chạy cả 2 OS.
 
 ## Mốc 1 — Pipeline ra EPUB sạch, đọc bằng KOReader · ~24h (~2.5 tuần) · [Pipeline]
 

@@ -4,17 +4,19 @@
 > Phiên bản kiểm tra 2026-10. Đây là phần **rủi ro nhất** của dự án.
 > Cập nhật: 2026-10-26.
 
-## 0. Kiểm kê kho PDF trước (SPIKE-0)
+## 0. Kiểm tra sách mẫu bằng `detect` (SPIKE-0)
 
-**Làm đầu tiên (~1–2 giờ)**, trước khi thiết kế chi tiết các bước:
+**Làm đầu tiên**, trước khi đi sâu vào các bước sau:
 
-- Script quét **toàn bộ thư mục PDF**, phân loại mỗi cuốn: `text_unicode | legacy_tcvn3 | legacy_vni | scan | mixed`, xuất **bảng thống kê** (số cuốn, số trang mỗi loại).
-- Quy ước thư mục mẫu:
+- Chạy lệnh **`detect`** trên **vài cuốn sách mẫu** (đại diện các loại trong kho) đặt trong `samples/`, phân loại mỗi cuốn theo trang/span: `text_unicode | legacy_tcvn3 | legacy_vni | legacy_other | scan | empty | mixed`, in **phân bố theo trang** + tên font legacy. Lệnh nhận **danh sách file** (không tự quét thư mục, không làm báo cáo tổng hợp).
+  ```bash
+  cd pdf-pipeline && uv run python -m sepia_pipeline detect samples/*.pdf
   ```
-  samples/            # sách mẫu để thử pipeline (KHÔNG commit nếu có bản quyền)
+- Quy ước thư mục mẫu (đã có trong `.gitignore`):
   ```
-  Thêm `samples/` vào `.gitignore`.
-- **Cửa quyết định (ảnh hưởng US-A7)**: nếu **scan chiếm phần lớn kho**, nâng **OCR (US-A7)** từ "để sau" lên **giai đoạn đầu** (cập nhật [01-requirements.md](./01-requirements.md) §3, [06-risks.md](./06-risks.md) R-11, [07-roadmap.md](./07-roadmap.md)). Nếu scan ít, giữ OCR ở giai đoạn sau.
+  samples/            # sách mẫu để thử pipeline (KHÔNG commit — có thể dính bản quyền)
+  ```
+- **Cửa quyết định (ảnh hưởng US-A7)**: nếu **scan chiếm phần lớn** các sách mẫu, nâng **OCR (US-A7)** từ "để sau" lên **giai đoạn đầu** (cập nhật [01-requirements.md](./01-requirements.md) §3, [06-risks.md](./06-risks.md) R-11, [07-roadmap.md](./07-roadmap.md)). Nếu scan ít, giữ OCR ở giai đoạn sau. *(Mẫu ít nên đây là tín hiệu định hướng, không phải thống kê toàn kho — gặp nhiều scan thì bổ sung thêm mẫu rồi chạy lại `detect`.)*
 
 ## 1. Mục tiêu
 

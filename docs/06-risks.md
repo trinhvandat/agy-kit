@@ -89,12 +89,12 @@
 
 - **Khả năng**: Chưa rõ (phụ thuộc SPIKE-0) · **Tác động**: Cao nếu xảy ra
 - **Vì sao**: nếu phần lớn kho là scan, pipeline "text layer" gần như vô dụng → **OCR (US-A7) phải lên giai đoạn đầu**, làm phình phạm vi.
-- **Giảm thiểu**: **SPIKE-0 chạy đầu tiên** để biết tỷ lệ scan. Nếu scan nhiều → nâng US-A7 lên đầu (OCRmyPDF + Tesseract `vie`, hoặc Surya/PaddleOCR cho scan mờ/font cũ), cập nhật [01-requirements.md](./01-requirements.md) §3, [03-pdf-pipeline.md](./03-pdf-pipeline.md), [07-roadmap.md](./07-roadmap.md).
+- **Giảm thiểu**: **SPIKE-0 chạy đầu tiên** — chạy lệnh `detect` trên **vài sách mẫu** (`samples/`) để ước lượng tỷ lệ scan. Nếu mẫu nhiều scan → nâng US-A7 lên đầu (OCRmyPDF + Tesseract `vie`, hoặc Surya/PaddleOCR cho scan mờ/font cũ), cập nhật [01-requirements.md](./01-requirements.md) §3, [03-pdf-pipeline.md](./03-pdf-pipeline.md), [07-roadmap.md](./07-roadmap.md). *(Mẫu ít → tín hiệu định hướng; nghi ngờ thì thêm mẫu rồi chạy lại.)*
 
 ---
 
 ## Thứ tự spike đề xuất (làm trước khi commit kiến trúc)
-0. **SPIKE-0** (kiểm kê kho PDF) — **làm đầu tiên**, quyết định OCR có lên sớm không (R-11).
+0. **SPIKE-0** (`detect` trên sách mẫu) — **làm đầu tiên**, quyết định OCR có lên sớm không (R-11).
 1. **SPIKE-2** (template KMP chạy Android + iOS) — gỡ rủi ro toolchain sớm.
 2. **SPIKE-1** (foliate-js + asset loader local + CFI + highlight; **Android trước, iOS time-box 6h**) — **cửa quyết định ADR-001** (R-01).
 3. **SPIKE-3** (TCVN3 + VNI → Unicode, 1 trang mỗi loại).
