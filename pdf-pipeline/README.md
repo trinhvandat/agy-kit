@@ -74,10 +74,20 @@ Mỗi file in: **loại chính**, **phân bố nhãn theo trang**, **tên font l
 Xem docstring trong [`sepia_pipeline/detect.py`](./sepia_pipeline/detect.py). Mặc định:
 
 - `scan_min_chars = 30` — dưới mức này (không tính khoảng trắng) trang bị coi là ít chữ.
-- `scan_image_coverage = 0.70` — ít chữ **và** ảnh phủ ≥ 70% diện tích → `scan`.
+- `scan_image_coverage = 0.70` — ít chữ **và** ảnh phủ (union) ≥ 70% diện tích → `scan`
+  (tính hợp các ảnh để bắt cả scan bị cắt thành nhiều dải).
 - `legacy_char_ratio_threshold = 0.15` — tỷ lệ ký tự "nghi legacy" vượt mức này → gắn cờ legacy
-  dù tên font sạch (bắt font bị đổi tên). **Đây là heuristic để gắn cờ nghi ngờ, không tuyệt đối.**
+  dù tên font sạch (bắt font bị đổi tên). **Heuristic để gắn cờ nghi ngờ, không tuyệt đối.**
+- `legacy_min_chars = 6` — span quá ngắn (dưới bấy nhiêu ký tự chữ/nghi) thì bỏ qua heuristic,
+  tránh dương tính giả ở mẩu toàn ký hiệu (vd « » °).
 - `mixed_min_fraction = 0.15` — nếu ≥ 2 loại mã mỗi loại chiếm ≥ 15% chữ của trang → `mixed`.
+
+> **Giới hạn heuristic ký tự (recall thấp — cần hiệu chỉnh ở SPIKE-0):** chỉ tính là "rác" các
+> ký tự Latin-1 **không** thuộc tập nguyên âm tiếng Việt hợp lệ (vùng `0x80–0xBF` + các chữ
+> `0xC0–0xFF` kiểu Ä Æ Ö Þ ä æ ÷ …). Vì nguyên âm Việt precomposed (à é ô õ…) **dùng chung**
+> vùng `0xC0–0xFF`, không thể mở rộng thêm mà không bắt nhầm chữ Việt sạch → một số mis-decode
+> "nhẹ" vẫn có thể lọt. Chạy `detect` trên sách thật rồi **chỉnh `legacy_char_ratio_threshold`**;
+> nhãn cuốn luôn kèm phân bố theo trang để kiểm tra bằng mắt.
 
 ## Test & lint
 

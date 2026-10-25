@@ -43,12 +43,15 @@ class DetectConfig:
     - ``scan_image_coverage``: ít chữ **và** ảnh phủ ≥ tỷ lệ này → ``scan`` (ngược lại ``empty``).
     - ``legacy_char_ratio_threshold``: tỷ lệ ký tự "nghi legacy" vượt mức này → gắn cờ legacy
       dù tên font sạch (bắt font bị đổi tên). **Heuristic để gắn cờ nghi ngờ, không tuyệt đối.**
+    - ``legacy_min_chars``: cần tối thiểu bấy nhiêu ký tự chữ/nghi mới tin heuristic (tránh dương
+      tính giả ở span rất ngắn toàn ký hiệu, vd « » °).
     - ``mixed_min_fraction``: ≥ 2 loại mã, mỗi loại chiếm ≥ tỷ lệ này chữ của trang → ``mixed``.
     """
 
     scan_min_chars: int = 30
     scan_image_coverage: float = 0.70
     legacy_char_ratio_threshold: float = 0.15
+    legacy_min_chars: int = 6
     mixed_min_fraction: float = 0.15
 
 
@@ -68,31 +71,44 @@ def is_cjk(ch: str) -> bool:
     return any(lo <= cp <= hi for lo, hi in _CJK_RANGES)
 
 
-def _is_legacy_suspect(ch: str) -> bool:
-    """Ký tự "nghi" là dấu tiếng Việt bị mã hóa TCVN3/VNI rút ra thành rác.
+# Nguyên âm tiếng Việt precomposed trong Latin-1 (0xC0–0xFF) — HỢP LỆ, không tính là rác.
+_VALID_VI_LATIN1 = frozenset("ÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝàáâãèéêìíòóôõùúý")
 
-    Vùng Latin-1 ``0x80–0xBF`` (C1 + dấu câu/ký hiệu Latin-1) — KHÔNG phải chữ cái Việt
-    Unicode hợp lệ nào nằm ở đây (các nguyên âm có dấu precomposed bắt đầu từ ``0xC0``).
-    Một số ký tự vùng này (vd « » ° µ) đôi khi dùng hợp lệ → vì vậy dùng **tỷ lệ**, không tuyệt đối.
-    """
-    return 0x80 <= ord(ch) <= 0xBF
+# Ký tự "nghi legacy": toàn vùng 0x80–0xBF **cộng** mọi ký tự Latin-1 ở 0xC0–0xFF KHÔNG thuộc
+# tiếng Việt (Ä Å Æ Ç Ë Î Ï Ð Ñ Ö Ø Û Ü Þ ß × ÷ … và chữ thường tương ứng). Mis-decode TCVN3/VNI
+# đổ rất nhiều rác vào 0xC0–0xFF; chỉ loại trừ đúng các nguyên âm Việt hợp lệ nên không bắt nhầm
+# chữ Việt Unicode. (Đ/đ = U+0110/0111 nằm ngoài Latin-1 → vẫn tính là chữ hợp lệ.)
+_LEGACY_SUSPECT = frozenset(range(0x80, 0xC0)) | frozenset(
+    cp for cp in range(0xC0, 0x100) if chr(cp) not in _VALID_VI_LATIN1
+)
 
 
-def legacy_char_ratio(text: str) -> float:
-    """Tỷ lệ ký tự "nghi legacy" trên tổng ký tự chữ (loại CJK, khoảng trắng, chữ số).
-
-    Mẫu số = số ký tự chữ-cái (không CJK) + số ký tự nghi. Tử số = số ký tự nghi.
-    Văn bản Unicode sạch → ~0; văn bản TCVN3/VNI rút ra thành rác → cao.
-    """
+def _legacy_counts(text: str) -> tuple[int, int]:
+    """Đếm (số ký tự nghi legacy, số ký tự chữ-cái hợp lệ) — bỏ qua CJK/khoảng trắng/chữ số."""
     suspect = 0
     letters = 0
     for ch in text:
         if is_cjk(ch):
             continue
-        if _is_legacy_suspect(ch):
+        if ord(ch) in _LEGACY_SUSPECT:
             suspect += 1
         elif ch.isalpha():
             letters += 1
+    return suspect, letters
+
+
+def legacy_char_ratio(text: str) -> float:
+    """Tỷ lệ ký tự "nghi legacy" trên tổng ký tự chữ (loại CJK, khoảng trắng, chữ số).
+
+    Mẫu số = số ký tự chữ-cái hợp lệ (không CJK) + số ký tự nghi. Tử số = số ký tự nghi.
+    Văn bản Unicode sạch → ~0; văn bản TCVN3/VNI rút ra thành rác → cao.
+
+    **Đây là heuristic low-recall để GẮN CỜ NGHI NGỜ**, không tuyệt đối: nó chỉ bắt được phần
+    rác rơi ngoài tập nguyên âm Việt hợp lệ; nên hiệu chỉnh ``legacy_char_ratio_threshold`` theo
+    sách thật ở SPIKE-0. Dấu còn lại (vd « » °) đôi khi dùng hợp lệ → dùng tỷ lệ + ngưỡng chữ tối
+    thiểu.
+    """
+    suspect, letters = _legacy_counts(text)
     denom = suspect + letters
     if denom == 0:
         return 0.0
@@ -104,7 +120,11 @@ def classify_span(font_name: str | None, text: str, config: DetectConfig) -> str
     by_name = classify_font_name(font_name)
     if by_name is not None:
         return by_name
-    if legacy_char_ratio(text) >= config.legacy_char_ratio_threshold:
+    suspect, letters = _legacy_counts(text)
+    denom = suspect + letters
+    if denom < config.legacy_min_chars:
+        return TEXT_UNICODE  # span quá ngắn → không tin heuristic
+    if suspect / denom >= config.legacy_char_ratio_threshold:
         return LEGACY_OTHER
     return TEXT_UNICODE
 
@@ -115,18 +135,34 @@ def classify_span(font_name: str | None, text: str, config: DetectConfig) -> str
 def image_coverage(
     bboxes: list[tuple[float, float, float, float]], page_area: float
 ) -> float:
-    """Tỷ lệ che phủ của **ảnh lớn nhất** trên diện tích trang (0..1).
+    """Tỷ lệ che phủ **hợp (union)** của các ảnh trên diện tích trang (0..1).
 
-    Dùng ảnh lớn nhất (không cộng dồn) vì một trang scan điển hình là **một** ảnh phủ kín;
-    cộng dồn các ảnh chồng nhau sẽ phóng đại. An toàn khi ``page_area`` = 0.
+    Dùng union (không phải ảnh lớn nhất) để bắt scan bị cắt thành nhiều dải: vài ảnh không
+    ảnh nào tự phủ ≥70% nhưng gộp lại thì có. Union là diện tích thật (ảnh chồng nhau không
+    bị cộng trùng). Tính bằng nén tọa độ (số ảnh ít nên chi phí không đáng kể). An toàn khi
+    ``page_area`` = 0.
     """
-    if page_area <= 0 or not bboxes:
+    if page_area <= 0:
         return 0.0
-    best = 0.0
-    for x0, y0, x1, y1 in bboxes:
-        area = max(0.0, x1 - x0) * max(0.0, y1 - y0)
-        best = max(best, area)
-    return min(1.0, best / page_area)
+    rects = [
+        (min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
+        for x0, y0, x1, y1 in bboxes
+        if x0 != x1 and y0 != y1
+    ]
+    if not rects:
+        return 0.0
+    xs = sorted({x for r in rects for x in (r[0], r[2])})
+    ys = sorted({y for r in rects for y in (r[1], r[3])})
+    covered = 0.0
+    for i in range(len(xs) - 1):
+        cx0, cx1 = xs[i], xs[i + 1]
+        cxmid = (cx0 + cx1) / 2
+        for j in range(len(ys) - 1):
+            cy0, cy1 = ys[j], ys[j + 1]
+            cymid = (cy0 + cy1) / 2
+            if any(r[0] <= cxmid <= r[2] and r[1] <= cymid <= r[3] for r in rects):
+                covered += (cx1 - cx0) * (cy1 - cy0)
+    return min(1.0, covered / page_area)
 
 
 def classify_page(
@@ -245,11 +281,29 @@ def detect_page(page: fitz.Page, config: DetectConfig) -> PageResult:
     )
 
 
+# Khi số trang hòa nhau, ưu tiên nhãn "cần xử lý" (legacy/scan/mixed) hơn text_unicode/empty,
+# để một cuốn nửa-legacy không bị dán nhãn text_unicode rồi đi sai nhánh trích ở Mốc 1.
+_BOOK_LABEL_PRIORITY = {
+    LEGACY_TCVN3: 6,
+    LEGACY_VNI: 5,
+    LEGACY_OTHER: 4,
+    SCAN: 3,
+    MIXED: 2,
+    TEXT_UNICODE: 1,
+    EMPTY: 0,
+}
+
+
 def _aggregate(path: str, pages: list[PageResult]) -> BookResult:
     distribution = dict(Counter(p.label for p in pages))
-    # Nhãn cuốn = loại chiếm đa số; hòa → ưu tiên nhãn có số trang cao, rồi theo tên (ổn định).
+    # Nhãn cuốn = loại chiếm đa số; hòa số trang → chọn nhãn ưu tiên cao hơn (ổn định, có chủ đích).
     book_label = (
-        max(distribution.items(), key=lambda kv: (kv[1], kv[0]))[0] if distribution else None
+        max(
+            distribution.items(),
+            key=lambda kv: (kv[1], _BOOK_LABEL_PRIORITY.get(kv[0], -1)),
+        )[0]
+        if distribution
+        else None
     )
     legacy_fonts = tuple(sorted({f for p in pages for f in p.legacy_fonts}))
     return BookResult(
@@ -291,11 +345,14 @@ def detect_pdf(path: str | Path, config: DetectConfig | None = None) -> BookResu
 
 # Tiền tố subset của PDF: đúng 6 chữ IN HOA + "+", vd "ABCDEF+".
 _SUBSET = r"(?:[A-Z]{6}\+)?"
+# Phần tên họ font sau mốc nhận dạng: cho phép chữ/số/khoảng trắng/`.`/`-`
+# (vd ".Vn3DH", ".VnTime New", "VNI-Thuphap2"). Dùng fullmatch nên không cần neo ^$.
+_FAMILY = r"[\w .-]*"
 
 # TCVN3/ABC: tên bắt đầu bằng ".Vn" (dấu chấm có thể vắng ở vài bản), vd .VnTime, .VnArialH.
-_TCVN3_RE = re.compile(rf"^{_SUBSET}\.?Vn[A-Za-z]*$")
+_TCVN3_RE = re.compile(rf"{_SUBSET}\.?Vn{_FAMILY}")
 # VNI: bắt đầu bằng "VNI-", vd VNI-Times, VNI-Helve.
-_VNI_RE = re.compile(rf"^{_SUBSET}VNI-[A-Za-z]*$")
+_VNI_RE = re.compile(rf"{_SUBSET}VNI-{_FAMILY}")
 
 
 def classify_font_name(font_name: str | None) -> str | None:
@@ -308,8 +365,8 @@ def classify_font_name(font_name: str | None) -> str | None:
     """
     if not font_name:
         return None
-    if _TCVN3_RE.match(font_name):
+    if _TCVN3_RE.fullmatch(font_name):
         return LEGACY_TCVN3
-    if _VNI_RE.match(font_name):
+    if _VNI_RE.fullmatch(font_name):
         return LEGACY_VNI
     return None

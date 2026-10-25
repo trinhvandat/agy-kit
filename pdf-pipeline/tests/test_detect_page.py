@@ -8,9 +8,17 @@ from sepia_pipeline.detect import (
     SCAN,
     TEXT_UNICODE,
     DetectConfig,
+    PageResult,
+    _aggregate,
     classify_page,
     image_coverage,
 )
+
+
+def _page(label: str) -> PageResult:
+    return PageResult(
+        page_number=1, label=label, char_count=50, image_coverage=0.0, legacy_ratio=0.0
+    )
 
 CFG = DetectConfig()
 VI = "Tôi yêu tiếng Việt và học thuốc Đông y mỗi ngày thật chăm chỉ"  # >30 ký tự
@@ -21,10 +29,24 @@ def test_image_coverage_full_page() -> None:
     assert image_coverage([(0, 0, 100, 100)], page_area=100 * 100) == 1.0
 
 
-def test_image_coverage_partial_takes_max() -> None:
-    # Lấy ảnh lớn nhất: 50x50=2500 trên 10000 = 0.25
+def test_image_coverage_nested_boxes_is_union_not_sum() -> None:
+    # Ảnh nhỏ nằm trong ảnh lớn: union = 2500/10000 = 0.25 (không cộng dồn thành 0.26).
     cov = image_coverage([(0, 0, 10, 10), (0, 0, 50, 50)], page_area=100 * 100)
     assert abs(cov - 0.25) < 1e-9
+
+
+def test_image_coverage_tiled_strips_sum_to_union() -> None:
+    # Scan chia 2 dải ngang không chồng nhau, mỗi dải 40% → union 80% ≥ 70% → đủ để thành scan.
+    strips = [(0, 0, 100, 40), (0, 40, 100, 80)]
+    cov = image_coverage(strips, page_area=100 * 100)
+    assert abs(cov - 0.80) < 1e-9
+
+
+def test_tiled_scan_detected_as_scan() -> None:
+    # Ít chữ + nhiều dải ảnh (không dải nào ≥70% một mình) → vẫn phải là scan.
+    strips = [(0, 0, 100, 35), (0, 35, 100, 70), (0, 70, 100, 100)]
+    cov = image_coverage(strips, page_area=100 * 100)
+    assert classify_page([], char_count=2, image_coverage=cov, config=CFG) == SCAN
 
 
 def test_image_coverage_none() -> None:
@@ -75,6 +97,22 @@ def test_small_legacy_noise_does_not_flip_unicode_page() -> None:
     spans = [("Literata", VI * 10), (".VnTime", "abc")]
     label = classify_page(spans, char_count=len(VI) * 10 + 3, image_coverage=0.0, config=CFG)
     assert label == TEXT_UNICODE
+
+
+def test_book_majority_label_wins() -> None:
+    book = _aggregate("b.pdf", [_page(TEXT_UNICODE), _page(TEXT_UNICODE), _page(LEGACY_TCVN3)])
+    assert book.label == TEXT_UNICODE
+
+
+def test_book_tie_prefers_actionable_legacy_over_unicode() -> None:
+    # Hòa 50/50 giữa legacy và unicode → chọn nhãn "cần xử lý" (legacy), không giấu dưới unicode.
+    book = _aggregate("b.pdf", [_page(TEXT_UNICODE), _page(LEGACY_TCVN3)])
+    assert book.label == LEGACY_TCVN3
+
+
+def test_book_tie_prefers_legacy_over_scan() -> None:
+    book = _aggregate("b.pdf", [_page(SCAN), _page(LEGACY_VNI)])
+    assert book.label == LEGACY_VNI
 
 
 def test_scan_takes_priority_over_text_when_few_chars() -> None:

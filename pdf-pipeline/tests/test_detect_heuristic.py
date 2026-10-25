@@ -66,3 +66,29 @@ def test_threshold_is_configurable() -> None:
     high = DetectConfig(legacy_char_ratio_threshold=0.99)
     assert classify_span("CleanFont", VI_TCVN3_GARBAGE, low) == LEGACY_OTHER
     assert classify_span("CleanFont", VI_TCVN3_GARBAGE, high) == TEXT_UNICODE
+
+
+# Mis-decode "thực tế" hơn: nhiều ký tự rơi vào 0xC0–0xFF (không phải vùng 0x80–0xBF).
+VI_REALISTIC_GARBAGE = (
+    "Trong y häc cæ truyÒn, huyÖt vÞ lµ nh÷ng ®iÓm ®Æc biÖt trªn c¬ thÓ con ng­êi"
+)
+# Chữ Việt Unicode hợp lệ có đủ nguyên âm Latin-1 precomposed + Đ/đ — KHÔNG được gắn cờ.
+VI_UNICODE_FULL = "Đàn bà sầu riêng ở phủ Tây Hồ, ông ấy mê mẩn cà phê đá à é ô õ ú ý"
+
+
+def test_realistic_misdecode_flagged() -> None:
+    # Regression cho HIGH-finding: mis-decode điển hình (nhiều ký tự 0xC0–0xFF) phải vượt ngưỡng.
+    assert legacy_char_ratio(VI_REALISTIC_GARBAGE) > 0.15
+    assert classify_span("CleanFont", VI_REALISTIC_GARBAGE, DetectConfig()) == LEGACY_OTHER
+
+
+def test_valid_vietnamese_latin1_not_flagged() -> None:
+    # Nguyên âm Việt precomposed (ÀÁÂÃÈÉÊ… à á ô õ) KHÔNG bị tính là rác.
+    assert legacy_char_ratio(VI_UNICODE_FULL) < 0.05
+    assert classify_span("Literata", VI_UNICODE_FULL, DetectConfig()) == TEXT_UNICODE
+
+
+def test_short_symbol_span_not_flagged() -> None:
+    # Span rất ngắn toàn ký hiệu Latin-1 hợp lệ (« » °) không đủ chữ → không gắn cờ legacy.
+    assert classify_span("Literata", "« »", DetectConfig()) == TEXT_UNICODE
+    assert classify_span("Literata", "°C", DetectConfig()) == TEXT_UNICODE
