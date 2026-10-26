@@ -1,0 +1,83 @@
+name: CI
+
+# Mỗi PR vào master phải xanh mới merge; chạy cả khi push thẳng lên master.
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+# Hủy run cũ còn chạy trên cùng nhánh/PR khi có commit mới.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # --- Pipeline Python (pdf-pipeline): lint + format + test ------------------
+  # KHÔNG cài extra docling (nặng: torch/transformers). Test tích hợp Docling tự
+  # skip (importorskip); test ảnh build_epub cần Pillow — Pillow nằm trong dev deps.
+  pipeline:
+    name: pipeline (pdf-pipeline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: pdf-pipeline
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.10.10"       # ghim bản uv để tái lập được
+          python-version: "3.13"   # thỏa requires-python >=3.11
+          enable-cache: true
+
+      # epubcheck đóng gói jar, cần Java; thiếu Java thì quality.py chỉ ghi "chưa kiểm".
+      - name: Setup Java (epubcheck)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: uv sync (base + dev, KHÔNG extra docling)
+        run: uv sync --frozen
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: Pytest
+        run: uv run pytest -q
+
+  # --- App KMP (Android): unit test JVM + build APK debug --------------------
+  # AGP 9 → :composeApp là LIBRARY, test JVM ở androidHostTest; APK build ở :androidApp.
+  # KHÔNG build iOS (cần Xcode — issue #3).
+  app:
+    name: app (android)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java (AGP 9 cần JDK 17+)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Gradle (có cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit test (JVM) + build APK debug
+        run: ./gradlew :composeApp:testAndroidHostTest :androidApp:assembleDebug --stacktrace
+
+      # Bắt lỗi thiếu file import trong assets/reader/ (foliate-js + bridge) — lỗi làm
+      # sách không mở nhưng không văng. Chỉ cần python3 stdlib.
+      - name: Check reader imports
+        run: python3 scripts/check_reader_imports.py
