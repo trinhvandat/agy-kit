@@ -83,6 +83,21 @@ _LEGACY_SUSPECT = frozenset(range(0x80, 0xC0)) | frozenset(
 )
 
 
+# Chữ Việt Unicode "thật": ký tự chỉ tồn tại trong Unicode đúng, mis-decode legacy không sinh ra.
+# - Khối Latin Extended Additional phần tiếng Việt: U+1EA0–U+1EF9 (ạ ả ấ ầ … ỹ).
+# - 8 chữ nền ngoài Latin-1: ă Ă đ Đ ơ Ơ ư Ư (U+0102/0103, U+0110/0111, U+01A0/01A1, U+01AF/01B0).
+# (â ê ô à é… nằm trong Latin-1, cũng có trong tiếng Pháp → KHÔNG tính là "thật".)
+_VI_UNICODE_LETTERS = frozenset("ăĂđĐơƠưƯ")
+
+
+def has_real_vietnamese_unicode(text: str) -> bool:
+    """True nếu ``text`` có ít nhất một ký tự tiếng Việt Unicode "thật" (xem ghi chú ở trên)."""
+    for ch in text:
+        if 0x1EA0 <= ord(ch) <= 0x1EF9 or ch in _VI_UNICODE_LETTERS:
+            return True
+    return False
+
+
 def _legacy_counts(text: str) -> tuple[int, int]:
     """Đếm (số ký tự nghi legacy, số ký tự chữ-cái hợp lệ) — bỏ qua CJK/khoảng trắng/chữ số."""
     suspect = 0
@@ -116,12 +131,19 @@ def legacy_char_ratio(text: str) -> float:
 
 
 def classify_span(font_name: str | None, text: str, config: DetectConfig) -> str:
-    """Phân loại encoding của một span: ưu tiên tên font, rồi tới heuristic ký tự."""
-    by_name = classify_font_name(font_name)
-    if by_name is not None:
-        return by_name
+    """Phân loại encoding của một span: **nội dung thắng tên font**, rồi tới heuristic ký tự.
+
+    Nếu tên font khớp ``.Vn*``/``VNI-*`` NHƯNG span đủ dài và có chữ Việt Unicode thật thì text
+    đã là Unicode đúng (font bị đổi tên / có ToUnicode) → ``text_unicode``. Tên font legacy vẫn
+    được ghi riêng vào ``legacy_fonts`` ở ``detect_page`` để theo dõi.
+    """
     suspect, letters = _legacy_counts(text)
     denom = suspect + letters
+    by_name = classify_font_name(font_name)
+    if by_name is not None:
+        if letters >= config.legacy_min_chars and has_real_vietnamese_unicode(text):
+            return TEXT_UNICODE
+        return by_name
     if denom < config.legacy_min_chars:
         return TEXT_UNICODE  # span quá ngắn → không tin heuristic
     if suspect / denom >= config.legacy_char_ratio_threshold:

@@ -6,6 +6,7 @@ from sepia_pipeline.detect import (
     TEXT_UNICODE,
     DetectConfig,
     classify_span,
+    has_real_vietnamese_unicode,
     is_cjk,
     legacy_char_ratio,
 )
@@ -92,3 +93,34 @@ def test_short_symbol_span_not_flagged() -> None:
     # Span rất ngắn toàn ký hiệu Latin-1 hợp lệ (« » °) không đủ chữ → không gắn cờ legacy.
     assert classify_span("Literata", "« »", DetectConfig()) == TEXT_UNICODE
     assert classify_span("Literata", "°C", DetectConfig()) == TEXT_UNICODE
+
+
+# --- Điểm 1: nội dung thắng tên font -------------------------------------------
+
+VI_REAL_UNICODE = "Tôi học huyệt vị Đông y ở kinh lạc mỗi ngày thật chăm chỉ"
+
+
+def test_has_real_vietnamese_unicode() -> None:
+    assert has_real_vietnamese_unicode("huyệt vị")  # ệ, ị ∈ U+1EA0–U+1EF9
+    assert has_real_vietnamese_unicode("đường")  # đ, ư
+    assert has_real_vietnamese_unicode("sơ khảo")  # ơ, ả
+    # Không có ký tự Việt Unicode "thật": chỉ Latin-1/ASCII.
+    assert not has_real_vietnamese_unicode("cafe hotel resume")
+    assert not has_real_vietnamese_unicode("Café hôtel élève")  # tiếng Pháp (Latin-1)
+    assert not has_real_vietnamese_unicode("Tôi yêu cá rô")  # VN nhưng chỉ ô (Latin-1)
+
+
+def test_content_wins_over_legacy_font_name() -> None:
+    # Span có chữ Việt Unicode thật nhưng font tên .VnTime → text_unicode (nội dung thắng).
+    assert classify_span(".VnTime", VI_REAL_UNICODE, DetectConfig()) == TEXT_UNICODE
+    assert classify_span("VNI-Times", VI_REAL_UNICODE, DetectConfig()) == TEXT_UNICODE
+
+
+def test_legacy_font_name_still_wins_when_no_real_unicode() -> None:
+    # Không có chữ Việt Unicode thật → vẫn tin tên font legacy.
+    assert classify_span(".VnTime", "noi dung khong dau", DetectConfig()) == LEGACY_TCVN3
+
+
+def test_content_win_requires_long_enough_span() -> None:
+    # Span quá ngắn dù có chữ Unicode thật → vẫn theo tên font (tránh lật nhầm vì một mẩu).
+    assert classify_span(".VnTime", "ở", DetectConfig()) == LEGACY_TCVN3

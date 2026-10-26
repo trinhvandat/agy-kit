@@ -21,8 +21,10 @@ def _page(label: str) -> PageResult:
     )
 
 CFG = DetectConfig()
-VI = "Tôi yêu tiếng Việt và học thuốc Đông y mỗi ngày thật chăm chỉ"  # >30 ký tự
+VI = "Tôi yêu tiếng Việt và học thuốc Đông y mỗi ngày thật chăm chỉ"  # >30 ký tự, có ệ/đ
 GARBAGE = "T«i yªu ti·ng ViÖt vµ häc thuèc §«ng y mçi ngµy th·t ch¨m"
+# Text trang font cũ "thực tế" (không có chữ Việt Unicode thật) → tên font legacy thắng.
+LEGACY_TEXT = "Noi dung khong co dau tieng Viet gi dac biet o trong trang sach nay"
 
 
 def test_image_coverage_full_page() -> None:
@@ -77,19 +79,22 @@ def test_unicode_page() -> None:
 
 
 def test_tcvn3_page_by_font() -> None:
-    spans = [(".VnTime", VI)]
-    assert classify_page(spans, char_count=len(VI), image_coverage=0.0, config=CFG) == LEGACY_TCVN3
+    spans = [(".VnTime", LEGACY_TEXT)]
+    n = len(LEGACY_TEXT)
+    assert classify_page(spans, char_count=n, image_coverage=0.0, config=CFG) == LEGACY_TCVN3
 
 
 def test_vni_page_by_font() -> None:
-    spans = [("VNI-Times", VI)]
-    assert classify_page(spans, char_count=len(VI), image_coverage=0.0, config=CFG) == LEGACY_VNI
+    spans = [("VNI-Times", LEGACY_TEXT)]
+    n = len(LEGACY_TEXT)
+    assert classify_page(spans, char_count=n, image_coverage=0.0, config=CFG) == LEGACY_VNI
 
 
 def test_mixed_unicode_and_legacy() -> None:
-    # Một nửa span Unicode, một nửa span legacy (mỗi loại ≥ 15%) → mixed
-    spans = [("Literata", VI), (".VnTime", VI)]
-    assert classify_page(spans, char_count=len(VI) * 2, image_coverage=0.0, config=CFG) == MIXED
+    # Một span Unicode thật, một span legacy theo tên font (mỗi loại ≥ 15%) → mixed
+    spans = [("Literata", VI), (".VnTime", LEGACY_TEXT)]
+    total = len(VI) + len(LEGACY_TEXT)
+    assert classify_page(spans, char_count=total, image_coverage=0.0, config=CFG) == MIXED
 
 
 def test_small_legacy_noise_does_not_flip_unicode_page() -> None:
