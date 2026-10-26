@@ -3,6 +3,7 @@
 import zipfile
 from pathlib import Path
 
+import pymupdf as fitz
 import pytest
 from ebooklib import epub
 
@@ -10,7 +11,14 @@ from sepia_pipeline import PIPELINE_VERSION
 from sepia_pipeline.build_epub import build_epub, load_font_family
 from sepia_pipeline.model import Document, Heading, ImageBlock, Paragraph
 
-PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32  # PNG giả (đủ magic) cho test
+
+def _png() -> bytes:
+    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 16, 16))
+    pix.set_rect(pix.irect, (210, 190, 160))
+    return pix.tobytes("png")
+
+
+PNG = _png()
 
 
 def _doc() -> Document:

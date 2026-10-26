@@ -13,6 +13,7 @@ Yêu cầu chính (docs/03 §8, docs/04 §6):
 
 from __future__ import annotations
 
+import datetime
 import html
 import tomllib
 import zipfile
@@ -24,8 +25,9 @@ from ebooklib import epub
 from . import PIPELINE_VERSION
 from .model import Block, Document, Heading, ImageBlock, Paragraph
 
-# Ngày sửa đổi cố định (EPUB yêu cầu dcterms:modified) — cố định để đầu ra tất định.
-_FIXED_MODIFIED = "2020-01-01T00:00:00Z"
+# Ngày sửa đổi cố định (EPUB yêu cầu đúng MỘT dcterms:modified — ebooklib tự ghi theo opt `mtime`).
+# Cố định để đầu ra tất định.
+_FIXED_MTIME = datetime.datetime(2020, 1, 1, 0, 0, 0)
 _ZIP_DATE = (1980, 1, 1, 0, 0, 0)
 
 _FONT_PROFILES_PATH = Path(__file__).resolve().parent.parent / "font_profiles.toml"
@@ -124,17 +126,6 @@ def _blocks_to_chapters(
     return out, images
 
 
-def _xhtml(title: str, body: str) -> str:
-    return (
-        '<?xml version="1.0" encoding="utf-8"?>\n'
-        '<!DOCTYPE html>\n'
-        '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="vi" lang="vi">\n'
-        f"<head><title>{_esc(title)}</title>"
-        '<link rel="stylesheet" type="text/css" href="style/main.css"/></head>\n'
-        f"<body>\n{body}\n</body>\n</html>\n"
-    )
-
-
 def _normalize_epub_zip(path: Path) -> None:
     """Viết lại zip với ngày cố định + thứ tự giữ nguyên + compression cố định → bytes tất định."""
     tmp = path.with_suffix(path.suffix + ".tmp")
@@ -171,10 +162,11 @@ def build_epub(
     book.set_language("vi")
     if doc.author:
         book.add_author(doc.author)
+    # Khai báo prefix `sepia:` để metadata riêng hợp lệ EPUB3 (epubcheck OPF-028).
+    book.prefixes = ["sepia: https://github.com/trinhvandat/sepia/ns#"]
     # Metadata truy vết + ngày cố định (tất định).
     book.add_metadata(None, "meta", str(pipeline_version), {"property": "sepia:pipeline-version"})
     book.add_metadata(None, "meta", doc.source_pdf_name, {"property": "sepia:source-pdf"})
-    book.add_metadata(None, "meta", _FIXED_MODIFIED, {"property": "dcterms:modified"})
 
     style = epub.EpubItem(
         uid="style_main",
@@ -200,7 +192,8 @@ def build_epub(
     toc: list = []
     for ch in chapters:
         item = epub.EpubHtml(title=ch.title, file_name=ch.file_name, lang="vi")
-        item.content = _xhtml(ch.title, ch.html_body)
+        # ebooklib bọc content trong template XHTML của nó → content chỉ là HTML trong <body>.
+        item.content = ch.html_body
         item.add_item(style)
         book.add_item(item)
         epub_chapters.append(item)
@@ -219,7 +212,8 @@ def build_epub(
     book.spine = ["nav", *epub_chapters]
 
     # epub3_pages=False: không quét page-list (tránh lxml parse body rỗng của nav).
-    epub.write_epub(str(out_path), book, {"epub3_pages": False})
+    # mtime cố định → dcterms:modified tất định (ebooklib tự ghi đúng một lần).
+    epub.write_epub(str(out_path), book, {"epub3_pages": False, "mtime": _FIXED_MTIME})
     _normalize_epub_zip(out_path)
 
     return EpubReport(
