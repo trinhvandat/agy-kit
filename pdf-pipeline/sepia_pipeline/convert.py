@@ -16,15 +16,19 @@ from . import PIPELINE_VERSION
 from .build_epub import EpubReport, build_epub, load_font_family
 from .detect import DetectConfig, scan_ocr_book_signal
 from .extract import extract_document, render_page_png
-from .model import Document, ImageBlock, Page
+from .model import Document, Heading, ImageBlock, Page, Paragraph
 from .quality import QualityReport, check_blocks, run_epubcheck
 from .reflow import (
+    GarbageFilterResult,
     ReflowConfig,
     build_blocks,
     collect_warnings,
+    drop_garbage_blocks,
     drop_printed_toc,
+    drop_running_headers,
     is_image_page,
 )
+from .vietnamese import looks_vietnamese
 
 DEFAULT_OUT_DIR = Path(__file__).resolve().parent.parent / "out"
 
@@ -141,6 +145,27 @@ def convert_pdf(
             )
         blocks = build_blocks(doc_model, config.reflow)
 
+    # Đường Docling: bỏ tiêu đề chạy đầu trang lặp (khối không có toạ độ như heuristic).
+    running_headers_removed = 0
+    running_header_examples: tuple[str, ...] = ()
+    if engine_used == "docling":
+        header_result = drop_running_headers(blocks, config.reflow)
+        blocks = header_result.kept
+        running_headers_removed = header_result.removed
+        running_header_examples = header_result.examples
+
+    # Lọc dòng rác theo âm tiết Việt — CHỈ bật khi (a) nguồn là OCR (cuốn scan_ocr hoặc đường
+    # Docling) VÀ (b) sách là tiếng Việt. Sách born-digital (text_unicode, legacy sau chuyển mã)
+    # và sách không phải tiếng Việt KHÔNG lọc — để không bỏ oan nội dung thật (vd heading tiếng Anh
+    # chấm 0 điểm âm tiết Việt). Xem docs/03 §8.
+    is_ocr_source = is_scan_ocr or engine_used == "docling"
+    book_text = " ".join(b.text for b in blocks if isinstance(b, Heading | Paragraph))
+    if is_ocr_source and looks_vietnamese(book_text):
+        garbage = drop_garbage_blocks(blocks, config.reflow)
+        blocks = garbage.kept
+    else:
+        garbage = GarbageFilterResult(kept=blocks, removed=(), long_low_score=())
+
     blocks, toc_removed = drop_printed_toc(blocks, config.reflow)
     n_image_pages = sum(1 for b in blocks if isinstance(b, ImageBlock))
     epub_report = build_epub(
@@ -151,7 +176,16 @@ def convert_pdf(
         pipeline_version=PIPELINE_VERSION,
     )
 
-    quality = check_blocks(blocks, is_scan_ocr=is_scan_ocr, printed_toc_removed=toc_removed)
+    quality = check_blocks(
+        blocks,
+        is_scan_ocr=is_scan_ocr,
+        printed_toc_removed=toc_removed,
+        garbage_blocks_removed=len(garbage.removed),
+        garbage_examples=garbage.removed,
+        garbage_long_low=len(garbage.long_low_score),
+        running_headers_removed=running_headers_removed,
+        running_header_examples=running_header_examples,
+    )
     if run_check:
         quality = dataclasses.replace(quality, epubcheck=run_epubcheck(str(out_path)))
 

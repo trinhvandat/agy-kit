@@ -84,20 +84,28 @@ Chạy `convert` toàn bộ `Tự Học Đông Y - Bùi Huy.pdf` (PIPELINE_VERSI
 
 Lớp chữ PDF (PyMuPDF) = **366 215 ký tự** (mốc so độ phủ).
 
-| Chỉ số | `--engine heuristic` | Docling (1b đầu) | **Docling (sau sửa)** |
-|---|---|---|---|
-| Thời gian trích (CPU) | ~1.4 giây | ~43 giây | **~43 giây** |
-| **Ký tự** (trong EPUB) | 364 192 | 275 467 | **351 337** |
-| **Từ** | 101 419 | — | **100 081** |
-| **% độ phủ chữ** (so lớp chữ PDF) | 99.6% | 75.2% ⚠️ | **95.9%** |
-| **Số file XHTML** | 9 | 721 ⚠️ | **7** |
-| **Kích thước EPUB** | 0.3 MB | 71 MB ⚠️ | **2.7 MB** |
-| **Số ảnh nhúng** | 4 | 351 | **161** (bỏ ảnh tí hon; khung chữ → text) |
-| Heading | 398 | 720 | 720 |
-| **% đoạn < 40 ký tự** | 53.5% | 21.9% | **20.1%** |
-| Mục lục in sẵn bỏ | 3 dòng | 12 | 12 dòng |
-| epubcheck | HỢP LỆ | HỢP LỆ | **HỢP LỆ** |
-| Tất định (2 lần build) | ✓ | ✓ | ✓ byte-identical |
+| Chỉ số | `--engine heuristic` | Docling (1b đầu) | Docling (sau sửa, v2) | **Docling (v3)** |
+|---|---|---|---|---|
+| Thời gian trích (CPU) | ~1.4 giây | ~43 giây | ~43 giây | **~43 giây** |
+| **Ký tự** (trong EPUB) | 364 192 | 275 467 | 351 337 | **350 543** |
+| **Từ** | 101 419 | — | 100 081 | **99 081** |
+| **% độ phủ chữ** (so lớp chữ PDF) | 99.6% | 75.2% ⚠️ | 95.9% | **95.7%** |
+| **Số file XHTML** | 9 | 721 ⚠️ | 7 | **7** |
+| **Kích thước EPUB** | 0.3 MB | 71 MB ⚠️ | 2.7 MB | **2.7 MB** |
+| **Số ảnh nhúng** | 4 | 351 | 161 | **161** |
+| Heading | 398 | 720 | 720 | **702** |
+| **Khối rác bỏ** (lọc âm tiết Việt) | — | — | — | **23** |
+| **Header chạy đầu trang bỏ** | — | — | — | **10** |
+| **% đoạn < 40 ký tự** | 53.5% | 21.9% | 20.1% | **19.8%** |
+| Mục lục in sẵn bỏ | 3 dòng | 12 | 12 dòng | **12 dòng** |
+| epubcheck | HỢP LỆ | HỢP LỆ | HỢP LỆ | **HỢP LỆ** |
+| Tất định (2 lần build) | ✓ | ✓ | ✓ byte-identical | **✓ byte-identical** |
+
+> Số ở cột v2/v3 đo cùng cách (ký tự = text đã strip tag trong các file XHTML nội dung; độ phủ =
+> ký tự EPUB / 366 215 ký tự lớp chữ PDF). Cột "sau sửa (v2)" là 351 337/95.9% như bản ghi trước.
+> Cột **v3** đo sau khi sửa 2 lỗi review (xem "### v3 chi tiết" bên dưới): độ phủ **95.7%** (tụt
+> **0.2 điểm %** so với v2 — trong ngưỡng ≤ 1), khối rác bỏ giảm **27 → 23** (bớt bỏ oan nhờ token
+> trung tính), heading **720 → 702** (10 header chạy đầu trang + 8 heading rác/mục lục).
 
 **Trước khi sửa (1b đầu)**: Docling chỉ phủ **75.2%** chữ — mất ~25% nội dung thật vì coi **khung chữ
 là "picture"** (chỉ cắt ảnh). 106 trang < 70%, 28 trang rỗng (vd trang 23: 2767 ký tự → 0).
@@ -112,6 +120,91 @@ là "picture"** (chỉ cắt ảnh). 106 trang < 70%, 28 trang rỗng (vd trang 
 
 **Còn lại / đánh đổi**: Docling vẫn ~**43 giây/cuốn** (CPU) và kéo theo dep nặng; chất lượng chữ bị
 chặn bởi OCR gốc (ABBYY). Nếu OCR gốc kém → cân nhắc OCR lại `vie` (US-A7).
+
+### v3 chi tiết — sửa 2 lỗi review (cổng lọc OCR+VN + dedup header giữ số)
+
+Chạy lại `convert --engine docling` toàn cuốn (cùng mốc **366 215** ký tự lớp chữ PDF). Cuốn được
+nhận `is_scan_ocr=true` + `looks_vietnamese=true` → cổng lọc rác **bật**.
+
+**Độ phủ chữ**: 95.9% (v2) → **95.72%** (v3) — tụt **0.18 điểm %** (≤ 1, đạt). Đo thêm theo khối
+(`text_coverage_by_page`) = 95.35%.
+
+**Heading**: thô từ Docling **720** → sau dedup header **710** → cuối cùng **702** (8 heading còn lại
+bị bỏ do là heading rác / nằm trong mục lục in sẵn).
+
+**Tiêu đề chạy đầu trang bỏ: 10 khối** (3 header duy nhất, giữ lần đầu):
+- `CẠO GIÓ BẢO VỆ SỨC KHỎE (×5)`
+- `LẤY HUYỆT (×3)`
+- `Tên gọi: (×5)`
+
+Các header này **không có số** → khoá giữ-số vẫn gộp đúng; đồng thời heading đánh số (nếu có) không
+còn bị gộp nhầm (đã kiểm bằng unit test `Chương 1..5` / `Bài 1..4`).
+
+**Khối rác bỏ (lọc âm tiết Việt): 23 khối** (đầy đủ):
+
+```
+( ^ lu t đ n í Ị 2
+P h ư đ n i i 3
+7>ơh$ 4ư& h$ t í h Á
+ĨĨỢH$ Ắíểt» dưệh ị t íhA
+?>?H$ 4 í im Àub1$ *íhA
+10 tr ,C N )
+cốl CHÀY GIÃ™uốc
+= = ^ s -
+/ ìíìi t%è "Mười tám piiủn "
+Cánô
+Em L
+-¡- t»
+s
+TƯ HỌC PHƯỢNG p ị ịặ p g ịậ c ị ịỢị
+<*x>o-c*x>o<xx><>o<><xx<x>c^>c<xxx^^
+G'á hơ'bằ lủ 1 1 "
+;v;:
+f
+ngực SÍ10. ứ / j t > 1
+18 Lê Lai -Tp. Pleiku - Gia Lai * ĐT: (059) 6579 577 * Fax: (059)3824259
+Tel/Fax: (0383) 591167 * Mobile: 0912.109349
+Tel/fax: 083.8396679 * Mobile: 097.318.4848
+TỰHỆE BỐNGY
+```
+
+Thêm **2 khối DÀI điểm thấp** được **giữ** (ghi cảnh báo, nghi OCR hỏng cả đoạn). Mục lục in sẵn bỏ
+**12 dòng** (như v2).
+
+**Colophon email/website — KHÔNG còn bị bỏ** (đạt yêu cầu): giữ `Email: info@huyhoangbook.vn`,
+`Email: nsthanhvinhl23@yahoo.com.vn`, `Email: cnsaigon@huyhoangbook.vn`, `www.huyhoangbook.com.vn`.
+*(3 dòng địa chỉ/điện thoại OCR vỡ vẫn bị bỏ vì có token dính dấu ngoặc giữa số như `(059)3824259`
+→ điểm < 0.5; yêu cầu chỉ ràng buộc email/website nên chấp nhận.)*
+
+**Kiểm**: build 2 lần **byte-identical** ✓; **epubcheck: HỢP LỆ (valid)** ✓; EPUB 2.7 MB, 161 ảnh,
+7 file XHTML.
+
+### v3 — Lọc dòng rác (âm tiết Việt) + bỏ tiêu đề chạy đầu trang (`PIPELINE_VERSION 3`)
+
+Hai bước hậu xử lý trên danh sách khối (áp **sau** Docling/heuristic, **trước** khi dựng EPUB):
+
+- **Lọc dòng rác theo âm tiết Việt** (cả hai engine): chấm mỗi khối chữ = tỷ lệ token là âm tiết
+  tiếng Việt hợp lệ (bỏ qua số/dấu câu đứng riêng; token có chữ Hán = hợp lệ). Khối điểm < **0.5**
+  **và ngắn** (heading hoặc ≤ 60 ký tự) → bỏ; khối **dài** điểm thấp → **giữ** nhưng cảnh báo.
+- **Bỏ tiêu đề chạy đầu trang** (đường Docling): tiêu đề (hoặc khối ngắn) ở **đầu trang** trùng nội
+  dung (sau khi bỏ chữ số, hạ thường — tái dùng `_band_key` của heuristic) trên **≥ 3 trang** →
+  giữ lần đầu, bỏ các lần sau.
+
+Ba chỉ số yêu cầu (so **v2 → v3**, đo cùng cách):
+
+- **Khối rác bỏ**: **27** khối (+ **10** tiêu đề chạy đầu trang lặp "ĐÔNG Y VÀ BÍ QUYẾT DƯỠNG SINH
+  BỐN MÙA").
+- **Heading trước/sau**: **720 → 703** (bỏ 10 header lặp + 7 heading rác; các tên mục thật như
+  "DƯỠNG SINH MÙA THU", "THỂ CHẤT KHÍ HƯ", "KINH MẠCH LÀ GÌ?" được **giữ nguyên**).
+- **Độ phủ chữ**: **95.9% → 95.7%** (giảm **0.17 điểm %**, dưới ngưỡng ~1%). EPUB vẫn **2.7 MB**,
+  **tất định** byte-identical, **epubcheck HỢP LỆ**.
+
+**27 khối rác bỏ** chủ yếu là ký hiệu trang trí OCR (`?>?H$ 4 í im Àub1$ *íhA`, `= = ^ s -`,
+`<*x>o-c*x>o<xx>…`) và vài mảnh tiêu đề bìa vỡ (`TƯ HỌC PHƯỢNG p ị ịặ…`, `TỰHỆE BỐNGY`). **Cần người
+xác nhận loại oan**: một cụm là **thông tin xuất bản** (địa chỉ, ĐT, Fax, email, website nhà in — vd
+`18 Lê Lai -Tp. Pleiku…`, `Email: info@huyhoangbook.vn`, `www.huyhoangbook.com.vn`) — là chữ thật
+nhưng không phải nội dung đọc; bị bỏ vì tỷ lệ âm tiết Việt thấp. Nếu muốn giữ colophon thì nâng
+ngưỡng/ bỏ qua dòng có email/URL.
 
 ## Phụ lục — số liệu máy chạy
 `summary.json`: `seconds=41.07`, `seconds_per_page=4.11`, `n_pictures=10`, `ocr_used=false`

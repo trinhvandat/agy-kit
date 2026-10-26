@@ -78,6 +78,30 @@ def test_convert_epubcheck_valid(book_pdf: Path, tmp_path: Path) -> None:
     assert report.quality.epubcheck.startswith("epubcheck: HỢP LỆ"), report.quality.epubcheck
 
 
+def test_born_digital_not_garbage_filtered(tmp_path: Path) -> None:
+    """Sách born-digital (text_unicode, engine heuristic) → KHÔNG lọc rác, dù có heading nghi rác.
+
+    Lọc rác chỉ bật cho nguồn OCR + tiếng Việt (Bug 2). Ở đây một heading điểm âm tiết Việt thấp
+    vẫn phải được GIỮ (không bị bỏ oan) vì nguồn không phải OCR.
+    """
+    doc = fitz.open()
+    page = doc.new_page(width=400, height=600)
+    tw = fitz.TextWriter(page.rect)
+    _append(tw, (40, 70), "Q W X Z", 20)  # heading điểm âm tiết Việt thấp (nếu lọc sẽ bị bỏ)
+    _append(tw, (40, 120), "Đoạn văn tiếng Việt có dấu đầy đủ và khá dài cho đủ nội dung.", 10)
+    _append(tw, (40, 140), "Một đoạn thứ hai cũng bằng tiếng Việt, dài và sạch sẽ rõ ràng.", 10)
+    tw.write_text(page)
+    doc.set_metadata({"title": "Sách thường", "author": "Tác giả"})
+    pdf = tmp_path / "born.pdf"
+    doc.save(str(pdf))
+    doc.close()
+
+    report = convert_pdf(pdf, tmp_path / "born.epub", run_check=False)
+    assert report.engine == "heuristic"
+    assert not report.is_scan_ocr
+    assert report.quality.garbage_blocks_removed == 0  # gate tắt → không bỏ gì
+
+
 def test_cli_convert(book_pdf: Path, tmp_path: Path) -> None:
     out = tmp_path / "cli.epub"
     rc = main(["convert", str(book_pdf), "-o", str(out), "--no-check"])
