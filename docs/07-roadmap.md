@@ -47,13 +47,13 @@ graph TD
 
 > **Bản dùng được**: bạn đọc được sách thật trong kho của mình ở chế độ reflow **ngay trên KOReader**, chưa cần app Sepia.
 
-- [ ] **SPIKE-3** — chuyển 1 trang TCVN3 + 1 trang VNI, so dấu bằng mắt (R-03). **4h**
-- [ ] `extract.py` trích **theo span** (PyMuPDF `get_text("dict")`). **3h**
-- [ ] `legacy_encoding.py` — port bảng TCVN3 (+ VNI nếu SPIKE-3 khả thi), NFC, theo span. **5h**
-- [ ] `reflow.py` (ghép đoạn, bỏ header/footer/số trang — **không** de-hyphenation) + `toc.py`. **6h** *(ước lại — nhận diện header/footer + heading thực tế tốn hơn)*
-- [ ] `build_epub.py` (ebooklib) + **`dc:identifier` ổn định** + CSS **`font-family: serif` mặc định** (+ cờ tùy chọn `--font-profile` để đọc thử bằng app ngoài) + nhúng trang ảnh (US-A6). **3h**
-- [ ] `quality.py` kiểm tra nhẹ (whitelist CJK) + **SPIKE-4** (3 cuốn đại diện, đọc thử KOReader). **3h** *(ước lại — SPIKE-4 cần đọc/chỉnh thật)*
-- **Thành quả**: ≥3 cuốn thật thành EPUB đọc tốt trên KOReader (chữ Việt đúng dấu, chữ Hán hiển thị), mỗi EPUB có `bookUid` ổn định.
+- [~] **SPIKE-3** — chuyển mã TCVN3 so dấu bằng mắt (R-03). **4h** — *làm trên dữ liệu **tổng hợp** (`out/spike3_synthetic_tcvn3.txt`) vì `samples/` chưa có sách TCVN3/VNI thật; round-trip khớp 100%. VNI hoãn (chưa có bảng + chưa có mẫu).*
+- [x] `extract.py` trích **theo span** (PyMuPDF `get_text("dict", sort=True)`) + SHA-256 + mô hình `model.py`. **3h**
+- [x] `legacy_encoding.py` — port bảng TCVN3 (libiconv, dời từ test — một nguồn), NFC, theo span. VNI chưa làm (không có mẫu). **5h**
+- [x] `reflow.py` (ghép đoạn, bỏ header/footer/số trang — **không** de-hyphenation; phát hiện nhiều cột → cảnh báo) + `toc.py` (heading theo cỡ chữ). **6h**
+- [x] `build_epub.py` (ebooklib 0.20) + **`dc:identifier` ổn định** + CSS **`font-family: serif` mặc định** (+ cờ `--font-profile` + `font_profiles.toml`) + nhúng trang ảnh (US-A6) + **EPUB tất định từng byte**. **3h**
+- [x] `quality.py` kiểm tra nhẹ (whitelist CJK) + **epubcheck** (có Java). **SPIKE-4**: mới chạy **1 cuốn** (`Tự Học Đông Y - Bùi Huy.pdf`) → EPUB **epubcheck HỢP LỆ**, đọc KOReader để chỉnh ngưỡng *(đang chờ dogfood).* **3h**
+- **Thành quả (một phần)**: 1 cuốn thật → EPUB `bookUid` ổn định, epubcheck hợp lệ, build tất định. Còn: thêm 2+ cuốn đại diện vào `samples/` + đọc KOReader để chốt ngưỡng reflow/heading.
 - ⚠️ **Nếu SPIKE-0 (Mốc 0) cho thấy kho chủ yếu là scan**: Mốc 1 phải **lập lại kế hoạch** — chèn nhánh OCR (US-A7: OCRmyPDF + Tesseract `vie`, hoặc Surya/PaddleOCR) vào trước bước reflow, cộng đáng kể giờ (R-11).
 
 ## Mốc 2 — App mở sách + Sepia + nhớ trang (re-anchor + bookUid) · ~29h (~3 tuần) · [App]
