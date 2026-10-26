@@ -84,20 +84,25 @@ Chạy `convert` toàn bộ `Tự Học Đông Y - Bùi Huy.pdf` (PIPELINE_VERSI
 
 Lớp chữ PDF (PyMuPDF) = **366 215 ký tự** (mốc so độ phủ).
 
-| Chỉ số | `--engine heuristic` | Docling (1b đầu) | **Docling (sau sửa)** |
-|---|---|---|---|
-| Thời gian trích (CPU) | ~1.4 giây | ~43 giây | **~43 giây** |
-| **Ký tự** (trong EPUB) | 364 192 | 275 467 | **351 337** |
-| **Từ** | 101 419 | — | **100 081** |
-| **% độ phủ chữ** (so lớp chữ PDF) | 99.6% | 75.2% ⚠️ | **95.9%** |
-| **Số file XHTML** | 9 | 721 ⚠️ | **7** |
-| **Kích thước EPUB** | 0.3 MB | 71 MB ⚠️ | **2.7 MB** |
-| **Số ảnh nhúng** | 4 | 351 | **161** (bỏ ảnh tí hon; khung chữ → text) |
-| Heading | 398 | 720 | 720 |
-| **% đoạn < 40 ký tự** | 53.5% | 21.9% | **20.1%** |
-| Mục lục in sẵn bỏ | 3 dòng | 12 | 12 dòng |
-| epubcheck | HỢP LỆ | HỢP LỆ | **HỢP LỆ** |
-| Tất định (2 lần build) | ✓ | ✓ | ✓ byte-identical |
+| Chỉ số | `--engine heuristic` | Docling (1b đầu) | Docling (sau sửa, v2) | **Docling (v3)** |
+|---|---|---|---|---|
+| Thời gian trích (CPU) | ~1.4 giây | ~43 giây | ~43 giây | **~43 giây** |
+| **Ký tự** (trong EPUB) | 364 192 | 275 467 | 351 337 | **350 457** |
+| **Từ** | 101 419 | — | 100 081 | **99 917** |
+| **% độ phủ chữ** (so lớp chữ PDF) | 99.6% | 75.2% ⚠️ | 95.9% | **95.7%** |
+| **Số file XHTML** | 9 | 721 ⚠️ | 7 | **7** |
+| **Kích thước EPUB** | 0.3 MB | 71 MB ⚠️ | 2.7 MB | **2.7 MB** |
+| **Số ảnh nhúng** | 4 | 351 | 161 | **161** |
+| Heading | 398 | 720 | 720 | **703** |
+| **Khối rác bỏ** (lọc âm tiết Việt) | — | — | — | **27** |
+| **Header chạy đầu trang bỏ** | — | — | — | **10** |
+| **% đoạn < 40 ký tự** | 53.5% | 21.9% | 20.1% | **19.0%** |
+| Mục lục in sẵn bỏ | 3 dòng | 12 | 12 dòng | 12 dòng |
+| epubcheck | HỢP LỆ | HỢP LỆ | HỢP LỆ | **HỢP LỆ** |
+| Tất định (2 lần build) | ✓ | ✓ | ✓ byte-identical | **✓ byte-identical** |
+
+> Số ở cột v2/v3 đo cùng cách (ký tự = text đã strip tag trong các file XHTML nội dung; độ phủ =
+> ký tự EPUB / 366 215 ký tự lớp chữ PDF). Cột "sau sửa (v2)" là 351 337/95.9% như bản ghi trước.
 
 **Trước khi sửa (1b đầu)**: Docling chỉ phủ **75.2%** chữ — mất ~25% nội dung thật vì coi **khung chữ
 là "picture"** (chỉ cắt ảnh). 106 trang < 70%, 28 trang rỗng (vd trang 23: 2767 ký tự → 0).
@@ -112,6 +117,33 @@ là "picture"** (chỉ cắt ảnh). 106 trang < 70%, 28 trang rỗng (vd trang 
 
 **Còn lại / đánh đổi**: Docling vẫn ~**43 giây/cuốn** (CPU) và kéo theo dep nặng; chất lượng chữ bị
 chặn bởi OCR gốc (ABBYY). Nếu OCR gốc kém → cân nhắc OCR lại `vie` (US-A7).
+
+### v3 — Lọc dòng rác (âm tiết Việt) + bỏ tiêu đề chạy đầu trang (`PIPELINE_VERSION 3`)
+
+Hai bước hậu xử lý trên danh sách khối (áp **sau** Docling/heuristic, **trước** khi dựng EPUB):
+
+- **Lọc dòng rác theo âm tiết Việt** (cả hai engine): chấm mỗi khối chữ = tỷ lệ token là âm tiết
+  tiếng Việt hợp lệ (bỏ qua số/dấu câu đứng riêng; token có chữ Hán = hợp lệ). Khối điểm < **0.5**
+  **và ngắn** (heading hoặc ≤ 60 ký tự) → bỏ; khối **dài** điểm thấp → **giữ** nhưng cảnh báo.
+- **Bỏ tiêu đề chạy đầu trang** (đường Docling): tiêu đề (hoặc khối ngắn) ở **đầu trang** trùng nội
+  dung (sau khi bỏ chữ số, hạ thường — tái dùng `_band_key` của heuristic) trên **≥ 3 trang** →
+  giữ lần đầu, bỏ các lần sau.
+
+Ba chỉ số yêu cầu (so **v2 → v3**, đo cùng cách):
+
+- **Khối rác bỏ**: **27** khối (+ **10** tiêu đề chạy đầu trang lặp "ĐÔNG Y VÀ BÍ QUYẾT DƯỠNG SINH
+  BỐN MÙA").
+- **Heading trước/sau**: **720 → 703** (bỏ 10 header lặp + 7 heading rác; các tên mục thật như
+  "DƯỠNG SINH MÙA THU", "THỂ CHẤT KHÍ HƯ", "KINH MẠCH LÀ GÌ?" được **giữ nguyên**).
+- **Độ phủ chữ**: **95.9% → 95.7%** (giảm **0.17 điểm %**, dưới ngưỡng ~1%). EPUB vẫn **2.7 MB**,
+  **tất định** byte-identical, **epubcheck HỢP LỆ**.
+
+**27 khối rác bỏ** chủ yếu là ký hiệu trang trí OCR (`?>?H$ 4 í im Àub1$ *íhA`, `= = ^ s -`,
+`<*x>o-c*x>o<xx>…`) và vài mảnh tiêu đề bìa vỡ (`TƯ HỌC PHƯỢNG p ị ịặ…`, `TỰHỆE BỐNGY`). **Cần người
+xác nhận loại oan**: một cụm là **thông tin xuất bản** (địa chỉ, ĐT, Fax, email, website nhà in — vd
+`18 Lê Lai -Tp. Pleiku…`, `Email: info@huyhoangbook.vn`, `www.huyhoangbook.com.vn`) — là chữ thật
+nhưng không phải nội dung đọc; bị bỏ vì tỷ lệ âm tiết Việt thấp. Nếu muốn giữ colophon thì nâng
+ngưỡng/ bỏ qua dòng có email/URL.
 
 ## Phụ lục — số liệu máy chạy
 `summary.json`: `seconds=41.07`, `seconds_per_page=4.11`, `n_pictures=10`, `ocr_used=false`
