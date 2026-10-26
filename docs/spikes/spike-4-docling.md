@@ -78,6 +78,31 @@ bên nào sửa được nếu không **OCR lại** (Tesseract/Surya `vie`). Đ�
 - Thử **OCR lại `vie`** (OCRmyPDF/Tesseract hoặc Surya) trên vài trang để so với lớp ABBYY sẵn.
 - Nếu chốt định tuyến → cập nhật **ADR-004** (thêm nhánh Docling cho `scan_ocr`) và **docs/03 §5**.
 
+## Kết quả cả cuốn (Mốc 1b — `convert` toàn bộ 292 trang)
+
+Chạy `convert` toàn bộ `Tự Học Đông Y - Bùi Huy.pdf` (PIPELINE_VERSION 2, đã bỏ mục lục in sẵn):
+
+| Chỉ số | `--engine heuristic` | `--engine docling` (auto) |
+|---|---|---|
+| Thời gian (CPU) | ~tức thì | **~51 giây** |
+| Chương (file XHTML) | 10 | **721** ⚠️ (mỗi section-header → 1 chương) |
+| Hình nhúng | 4 (chỉ render nguyên trang scan) | **351 hình cắt rời** |
+| Đoạn văn | 5220 | 1535 |
+| Heading | 398 (lẫn rác) | 720 (sạch hơn) |
+| **% đoạn < 40 ký tự** | **53.5%** (trộn cột/vụn) | **21.9%** (tốt hơn hẳn) |
+| Mục lục in sẵn bỏ | 3 dòng | 12 dòng |
+| Tỷ lệ ký tự rác | 0.0007 | 0.0005 |
+| NFC nhất quán | ✓ | ✓ |
+| epubcheck | **HỢP LỆ** | **HỢP LỆ** |
+| Kích thước EPUB | 2.5 MB | **71 MB** (351 ảnh, `images_scale=2.0`) |
+| Tất định (2 lần build) | ✓ byte-identical | ✓ byte-identical |
+
+**Nhận xét**: Docling **giảm mạnh đoạn vụn** (53.5% → 21.9%) và **giữ được 351 hình** — đúng điểm yếu
+nhất của heuristic trên sách minh hoạ. Hai điểm cần tinh chỉnh (ghi nhận, chưa làm ở 1b):
+1. **721 chương quá nhiều** (mỗi section-header thành một file) → TOC rất dài. Hướng chỉnh: chỉ chia
+   file theo heading **cấp cao nhất** + dựa thêm size-cap, hoặc gộp heading nhỏ.
+2. **EPUB 71 MB** do nhúng 351 ảnh ở `images_scale=2.0` → cân nhắc hạ scale/nén để nhẹ hơn.
+
 ## Phụ lục — số liệu máy chạy
 `summary.json`: `seconds=41.07`, `seconds_per_page=4.11`, `n_pictures=10`, `ocr_used=false`
 (macOS, CPU; lần đầu tải thêm model layout ~vài chục MB).
