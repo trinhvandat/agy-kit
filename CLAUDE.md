@@ -59,6 +59,6 @@ sepia/
 
 ## Mốc hiện tại & việc kế tiếp
 
-- **Hiện tại**: **Mốc 0 xong phần nền tảng** — `pdf-pipeline/` (uv + PyMuPDF 1.27.x, bước `detect` + test) và **app Android** (khung KMP + Compose MP, build xanh, đã chạy trên emulator: màn hình mở đầu "Sepia"). *(IDE cần Android Studio 2026 ≥ Rabbit để sync AGP 9.)*
-- **Việc kế tiếp**: sang **Mốc 1** (pipeline ra EPUB sạch, đọc bằng KOReader). Còn **SPIKE-0** (chạy `detect` trên `samples/` → quyết định OCR) trong Mốc 0.
+- **Hiện tại**: **Mốc 1 xong cho sách `scan_ocr`** — `pdf-pipeline/` có lệnh `convert` (PDF → EPUB) với **định tuyến engine** theo nhãn `detect`: `text_unicode`/`legacy_*` → heuristic PyMuPDF; `scan_ocr` → **Docling** (optional extra). Mẫu Đông y (scan ABBYY) ra EPUB epubcheck hợp lệ, tất định, độ phủ chữ ~96%, giữ hình. **Đường heuristic cho sách chữ sạch chưa kiểm trên sách thật** (chưa có mẫu); **chưa đọc thử bằng KOReader**. Nền tảng Mốc 0 vẫn còn: **app Android** rỗng chạy trên emulator. *(IDE cần Android Studio 2026 ≥ Rabbit để sync AGP 9.)*
+- **Việc kế tiếp**: **Mốc 2** — MVP đọc sách trên Android (foliate-js trong WebView, mở EPUB, nhớ vị trí, re-anchor + bookUid). Khi có MVP sẽ **đọc thử EPUB bằng KOReader** để chốt ngưỡng heuristic.
 - **Việc riêng đang mở**: **iOS shell** (SPIKE-2 phần iOS) — chưa build iOS lần nào, chưa có `.xcodeproj` (chưa cài Xcode) → **[issue #3](https://github.com/trinhvandat/sepia/issues/3)**, xem `iosApp/README.md`. Xem [07-roadmap.md](./docs/07-roadmap.md).

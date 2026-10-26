@@ -58,6 +58,7 @@ def format_convert(report: ConvertReport) -> str:
         report.pdf_name,
         f"  → {report.epub.path}",
         f"  bookUid     : {report.epub.book_uid}",
+        f"  engine      : {report.engine}",
         f"  pipeline_ver: {report.pipeline_version}",
         f"  trang       : {report.n_pages} (ảnh: {report.n_image_pages})"
         f"{'  [scan_ocr]' if report.is_scan_ocr else ''}",
@@ -65,6 +66,7 @@ def format_convert(report: ConvertReport) -> str:
         f"  đoạn/heading: {q.n_paragraphs} đoạn, {q.n_headings} heading"
         f" ({q.pct_short40:.0%} đoạn < 40 ký tự)",
         f"  ký tự rác   : {q.garbage_chars} ({q.garbage_ratio:.4f})",
+        f"  mục lục bỏ  : {q.printed_toc_removed} dòng",
         f"  epubcheck   : {q.epubcheck or '(chưa chạy)'}",
     ]
     if report.warnings:
@@ -78,6 +80,7 @@ def _cmd_convert(args: argparse.Namespace) -> int:
         args.input,
         args.output,
         font_profile=args.font_profile,
+        engine=args.engine,
         run_check=not args.no_check,
     )
     if args.json:
@@ -114,6 +117,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--font-profile",
         default=None,
         help="Tên profile trong font_profiles.toml (vd dongy) để ghi font cụ thể vào CSS",
+    )
+    p_convert.add_argument(
+        "--engine",
+        choices=["auto", "heuristic", "docling"],
+        default="auto",
+        help="Engine trích: auto (docling cho scan_ocr) | heuristic | docling. Mặc định auto.",
     )
     p_convert.add_argument(
         "--no-check", action="store_true", help="Bỏ qua epubcheck (nhanh hơn)"

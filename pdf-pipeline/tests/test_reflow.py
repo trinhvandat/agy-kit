@@ -210,3 +210,46 @@ def test_paragraph_break_on_indent() -> None:
     doc = Document(pages=(page,), source_pdf_name="x.pdf", pdf_sha256="h")
     paras = [b for b in build_blocks(doc, cfg) if isinstance(b, Paragraph)]
     assert len(paras) == 2
+
+
+def test_drop_printed_toc_run() -> None:
+    from sepia_pipeline.reflow import drop_printed_toc
+
+    blocks = [
+        Heading(text="MỤC LỤC", level=1, page=1),
+        Paragraph(text="Chương một ........................... 5", page=1),
+        Paragraph(text="Chương hai ........................... 12", page=1),
+        Paragraph(text="Chương ba ............................ 20", page=1),
+        Paragraph(text="Đây là đoạn thân bài bình thường không phải mục lục.", page=2),
+    ]
+    kept, removed = drop_printed_toc(blocks)
+    assert removed == 3
+    assert all("..." not in getattr(b, "text", "") for b in kept)
+    assert any("thân bài bình thường" in getattr(b, "text", "") for b in kept)
+
+
+def test_toc_single_line_kept() -> None:
+    from sepia_pipeline.reflow import drop_printed_toc
+
+    # Dòng lẻ có chấm dẫn (không thành chuỗi) → KHÔNG bị bỏ.
+    blocks = [
+        Paragraph(text="Xem thêm phần phụ lục ........ 99", page=1),
+        Paragraph(text="Một đoạn văn thường sau đó, dài và bình thường.", page=1),
+    ]
+    kept, removed = drop_printed_toc(blocks)
+    assert removed == 0
+    assert len(kept) == 2
+
+
+def test_drop_printed_toc_table() -> None:
+    from sepia_pipeline.model import Table
+    from sepia_pipeline.reflow import drop_printed_toc
+
+    toc_table = Table(
+        rows=(("Chương một", "..... 5"), ("Chương hai", "..... 12"), ("Chương ba", "..... 20")),
+        page=1,
+    )
+    blocks = [toc_table, Paragraph(text="Thân bài thật sự bắt đầu ở đây và khá dài.", page=2)]
+    kept, removed = drop_printed_toc(blocks)
+    assert removed == 3  # 3 hàng
+    assert len(kept) == 1

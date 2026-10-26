@@ -78,6 +78,41 @@ bên nào sửa được nếu không **OCR lại** (Tesseract/Surya `vie`). Đ�
 - Thử **OCR lại `vie`** (OCRmyPDF/Tesseract hoặc Surya) trên vài trang để so với lớp ABBYY sẵn.
 - Nếu chốt định tuyến → cập nhật **ADR-004** (thêm nhánh Docling cho `scan_ocr`) và **docs/03 §5**.
 
+## Kết quả cả cuốn (Mốc 1b — `convert` toàn bộ 292 trang)
+
+Chạy `convert` toàn bộ `Tự Học Đông Y - Bùi Huy.pdf` (PIPELINE_VERSION 2, đã bỏ mục lục in sẵn):
+
+Lớp chữ PDF (PyMuPDF) = **366 215 ký tự** (mốc so độ phủ).
+
+| Chỉ số | `--engine heuristic` | Docling (1b đầu) | **Docling (sau sửa)** |
+|---|---|---|---|
+| Thời gian trích (CPU) | ~1.4 giây | ~43 giây | **~43 giây** |
+| **Ký tự** (trong EPUB) | 364 192 | 275 467 | **351 337** |
+| **Từ** | 101 419 | — | **100 081** |
+| **% độ phủ chữ** (so lớp chữ PDF) | 99.6% | 75.2% ⚠️ | **95.9%** |
+| **Số file XHTML** | 9 | 721 ⚠️ | **7** |
+| **Kích thước EPUB** | 0.3 MB | 71 MB ⚠️ | **2.7 MB** |
+| **Số ảnh nhúng** | 4 | 351 | **161** (bỏ ảnh tí hon; khung chữ → text) |
+| Heading | 398 | 720 | 720 |
+| **% đoạn < 40 ký tự** | 53.5% | 21.9% | **20.1%** |
+| Mục lục in sẵn bỏ | 3 dòng | 12 | 12 dòng |
+| epubcheck | HỢP LỆ | HỢP LỆ | **HỢP LỆ** |
+| Tất định (2 lần build) | ✓ | ✓ | ✓ byte-identical |
+
+**Trước khi sửa (1b đầu)**: Docling chỉ phủ **75.2%** chữ — mất ~25% nội dung thật vì coi **khung chữ
+là "picture"** (chỉ cắt ảnh). 106 trang < 70%, 28 trang rỗng (vd trang 23: 2767 ký tự → 0).
+
+**Sau khi sửa (bước 1–4)**:
+- **Khôi phục chữ trong picture** (đọc lớp chữ PDF trong bbox): độ phủ **75.2% → 95.9%** (≈ 96.3% so
+  với heuristic). Phần còn thiếu chủ yếu là **mục lục in sẵn** (trang 9–11) — đã cố ý bỏ — và vài
+  trang bìa/giới thiệu.
+- **Gộp chương**: 721 → **7 file** (chỉ cắt theo kích thước + heading cấp cao hiếm; 720 heading vẫn
+  là mục nav qua anchor).
+- **Nén ảnh**: 71 MB → **2.7 MB** (JPEG q80, cạnh ≤ 1200 px; bỏ ảnh tí hon < 64 px).
+
+**Còn lại / đánh đổi**: Docling vẫn ~**43 giây/cuốn** (CPU) và kéo theo dep nặng; chất lượng chữ bị
+chặn bởi OCR gốc (ABBYY). Nếu OCR gốc kém → cân nhắc OCR lại `vie` (US-A7).
+
 ## Phụ lục — số liệu máy chạy
 `summary.json`: `seconds=41.07`, `seconds_per_page=4.11`, `n_pictures=10`, `ocr_used=false`
 (macOS, CPU; lần đầu tải thêm model layout ~vài chục MB).

@@ -13,7 +13,7 @@ from sepia_pipeline.model import Document, Heading, ImageBlock, Paragraph
 
 
 def _png() -> bytes:
-    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 16, 16))
+    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 100, 100))  # ≥ _IMG_MIN_EDGE để không bị bỏ
     pix.set_rect(pix.irect, (210, 190, 160))
     return pix.tobytes("png")
 
@@ -47,8 +47,8 @@ def test_identifier_and_structure(tmp_path: Path) -> None:
     out = tmp_path / "book.epub"
     report = build_epub(_doc(), _blocks(), out)
     assert report.book_uid == "sepia:" + "a" * 64
-    # 2 h1 (< ngưỡng 3) → chia thêm theo h2: front(ảnh) + CHƯƠNG MỘT + Mục nhỏ + CHƯƠNG HAI.
-    assert report.n_chapters == 4
+    # Tách ở h1 (2 mốc): front(ảnh) + CHƯƠNG MỘT (gồm h2 Mục nhỏ) + CHƯƠNG HAI.
+    assert report.n_chapters == 3
     assert report.n_images == 1
 
     book = epub.read_epub(str(out))
@@ -80,19 +80,20 @@ def test_mimetype_first_and_stored(tmp_path: Path) -> None:
         assert all(i.date_time == (1980, 1, 1, 0, 0, 0) for i in infos)
 
 
-def test_split_h1_only_when_enough_h1() -> None:
-    # ≥ 3 h1 → chia theo h1, KHÔNG đụng h2.
+def test_split_at_coarsest_heading() -> None:
+    # 3 h1 (ít) → tách ở h1; h2 KHÔNG tách file (thành mục con trong nav).
     blocks = []
     for i in range(3):
         blocks.append(Heading(text=f"CHƯƠNG {i}", level=1, page=i + 1))
         blocks.append(Heading(text="Mục con", level=2, page=i + 1))
         blocks.append(Paragraph(text="nội dung.", page=i + 1))
-    chapters, _ = _blocks_to_chapters(_doc(), blocks)
+    chapters, _images, nav = _blocks_to_chapters(_doc(), blocks)
     assert len(chapters) == 3  # chỉ cắt ở 3 h1
+    assert len(nav) == 6  # cả h1 + h2 đều vào nav
 
 
-def test_split_h2_fallback_when_few_h1() -> None:
-    # 1 h1 (< 3) → chia thêm theo h2.
+def test_one_h1_stays_one_file() -> None:
+    # 1 h1 + nhiều h2 → MỘT file (h2 là mục con nav), không tách theo h2.
     blocks = [
         Heading(text="CHƯƠNG MỘT", level=1, page=1),
         Paragraph(text="a.", page=1),
@@ -101,17 +102,29 @@ def test_split_h2_fallback_when_few_h1() -> None:
         Heading(text="Mục B", level=2, page=1),
         Paragraph(text="c.", page=1),
     ]
-    chapters, _ = _blocks_to_chapters(_doc(), blocks)
-    assert len(chapters) == 3  # CHƯƠNG MỘT + Mục A + Mục B
+    chapters, _images, nav = _blocks_to_chapters(_doc(), blocks)
+    assert len(chapters) == 1
+    assert [e.level for e in nav] == [1, 2, 2]
+
+
+def test_many_headings_split_by_size_only() -> None:
+    # Giống Docling: hàng trăm heading cấp 1 → KHÔNG tách theo heading, chỉ theo kích thước.
+    blocks: list = []
+    for i in range(200):
+        blocks.append(Heading(text=f"Mục {i}", level=1, page=1))
+        blocks.append(Paragraph(text="x" * 800, page=1))
+    chapters, _images, nav = _blocks_to_chapters(_doc(), blocks, max_file_bytes=20_000)
+    # 200×~800B ≈ 160KB+ → vài chục file, KHÔNG phải 200.
+    assert len(chapters) < 30
+    assert len(nav) == 200  # mọi heading vẫn vào nav
 
 
 def test_size_cap_splits_large_chapter() -> None:
-    # Một h1 + nhiều đoạn lớn → cắt thành nhiều file khi vượt max_file_bytes.
     big = "x" * 5000
     blocks = [Heading(text="CHƯƠNG MỘT", level=1, page=1)]
     blocks += [Paragraph(text=big, page=1) for _ in range(10)]
-    chapters, _ = _blocks_to_chapters(_doc(), blocks, max_file_bytes=10_000)
-    assert len(chapters) >= 4  # 10×5KB ≈ 50KB chia theo ngưỡng 10KB
+    chapters, _images, _nav = _blocks_to_chapters(_doc(), blocks, max_file_bytes=10_000)
+    assert len(chapters) >= 4
     assert chapters[0].title == "CHƯƠNG MỘT"
     assert all("(tiếp)" in c.title for c in chapters[1:])
 
@@ -121,7 +134,23 @@ def test_image_embedded(tmp_path: Path) -> None:
     build_epub(_doc(), _blocks(), out)
     with zipfile.ZipFile(out) as z:
         names = z.namelist()
-        assert any(n.endswith("images/p0001.png") for n in names)
+        assert any(n.endswith("images/img_0000.png") for n in names)
+
+
+def test_table_and_caption_rendered(tmp_path: Path) -> None:
+    from sepia_pipeline.model import Table
+
+    blocks = [
+        Heading(text="CHƯƠNG MỘT", level=1, page=1),
+        ImageBlock(png=PNG, page=1, caption="Hình 1: sơ đồ kinh lạc"),
+        Table(rows=(("Huyệt", "Vị trí"), ("Hợp cốc", "mu bàn tay")), page=1),
+    ]
+    out = tmp_path / "book.epub"
+    build_epub(_doc(), blocks, out)
+    with zipfile.ZipFile(out) as z:
+        body = z.read(next(n for n in z.namelist() if n.endswith("chap_0001.xhtml"))).decode()
+    assert "<figcaption>Hình 1: sơ đồ kinh lạc</figcaption>" in body
+    assert "<table>" in body and "<td>Hợp cốc</td>" in body
 
 
 def test_font_profile_default_is_serif() -> None:
@@ -145,3 +174,71 @@ def test_font_profile_written_to_css(tmp_path: Path) -> None:
         css_name = next(n for n in z.namelist() if n.endswith("main.css"))
         css = z.read(css_name).decode("utf-8")
     assert "Literata" in css
+
+
+def _photo_png(w: int = 1600, h: int = 400) -> bytes:
+    # Ảnh nhiều màu (gradient) → bị coi là ảnh chụp → JPEG + resize.
+    import pymupdf as fitz
+    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, w, h))
+    for x in range(w):
+        for y in range(0, h, 50):
+            pix.set_rect(fitz.IRect(x, y, x + 1, y + 50), (x % 256, (x * 2) % 256, (y + x) % 256))
+    return pix.tobytes("png")
+
+
+def test_large_photo_becomes_jpeg_and_resized(tmp_path: Path) -> None:
+    blocks = [Heading(text="C", level=1, page=1), ImageBlock(png=_photo_png(), page=1)]
+    out = tmp_path / "b.epub"
+    build_epub(_doc(), blocks, out)
+    with zipfile.ZipFile(out) as z:
+        imgs = [n for n in z.namelist() if n.startswith("EPUB/images/")]
+        assert imgs and imgs[0].endswith(".jpg")  # nhiều màu → JPEG
+        import io
+
+        from PIL import Image
+        im = Image.open(io.BytesIO(z.read(imgs[0])))
+        assert max(im.size) <= 1200  # đã đổi cỡ
+
+
+def test_tiny_image_dropped(tmp_path: Path) -> None:
+    import pymupdf as fitz
+    tiny = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 20, 20))
+    tiny.set_rect(tiny.irect, (10, 10, 10))
+    blocks = [Heading(text="C", level=1, page=1), ImageBlock(png=tiny.tobytes("png"), page=1)]
+    out = tmp_path / "b.epub"
+    build_epub(_doc(), blocks, out)
+    with zipfile.ZipFile(out) as z:
+        assert not [n for n in z.namelist() if n.startswith("EPUB/images/")]
+
+
+def test_tiny_image_with_caption_becomes_paragraph(tmp_path: Path) -> None:
+    import pymupdf as fitz
+    tiny = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 20, 20))
+    tiny.set_rect(tiny.irect, (10, 10, 10))
+    blocks = [
+        Heading(text="C", level=1, page=1),
+        ImageBlock(png=tiny.tobytes("png"), page=1, caption="Hợp cốc"),
+    ]
+    out = tmp_path / "b.epub"
+    build_epub(_doc(), blocks, out)
+    with zipfile.ZipFile(out) as z:
+        body = z.read(next(n for n in z.namelist() if n.endswith("chap_0001.xhtml"))).decode()
+        assert not [n for n in z.namelist() if n.startswith("EPUB/images/")]
+    assert "<p>Hợp cốc</p>" in body
+    assert "<figcaption>" not in body  # không có figcaption trần (HTML hợp lệ)
+
+
+def test_caption_with_quotes_escaped(tmp_path: Path) -> None:
+    import shutil
+    blocks = [
+        Heading(text="C", level=1, page=1),
+        ImageBlock(png=PNG, page=1, caption='Huyệt "Hợp cốc" & <đồ hình>'),
+    ]
+    out = tmp_path / "b.epub"
+    build_epub(_doc(), blocks, out)
+    with zipfile.ZipFile(out) as z:
+        body = z.read(next(n for n in z.namelist() if n.endswith("chap_0001.xhtml"))).decode()
+    assert 'alt="Huyệt &quot;Hợp cốc&quot; &amp; &lt;đồ hình&gt;"' in body
+    if shutil.which("java"):
+        from sepia_pipeline.quality import run_epubcheck
+        assert run_epubcheck(str(out)).startswith("epubcheck: HỢP LỆ")

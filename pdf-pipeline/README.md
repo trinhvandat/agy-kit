@@ -69,14 +69,15 @@ Mỗi file in: **loại chính**, **phân bố nhãn theo trang**, **tên font l
 | `legacy_vni` | Span dùng font cũ VNI (`VNI-Times`…) |
 | `legacy_other` | Nghi font cũ (heuristic) nhưng không rõ TCVN3 hay VNI |
 | `scan` | Ít chữ + có ảnh phủ phần lớn trang (ảnh scan, chưa có text) |
-| `scan_ocr` | Đủ chữ + ảnh phủ phần lớn trang **và** phần lớn chữ là **ẩn** (render mode 3) → ảnh scan + lớp OCR |
+| `scan_ocr` | Scan có lớp OCR — ở mức **trang** (ảnh phủ kín + chữ **ẩn**) hoặc mức **cuốn** (≥80% trang ảnh phủ kín + đủ chữ, cả khi OCR **hiển thị**, vd ABBYY FineReader) |
 | `empty` | Ít chữ, không có ảnh lớn (trang trắng/gần trắng) |
 | `mixed` | Một trang trộn nhiều loại mã (vd vừa Unicode vừa legacy) |
 
-> **`scan_ocr` cần bằng chứng chữ ẩn.** Chỉ "ảnh phủ kín + đủ chữ" là **chưa đủ**: nếu chữ
-> **hiển thị thật** (vd chữ in trên nền ảnh) thì trang được phân loại theo mã chữ bình thường
-> (`text_unicode`/`legacy_*`…) và chỉ bật cờ `has_full_page_image = true`. Để thành `scan_ocr`
-> cần `hidden_text_ratio ≥ scan_ocr_hidden_min` (mặc định 0.5).
+> **`scan_ocr` ở mức trang vs mức cuốn.** Mức **trang** cần chữ **ẩn** (`hidden_text_ratio ≥
+> scan_ocr_hidden_min`, mặc định 0.5). Nhưng nhiều PDF (ABBYY FineReader…) để chữ OCR **hiển thị**
+> trên nền ảnh scan → không có chữ ẩn; khi đó quy tắc **mức cuốn** bắt: ≥80% trang có
+> `has_full_page_image` và ≥50% trang đủ chữ (≥3 trang). `BookResult` cũng ghi `producer`/`creator`
+> (gợi ý nguồn, không dùng làm điều kiện duy nhất).
 >
 > Các trường bổ trợ trong `PageResult` (JSON): `hidden_text_ratio` (tỷ lệ ký tự vẽ ẩn — chỉ đo
 > khi có ảnh phủ kín, trang khác = 0.0), `has_full_page_image` (có ảnh phủ ≥ ngưỡng, dù nhãn là
@@ -114,6 +115,9 @@ uv run python -m sepia_pipeline convert "samples/Sách.pdf" -o out/sach.epub --f
 
 uv run python -m sepia_pipeline convert "samples/Sách.pdf" --no-check   # bỏ qua epubcheck (nhanh hơn)
 uv run python -m sepia_pipeline convert "samples/Sách.pdf" --json       # báo cáo JSON
+
+# Ép engine (mặc định auto): heuristic cho so sánh, hoặc docling cho sách scan
+uv run python -m sepia_pipeline convert "samples/Sách.pdf" --engine docling
 ```
 
 Báo cáo in: đường dẫn EPUB, **`bookUid`** (= `sepia:` + SHA-256 PDF gốc, ổn định giữa các lần
@@ -126,8 +130,33 @@ kết quả **epubcheck**, và **cảnh báo** (nhiều cột, đoạn ngắn b�
 |----|---------|
 | `-o, --output` | File `.epub` ra (mặc định `pdf-pipeline/out/<tên>.epub`) |
 | `--font-profile <tên>` | Ghi `font-family` cụ thể vào CSS, đọc từ [`font_profiles.toml`](./font_profiles.toml) (vd `dongy`, `serif`). **Không nhúng file font.** Bỏ cờ → CSS chỉ `serif` (app Sepia tự quyết font) |
+| `--engine auto\|heuristic\|docling` | Chọn engine trích (mặc định `auto`). Xem dưới. |
 | `--no-check` | Bỏ qua epubcheck |
 | `--json` | In báo cáo JSON |
+
+### Engine & Docling (Mốc 1b)
+
+`convert` **tự chọn engine theo nhãn `detect`** (ADR-004):
+
+- **`text_unicode` / `legacy_*` (born-digital) → heuristic PyMuPDF** — nhanh (~tức thì), giữ font
+  theo span (bắt buộc cho chuyển mã TCVN3/VNI).
+- **`scan_ocr` (scan có lớp OCR, vd ABBYY) → Docling** — dùng lớp chữ sẵn (không OCR lại); reading
+  order nhiều cột, heading và **cắt hình** tốt hơn. Cần optional extra. Tốc độ: cuốn mẫu 292 trang
+  **~51 giây** trên CPU (lần đầu còn tải model layout ~chục giây); trên lô nhỏ chi phí tải model
+  trội nên ~4 giây/trang.
+
+```bash
+uv sync --extra docling      # cài Docling (RẤT NẶNG: torch/transformers), MIT
+```
+
+- `--engine auto` (mặc định): theo nhãn như trên. Nếu là `scan_ocr` mà **chưa cài** Docling → **lùi
+  về heuristic + cảnh báo**.
+- `--engine docling`: ép Docling; chưa cài extra → **báo lỗi kèm cách cài**.
+- `--engine heuristic`: ép heuristic (để so sánh).
+
+Cả hai engine đổ về **một mô hình trung gian** → **một** đường dựng EPUB; giữ nguyên `bookUid` ổn
+định, `pipeline-version`, và **EPUB tất định từng byte** (Docling cũng cho bytes giống hệt qua 2 lần
+build cùng input).
 
 ### Điều đã làm / bỏ qua & giới hạn đã biết (Mốc 1)
 

@@ -85,3 +85,25 @@ def test_epubcheck_valid(tmp_path: Path) -> None:
         assert "không có Java" in summary
     else:
         assert summary.startswith("epubcheck: HỢP LỆ"), summary
+
+
+def test_text_coverage_by_page(tmp_path: Path) -> None:
+    from sepia_pipeline.quality import text_coverage_by_page
+
+    doc = fitz.open()
+    p = doc.new_page(width=300, height=300)
+    p.insert_text((30, 50), "mot hai ba bon nam sau bay tam", fontname="helv", fontsize=12)
+    pdf = tmp_path / "c.pdf"
+    doc.save(str(pdf))
+    doc.close()
+
+    # Khối chỉ chứa một nửa số chữ → độ phủ ~0.5, trang 1 vào low_pages.
+    blocks = [Paragraph(text="mot hai ba bon", page=1)]
+    rep = text_coverage_by_page(pdf, blocks)
+    assert rep.n_pages == 1
+    assert 0.3 < rep.coverage < 0.7
+    assert rep.low_pages and rep.low_pages[0][0] == 1
+
+    # Khối rỗng → trang vào empty_pages.
+    rep2 = text_coverage_by_page(pdf, [])
+    assert rep2.empty_pages == (1,)

@@ -4,7 +4,8 @@ Mốc 0 chỉ có bước `detect` (phân loại PDF theo trang/span). Các bư�
 extract/reflow/build_epub thuộc Mốc 1 (xem docs/07-roadmap.md).
 """
 
-# Phiên bản pipeline — ghi vào EPUB sau này để app biết bản dựng (Book.pipelineVersion).
-PIPELINE_VERSION = 1
+# Phiên bản pipeline — ghi vào EPUB để app biết bản dựng (Book.pipelineVersion).
+# v2 (Mốc 1b): định tuyến engine + Docling cho scan_ocr + bỏ mục lục in sẵn → đầu ra đổi.
+PIPELINE_VERSION = 2
 
 __all__ = ["PIPELINE_VERSION"]
