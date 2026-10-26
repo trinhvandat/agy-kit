@@ -6,8 +6,11 @@ samples/
 *.pdf
 pdf-pipeline/out/
 pdf-pipeline/output/
+# Nhưng GIỮ file mẫu nhỏ dùng cho test của pipeline
+!pdf-pipeline/tests/fixtures/
+!pdf-pipeline/tests/fixtures/**
 
-# oh-my-claudecode / trạng thái Ag­ent cục bộ
+# oh-my-claudecode / trạng thái Agent cục bộ
 .omc/
 
 # === Python (pdf-pipeline) ===

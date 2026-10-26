@@ -18,7 +18,7 @@
 | kotlinx-datetime | **0.8.0** | vẫn pre-1.0; có thể pin 0.7.1 nếu cần chắc |
 | compose-webview-multiplatform | **2.0.3** | Android + iOS (WKWebView) + Desktop; có JS bridge + raw WebView access |
 | foliate-js | *không semver* | **vendor theo git submodule, pin SHA**; MIT |
-| foliate-kmp-core | **0.1.0-beta01** | **CHỈ tham khảo cách bắc cầu — KHÔNG dùng làm dependency** (C5) |
+| foliate-kmp-core | **0.1.0-beta01** | **CHỈ tham khảo cách bắc cầu — KHÔNG dùng làm dependency** |
 | Readium kotlin-toolkit | **3.4.0** | (phương án dự phòng) |
 | Readium swift-toolkit | **3.11.0** | (phương án dự phòng) |
 
@@ -44,7 +44,7 @@
 | Công sức bridge | ✗ Tự viết JS↔Kotlin | Ít hơn ở từng OS, nhưng nhân đôi |
 | License | MIT | BSD-3 (LCP/DRM tính phí riêng — ta không cần) |
 
-**Kết quả kiểm tra `compose-webview-multiplatform` (B3 — tra GitHub/source, không đoán):**
+**Kết quả kiểm tra `compose-webview-multiplatform` (tra GitHub/source, không đoán):**
 - ✅ **JS bridge hai chiều** có sẵn (`kmpJsBridge`: JS→Kotlin `callNative`+`onCallback`; Kotlin→JS `evaluateJavaScript` nhận kết quả qua callback). Rất hợp để bắc cầu foliate-js (`goTo(cfi)`, `currentCfi`, selection range, highlight). Lưu ý: **chỉ async**, dữ liệu trả về là String/JSON (tự serialize).
 - ✅ **Truy cập raw WebView** qua `onCreated(NativeWebView)` (Android `WebView` / iOS `WKWebView`) + có `RequestInterceptor`/`WebSettings` → **tự cấu hình được** asset loader.
 - ✅ Nạp HTML/file local + inline HTML có `baseUrl`.
@@ -55,9 +55,9 @@
 
 **Quyết định**: **Chọn A (foliate-js + WebView)** cho giai đoạn đầu.
 Lý do: tối đa hóa chia sẻ code và né viết Swift/tích hợp 2 toolkit — phù hợp người chưa build iOS, thời gian hẹp. Bridge + raw WebView access đã có sẵn.
-**Việc phải tự làm (ghi rõ, B3)**: tự cấu hình **`WebViewAssetLoader` (Android)** và **`WKURLSchemeHandler` (iOS)** qua raw WebView để phục vụ EPUB + asset + font local qua scheme kiểu `https` (tránh CORS `file://`). Đây là phần native bắt buộc, không có sẵn trong thư viện.
+**Việc phải tự làm (ghi rõ)**: tự cấu hình **`WebViewAssetLoader` (Android)** và **`WKURLSchemeHandler` (iOS)** qua raw WebView để phục vụ EPUB + asset + font local qua scheme kiểu `https` (tránh CORS `file://`). Đây là phần native bắt buộc, không có sẵn trong thư viện.
 **Giảm thiểu**: vendor foliate-js **pin SHA**; bọc sau interface `ReaderEngine` trong domain để đổi sang Readium mà không sửa UI/data.
-**Cửa quyết định (A1)**: chạy **SPIKE-1 trên Android trước**; phần kiểm tra **iOS được time-box (tối đa ~6 giờ)** và **không chặn** việc dùng app hằng ngày trên Android. Quyết định giữ A dựa trên **kết quả Android** cộng kết quả iOS trong khung giờ đã định (xem [06-risks.md](./06-risks.md) R-01, [07-roadmap.md](./07-roadmap.md)).
+**Cửa quyết định**: chạy **SPIKE-1 trên Android trước**; phần kiểm tra **iOS được time-box (tối đa ~6 giờ)** và **không chặn** việc dùng app hằng ngày trên Android. Quyết định giữ A dựa trên **kết quả Android** cộng kết quả iOS trong khung giờ đã định (xem [06-risks.md](./06-risks.md) R-01, [07-roadmap.md](./07-roadmap.md)).
 **Điểm lật ngược (fallback B)**: nếu CFI/chọn-văn-bản/asset-loading bất ổn nghiêm trọng (nhất là iOS) → chuyển Readium, chấp nhận viết native 2 lần.
 
 ---
@@ -86,7 +86,7 @@ Lý do: tối đa hóa chia sẻ code và né viết Swift/tích hợp 2 toolkit
 **Phương án**: PyMuPDF / Docling / Marker / Calibre (chi tiết [03-pdf-pipeline.md](./03-pdf-pipeline.md)).
 **Quyết định**:
 - **PyMuPDF 1.27.x** mặc định: trích chữ **theo span** (`get_text("dict")`) + detect + đọc tên font.
-- **Ràng buộc (A5)**: sách/trang có **font cũ TCVN3/VNI BẮT BUỘC dùng PyMuPDF**, vì chuyển mã phải làm **theo từng span dựa trên tên font của span** — mà **Docling KHÔNG giữ font theo span** nên **không dùng được** cho loại này.
+- **Ràng buộc**: sách/trang có **font cũ TCVN3/VNI BẮT BUỘC dùng PyMuPDF**, vì chuyển mã phải làm **theo từng span dựa trên tên font của span** — mà **Docling KHÔNG giữ font theo span** nên **không dùng được** cho loại này.
 - **Docling 2.130 (MIT)** chỉ cho **sách Unicode** nhiều cột/bảng.
 - **Marker 2.0** khi cần chất lượng cao/OCR (GPU; weights trả phí nếu doanh thu/vốn > $2M — cá nhân miễn phí).
 - **Dựng EPUB bằng ebooklib** từ HTML sạch; **không** Calibre `ebook-convert` trực tiếp.
@@ -97,34 +97,35 @@ Lý do: tối đa hóa chia sẻ code và né viết Swift/tích hợp 2 toolkit
 ## ADR-005 — Chuyển font cũ TCVN3/VNI: **port bảng chuyển, theo span, sau khi trích**
 
 **Bối cảnh**: một số sách dùng TCVN3/VNI → rút ra là byte rác.
-**Quyết định**: tự **port bảng chuyển đổi** vào Python (`legacy_encoding.py`) từ `vietnameseConverter` (R: TCVN3/VISCII/VPS) và **VietUnicode** (có VNI), chuẩn hóa NFC. Chạy **sau bước trích, theo từng span** (A5). Lý do: không có package Python chín phủ đủ (nhất là VNI). Làm **SPIKE-3** xác thực trước. Nhận diện font dùng regex có xử lý **tiền tố subset** + heuristic thống kê (B6).
+**Quyết định**: tự **port bảng chuyển đổi** vào Python (`legacy_encoding.py`) từ `vietnameseConverter` (R: TCVN3/VISCII/VPS) và **VietUnicode** (có VNI), chuẩn hóa NFC. Chạy **sau bước trích, theo từng span**. Lý do: không có package Python chín phủ đủ (nhất là VNI). Làm **SPIKE-3** xác thực trước. Nhận diện font dùng regex có xử lý **tiền tố subset** + heuristic thống kê.
 
 ---
 
 ## ADR-006 — Nơi lưu file & dữ liệu: **local, xuất chủ động, Markdown + DB**
 
 **Bối cảnh**: NFR-3 (không mất ghi chú), NFR-6 (dữ liệu trên máy).
-**Quyết định**: DB + file trong vùng app (transactional). Vì `filesDir` Android **không xem trực tiếp được**, sao lưu = **xuất chủ động ra ngoài** (share sheet / SAF): **xuất Markdown** và **xuất cả file DB** (B1). **Chưa** cloud sync. Chi tiết [04-data-model.md](./04-data-model.md) §5.
+**Quyết định**: DB + file trong vùng app (transactional). Vì `filesDir` Android **không xem trực tiếp được**, sao lưu = **xuất chủ động ra ngoài** (share sheet / SAF): **xuất Markdown** và **xuất cả file DB**. **Chưa** cloud sync. Chi tiết [04-data-model.md](./04-data-model.md) §5.
 
 ---
 
-## ADR-007 — Tổ chức module & thương hiệu: **package + object BrandConfig; chưa dùng flavor/target**
+## ADR-007 — Tổ chức module & biến thể: **package + object VariantConfig; chưa dùng flavor/target**
 
 **Bối cảnh**: cần ranh giới 3 lớp nhưng không over-engineer cho app một người dùng.
-**Quyết định (C2)**:
-- Phân lớp bằng **package** trong `composeApp`; chỉ tách Gradle module (`:core`, `:brand-*`) khi lõi ổn định và thực sự nhân bản app thứ hai.
-- Thương hiệu/feature flags giai đoạn đầu **chỉ là một object `BrandConfig`** (tên app, màu mặc định, map flags). **Chưa** dùng **Gradle flavors / Xcode targets** — chỉ thêm khi làm app thứ hai.
+**Quyết định**:
+- Phân lớp bằng **package** trong `composeApp`; chỉ tách Gradle module (`:core`, `:variant-*`) khi lõi ổn định và thực sự nhân bản app thứ hai.
+- Cấu hình biến thể/feature flags giai đoạn đầu **chỉ là một object `VariantConfig`** (tên app, **màu thương hiệu**, map flags, trỏ tới content pack). **Chưa** dùng **Gradle flavors / Xcode targets** — chỉ thêm khi làm app thứ hai.
 
 ---
 
 ## ADR-008 — Re-anchor chạy trong JS (foliate-js `search`), không parser EPUB phía Kotlin
 
-**Bối cảnh (R2-3)**: khi EPUB build lại, phải định vị lại highlight **và vị trí đọc** từ `prefix+snippet+suffix` → cần duyệt nội dung sách và quy ra CFI.
+**Bối cảnh**: khi EPUB build lại, phải định vị lại highlight **và vị trí đọc** từ `prefix+snippet+suffix` → cần duyệt nội dung sách và quy ra CFI.
 **Phương án**:
 - **A. Dùng `search` của foliate-js trong WebView**, gọi qua bridge `kmpJsBridge`.
 - **B. Viết parser EPUB phía Kotlin** (giải nén zip + đọc XHTML + tự tính CFI).
 **Ưu/nhược**: B lặp lại chính bộ máy đã có trong foliate-js (CFI + duyệt nội dung), thêm phụ thuộc và rủi ro lệch CFI giữa hai bộ máy; A tái dùng đúng engine đang render nên CFI nhất quán.
-**Quyết định**: **Chọn A.** Kotlin chỉ lưu neo (snippet/prefix/suffix/contentHash/progress) và điều phối; WebView trả CFI mới. **Chuẩn hóa NFC + gộp khoảng trắng** ở cả chuỗi lưu lẫn nội dung sách trước khi so khớp (tránh trượt vì khác xuống dòng/thụt lề giữa các bản build). Phù hợp NFR-4 (ít phụ thuộc). Thêm vào **checklist SPIKE-1** ([06-risks.md](./06-risks.md) R-01). Chi tiết thuật toán: [04-data-model.md](./04-data-model.md) §3 & §3.1.
+**Quyết định**: **Chọn A.** Kotlin chỉ lưu neo (snippet/prefix/suffix/contentHash/progress) và điều phối; WebView trả CFI mới. **Chuẩn hóa NFC + gộp khoảng trắng** ở cả chuỗi lưu lẫn nội dung sách trước khi so khớp (tránh trượt vì khác xuống dòng/thụt lề giữa các bản build). Phù hợp NFR-4 (ít phụ thuộc).
+**Dự phòng**: nếu `search` không khớp chuỗi `prefix+snippet+suffix` dài vắt qua hai đoạn/thẻ → tìm **chỉ `textSnippet`** rồi **xác nhận bằng `prefix`/`suffix` phía Kotlin** (chọn kết quả gần `progress` nhất). Thêm vào **checklist SPIKE-1** ([06-risks.md](./06-risks.md) R-01). Chi tiết thuật toán: [04-data-model.md](./04-data-model.md) §3 & §3.1.
 
 ---
 

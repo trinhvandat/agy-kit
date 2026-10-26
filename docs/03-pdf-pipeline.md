@@ -4,25 +4,27 @@
 > Phiên bản kiểm tra 2026-10. Đây là phần **rủi ro nhất** của dự án.
 > Cập nhật: 2026-10-26.
 
-## 0. Kiểm kê kho PDF trước (SPIKE-0) — A2
+## 0. Kiểm tra sách mẫu bằng `detect` (SPIKE-0)
 
-**Làm đầu tiên (~1–2 giờ)**, trước khi thiết kế chi tiết các bước:
+**Làm đầu tiên**, trước khi đi sâu vào các bước sau:
 
-- Script quét **toàn bộ thư mục PDF**, phân loại mỗi cuốn: `text_unicode | legacy_tcvn3 | legacy_vni | scan | mixed`, xuất **bảng thống kê** (số cuốn, số trang mỗi loại).
-- Quy ước thư mục mẫu:
+- Chạy lệnh **`detect`** trên **vài cuốn sách mẫu** (đại diện các loại trong kho) đặt trong `samples/`, phân loại mỗi cuốn theo trang/span: `text_unicode | legacy_tcvn3 | legacy_vni | legacy_other | scan | empty | mixed`, in **phân bố theo trang** + tên font legacy. Lệnh nhận **danh sách file** (không tự quét thư mục, không làm báo cáo tổng hợp).
+  ```bash
+  cd pdf-pipeline && uv run python -m sepia_pipeline detect samples/*.pdf
   ```
-  samples/            # sách mẫu để thử pipeline (KHÔNG commit nếu có bản quyền)
+- Quy ước thư mục mẫu (đã có trong `.gitignore`):
   ```
-  Thêm `samples/` vào `.gitignore`.
-- **Cửa quyết định (A2 → ảnh hưởng US-A7)**: nếu **scan chiếm phần lớn kho**, nâng **OCR (US-A7)** từ "để sau" lên **giai đoạn đầu** (cập nhật [01-requirements.md](./01-requirements.md) §3, [06-risks.md](./06-risks.md) R-11, [07-roadmap.md](./07-roadmap.md)). Nếu scan ít, giữ OCR ở giai đoạn sau.
+  samples/            # sách mẫu để thử pipeline (KHÔNG commit — có thể dính bản quyền)
+  ```
+- **Cửa quyết định (ảnh hưởng US-A7)**: nếu **scan chiếm phần lớn** các sách mẫu, nâng **OCR (US-A7)** từ "để sau" lên **giai đoạn đầu** (cập nhật [01-requirements.md](./01-requirements.md) §3, [06-risks.md](./06-risks.md) R-11, [07-roadmap.md](./07-roadmap.md)). Nếu scan ít, giữ OCR ở giai đoạn sau. *(Mẫu ít nên đây là tín hiệu định hướng, không phải thống kê toàn kho — gặp nhiều scan thì bổ sung thêm mẫu rồi chạy lại `detect`.)*
 
 ## 1. Mục tiêu
 
-Biến một PDF Đông y thành **EPUB reflow sạch**, dấu tiếng Việt đúng, **chữ Hán hiển thị được**, có mục lục, giữ được trang ảnh (huyệt vị/bảng). Chấp nhận **bán tự động**: script làm phần nặng, bạn kiểm tra tay vài chỗ. EPUB phải **đọc tốt bằng app EPUB có sẵn** (KOReader…) để kiểm chứng ngay (nhánh Pipeline — xem [07-roadmap.md](./07-roadmap.md)).
+Biến một PDF thành **EPUB reflow sạch**, dấu tiếng Việt đúng, **chữ Hán hiển thị được** (nếu sách có chèn), có mục lục, giữ được trang ảnh (hình/sơ đồ/bảng). Chấp nhận **bán tự động**: script làm phần nặng, bạn kiểm tra tay vài chỗ. EPUB phải **đọc tốt bằng app EPUB có sẵn** (KOReader…) để kiểm chứng ngay (nhánh Pipeline — xem [07-roadmap.md](./07-roadmap.md)).
 
-## 2. Kiến trúc pipeline (thứ tự bước đã sửa — A5)
+## 2. Kiến trúc pipeline (thứ tự bước đã sửa)
 
-> **Sửa quan trọng (A5)**: việc chuyển mã TCVN3/VNI **KHÔNG** đứng trước bước trích chữ. Phải trích chữ trước rồi **chuyển mã theo từng span dựa trên tên font của span đó**. Lý do: cùng một trang có thể trộn nhiều font (một số span font cũ, một số Unicode).
+> **Sửa quan trọng**: việc chuyển mã TCVN3/VNI **KHÔNG** đứng trước bước trích chữ. Phải trích chữ trước rồi **chuyển mã theo từng span dựa trên tên font của span đó**. Lý do: cùng một trang có thể trộn nhiều font (một số span font cũ, một số Unicode).
 
 ```mermaid
 flowchart TD
@@ -35,19 +37,21 @@ flowchart TD
     D1 --> F
     D2 --> F[Reflow: bỏ header/footer/số trang,<br/>GHÉP DÒNG thành đoạn]
     F --> G[Nhận diện tiêu đề → TOC]
-    G --> H[Giữ trang ảnh dạng image<br/>huyệt vị / bảng]
-    H --> I[Dựng EPUB<br/>ebooklib + CSS font serif + CJK fallback]
+    G --> H[Giữ trang ảnh dạng image<br/>hình / sơ đồ / bảng]
+    H --> I[Dựng EPUB<br/>ebooklib + CSS font-family: serif mặc định]
     I --> J[Kiểm tra nhẹ chất lượng<br/>quality.py]
     J -->|đạt| K[.epub sạch]
     J -->|chưa đạt| L[Báo trang cần xem/sửa tay]
 ```
 
-## 3. Bước 1 — Phát hiện loại PDF & font (`detect.py`) — B6
+## 3. Bước 1 — Phát hiện loại PDF & font (`detect.py`)
 
 Dùng **PyMuPDF (fitz)** `1.27.x`. Với mỗi trang:
 
-- **Text vs scan**: `page.get_text()` rỗng/gần rỗng + `page.get_images()` có ảnh full-trang ⇒ trang scan. Dùng ngưỡng *số ký tự text / trang*.
-- **Font cũ (TCVN3/VNI)** — hai lớp heuristic để chắc hơn (B6):
+- **Text vs scan**: ít chữ (`< scan_min_chars`, không tính khoảng trắng) + ảnh phủ **union** ≥ `scan_image_coverage` ⇒ `scan`; ít chữ không ảnh lớn ⇒ `empty`.
+- **Scan có lớp OCR (`scan_ocr`)**: đủ chữ + ảnh phủ ≥ `scan_image_coverage` **và** phần lớn chữ là **ẩn** (`hidden_text_ratio ≥ scan_ocr_hidden_min`, đo render mode 3 qua `page.get_texttrace()` — chỉ gọi khi có ảnh phủ kín). Nếu chữ **hiển thị thật** trên nền ảnh thì phân loại theo mã chữ bình thường và chỉ bật cờ `PageResult.has_full_page_image`. Khi độ phủ **dừng sớm** (trang rất nhiều ảnh), `image_coverage` là **cận dưới** và `PageResult.coverage_is_lower_bound = True`.
+- **Nội dung thắng tên font**: span có **chữ Việt Unicode thật** (U+1EA0–U+1EF9 hoặc ơ ư ă đ…) thì coi là `text_unicode` dù tên font khớp `.Vn*`/`VNI-*` (tên font vẫn ghi lại để theo dõi).
+- **Font cũ (TCVN3/VNI)** — hai lớp heuristic để chắc hơn:
   1. **Tên font** từ `page.get_fonts()` / span `font`. Regex phải **xử lý tiền tố subset** dạng `ABCDEF+` (6 chữ in hoa + `+`):
      - TCVN3/ABC: `(?:[A-Z]{6}\+)?\.?Vn[A-Za-z]*` → `.VnTime`, `.VnArial`, `ABCDEF+.VnTime`
      - VNI: `(?:[A-Z]{6}\+)?VNI-[A-Za-z]*`
@@ -57,7 +61,7 @@ Dùng **PyMuPDF (fitz)** `1.27.x`. Với mỗi trang:
 
 > **Vì sao quan trọng**: PDF font cũ *vẫn có text layer* nhưng rút ra là **byte rác**. Nếu không phát hiện theo span, EPUB sẽ lẫn ký tự lỗi.
 
-## 4. Bước 2 — Chuyển TCVN3/VNI → Unicode theo span (`legacy_encoding.py`) — A3, A5
+## 4. Bước 2 — Chuyển TCVN3/VNI → Unicode theo span (`legacy_encoding.py`) — US-A3
 
 Chạy **sau khi trích** (không chạy trước). Với mỗi span được gắn nhãn legacy, áp bảng chuyển tương ứng rồi **chuẩn hóa NFC**.
 
@@ -68,40 +72,42 @@ Chạy **sau khi trích** (không chạy trước). Với mỗi span được g�
 - Xử lý **dấu kết hợp**, rồi NFC.
 - **🔬 SPIKE-3** (xem [06-risks.md](./06-risks.md)): chuyển 1 trang TCVN3 + 1 trang VNI từ sách thật, **so dấu bằng mắt** trước khi tin cả pipeline.
 
-## 5. Bước 3 — Ràng buộc chọn công cụ trích (A5 → ADR-004)
+## 5. Bước 3 — Ràng buộc chọn công cụ trích (ADR-004)
 
 - **Sách/trang có font cũ → BẮT BUỘC PyMuPDF** `get_text("dict")`, vì nó trả **tên font theo từng span** (cần cho bước 2). **Docling KHÔNG giữ font theo span** nên **không dùng được** cho loại này.
 - **Sách Unicode phức tạp** (nhiều cột, nhiều bảng) → có thể dùng **Docling** để dựng reading order/heading/bảng tốt hơn.
 - Mặc định PyMuPDF; Docling chỉ cho sách Unicode nhiều cột/bảng. (Chi tiết [05-tech-decisions.md](./05-tech-decisions.md) ADR-004.)
 
-## 6. Bước 4 — Reflow (`reflow.py`) — B5 (đã đơn giản hóa)
+## 6. Bước 4 — Reflow (`reflow.py`) — US-A4 (đã đơn giản hóa)
 
 - **Bỏ header/footer/số trang**: phát hiện block lặp lại ở cùng vị trí y trên nhiều trang (so string similarity); regex xóa dòng chỉ gồm số ở mép trang.
 - **Ghép dòng thành đoạn**: nối dòng trừ khi dòng kết thúc bằng dấu câu kết thúc.
-- **KHÔNG làm de-hyphenation phức tạp** (B5): **tiếng Việt viết rời từng âm tiết**, hầu như **không có từ bị ngắt bằng gạch nối cuối dòng** như tiếng Âu. → **Bỏ `pd3f`/`dehyphen`/`malti`/`prettyparser`** khỏi kế hoạch (giảm phụ thuộc, NFR-4).
+- **KHÔNG làm de-hyphenation phức tạp** (xem [06-risks.md](./06-risks.md) R-04): **tiếng Việt viết rời từng âm tiết**, hầu như **không có từ bị ngắt bằng gạch nối cuối dòng** như tiếng Âu. → **Bỏ `pd3f`/`dehyphen`/`malti`/`prettyparser`** khỏi kế hoạch (giảm phụ thuộc, NFR-4).
 - ⚠️ **Cảnh báo**: **không xóa nhầm gạch ngang/gạch nối thật** (dấu gạch trong liệt kê, tên ghép, số…). Chỉ ghép dòng, không "chữa" gạch nối.
 
 ## 7. Bước 5 — Mục lục & Bước 6 — Giữ trang ảnh
 
 - **TOC** (`toc.py`): suy heading từ cỡ chữ/độ đậm/vị trí → `<h1>/<h2>`; foliate-js & app EPUB khác tự dựng TOC từ heading + `nav.xhtml`.
-- **Trang ảnh** (US-A6): trang gắn nhãn "ảnh" (huyệt vị, bảng) → render **nguyên trang thành ảnh** nhúng vào EPUB. **Không** cố reflow bảng/sơ đồ. (Chức năng xem lại PDF gốc trong app → giai đoạn sau, US-F4.)
+- **Trang ảnh** (US-A6): trang gắn nhãn "ảnh" (hình, sơ đồ, bảng) → render **nguyên trang thành ảnh** nhúng vào EPUB. **Không** cố reflow bảng/sơ đồ. (Chức năng xem lại PDF gốc trong app → giai đoạn sau, US-F4.)
 
 ## 8. Bước 7 — Dựng EPUB + font + kiểm tra nhẹ
 
-### Dựng EPUB & font (B4)
+### Dựng EPUB & font (một nguồn quyết định font là app)
 - **`ebooklib`** từ HTML sạch — **không** dùng Calibre `ebook-convert` PDF→EPUB trực tiếp (reflow kém). Calibre `9.x` chỉ là fallback/tiện ích.
-- **Định danh sách ổn định (R2-1)**: ghi **`dc:identifier` cố định** vào EPUB = **`sepia:` + SHA-256 của PDF gốc**. Giá trị này **không đổi giữa các lần build lại** cùng một PDF → app dùng làm `Book.bookUid` để nhận ra "cùng một cuốn" khi nhập bản EPUB mới và chạy re-anchor (xem [04-data-model.md](./04-data-model.md) §6). *Lưu ý*: hash theo **PDF gốc**, không theo file EPUB (EPUB đổi mỗi lần build).
-- CSS nhúng: font **serif tiếng Việt** (Literata/Noto Serif) + **font dự phòng CJK** cho chữ Hán:
-  ```css
-  body { font-family: "Literata", "Noto Serif", "Noto Serif CJK TC", serif; }
-  ```
-  - Dùng **`Noto Serif CJK TC` (phồn thể / Traditional)** vì sách Đông y chủ yếu dùng **chữ Hán phồn thể** (R2-7). (Có thể bổ sung `SC` phía sau nếu gặp sách giản thể.)
-  - Literata **không có glyph CJK** → thiếu fallback sẽ mất chữ Hán (US-C3).
-  - Font CJK **rất nặng** → **cân nhắc KHÔNG nhúng mà dùng font CJK hệ thống** của thiết bị (Android/iOS đều có sẵn font CJK), chỉ nhúng font serif Latin/Việt. Nếu nhúng CJK, **kiểm tra kích thước file EPUB**.
+- **Định danh sách ổn định**: ghi **`dc:identifier` cố định** vào EPUB = **`sepia:` + SHA-256 của PDF gốc**. Giá trị này **không đổi giữa các lần build lại** cùng một PDF → app dùng làm `Book.bookUid` để nhận ra "cùng một cuốn" khi nhập bản EPUB mới và chạy re-anchor (xem [04-data-model.md](./04-data-model.md) §6). *Lưu ý*: hash theo **PDF gốc**, không theo file EPUB (EPUB đổi mỗi lần build).
+- **Font do app quyết định, không phải pipeline** (một nguồn duy nhất): trong app Sepia, font được **app chèn qua CSS vào WebView** theo **danh sách fallback trong `VariantConfig`** của biến thể (xem [01-requirements.md](./01-requirements.md) US-C3, [02-architecture.md](./02-architecture.md) §7). Vì vậy pipeline **không** tự chốt tên font:
+  - **Mặc định pipeline chỉ ghi `font-family: serif`** vào CSS của EPUB — **không** ghi tên font cụ thể, để không đá nhau với font app áp lúc đọc:
+    ```css
+    /* Mặc định: chỉ serif chung; app/biến thể mới quyết định font thật */
+    body { font-family: serif; }
+    ```
+  - **Tùy chọn `--font-profile <tên>`**: chỉ dùng khi muốn **đọc thử bằng app EPUB khác** (KOReader…) với font đẹp — cờ này ghi **tên font cụ thể** vào CSS của EPUB. Danh sách profile lấy từ một **file cấu hình nhỏ trong `pdf-pipeline/`** (vd `font_profiles.toml`), **không hardcode** trong code. Ví dụ profile `dongy` (ưu tiên phồn thể): `"Literata", "Noto Serif", "Noto Serif CJK TC", "Noto Serif CJK SC", serif` (xem [variants/dongy.md](./variants/dongy.md)).
+  - **Font dự phòng theo hệ chữ (script fallback)** là yêu cầu **chung** nhưng áp **ở phía app**: nhiều sách tiếng Việt có chèn chữ Hán, mà font serif Latin (Literata) **không có glyph CJK** → thiếu fallback sẽ mất chữ (US-C3). App cấu hình fallback gồm **cả phồn thể (TC) lẫn giản thể (SC)** + font CJK hệ thống; biến thể có thể đổi thứ tự ưu tiên (vd biến thể Đông y ưu tiên TC — xem [variants/dongy.md](./variants/dongy.md)).
+  - Font CJK **rất nặng** → app **cân nhắc KHÔNG nhúng mà dùng font CJK hệ thống** của thiết bị (Android/iOS đều có sẵn), chỉ nhúng font serif Latin/Việt. Nếu nhúng (kể cả qua `--font-profile`), **kiểm tra kích thước file EPUB**.
 
-### Kiểm tra chất lượng nhẹ (`quality.py`) — C3
+### Kiểm tra chất lượng nhẹ (`quality.py`)
 Giai đoạn đầu **không** làm ground-truth + CER/NED (quá nặng cho một người). Thay bằng các **kiểm tra nhẹ, tự động**:
-- Số **ký tự rác / ký tự ngoài bảng chữ tiếng Việt** (bắt sót font cũ chưa chuyển). **Whitelist dải CJK (R2-4)** để không đếm nhầm chữ Hán là "rác": `U+4E00–U+9FFF` (CJK Unified), `U+3400–U+4DBF` (Extension A), `U+F900–U+FAFF` (CJK Compatibility Ideographs); cùng với chữ Việt (Latin + dấu) và dấu câu thông dụng.
+- Số **ký tự rác / ký tự ngoài bảng chữ tiếng Việt** (bắt sót font cũ chưa chuyển). **Whitelist dải CJK** để không đếm nhầm chữ Hán là "rác" (nhiều sách tiếng Việt có chèn chữ Hán): `U+4E00–U+9FFF` (CJK Unified), `U+3400–U+4DBF` (Extension A), `U+F900–U+FAFF` (CJK Compatibility Ideographs); cùng với chữ Việt (Latin + dấu) và dấu câu thông dụng.
 - Số **đoạn (paragraph)** và **độ dài đoạn bất thường** (quá ngắn/quá dài → nghi ghép dòng sai).
 - Chuẩn hóa **NFC** nhất quán.
 - Sau đó **tự đọc kiểm tra ngẫu nhiên N trang** (sanity check của người).
