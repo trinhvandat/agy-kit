@@ -59,15 +59,15 @@ sepia/
 
 ## Mốc hiện tại & việc kế tiếp
 
-- **Hiện tại**: **Mốc 2 — code xong, build + test xanh, CHƯA kiểm thiết bị.** App Android đọc EPUB:
-  nhập qua SAF, khử trùng/thay file theo `bookUid`, lưu `Book` (SQLDelight + Koin); màn đọc foliate-js trong
-  WebView (vendor pin SHA, WebViewAssetLoader qua https appassets — tránh CORS `file://`) sau interface
+- **Hiện tại**: **Mốc 2 XONG & đã kiểm trên emulator Android (API 36).** App đọc EPUB: nhập qua SAF, khử
+  trùng/thay file theo `bookUid`, lưu `Book` (SQLDelight + Koin); màn đọc **foliate-js trong WebView**
+  (vendor pin SHA, WebViewAssetLoader qua https appassets — tránh CORS `file://`) sau interface
   `ReaderController`/`ReaderEvent` (ADR-001); theme Sepia qua CSS + cỡ chữ; nhớ vị trí (debounce) + re-anchor
-  vị trí đọc trong JS (ADR-008). `:androidApp:assembleDebug` xanh, 19 unit test xanh, iOS(sim) compile xanh.
-  **Chưa chạy trên emulator/thiết bị** (môi trường build không có `adb`) → **cửa quyết định ADR-001 của SPIKE-1
-  (foliate render thật) CHƯA đóng**; xem [PR Mốc 2] và [docs/06 R-01](./docs/06-risks.md). Mốc 1 (pipeline
-  `scan_ocr` → EPUB) vẫn như cũ; **chưa đọc thử bằng KOReader**. *(IDE cần Android Studio 2026 ≥ Rabbit để sync AGP 9.)*
-- **Việc kế tiếp**: **Kiểm Mốc 2 trên emulator/thiết bị Android** (foliate render EPUB tiếng Việt, lật trang,
-  nhớ vị trí qua mở lại, re-anchor khi nhập bản build lại) để đóng cửa ADR-001; nhân tiện **đọc thử EPUB bằng
-  KOReader** chốt ngưỡng heuristic. Sau đó **Mốc 3** (highlight + ghi chú + xuất MD/DB).
+  vị trí đọc trong JS (ADR-008). Kiểm thực tế: render EPUB tiếng Việt nền sepia, chạm phải sang trang,
+  thoát/mở lại đúng trang → **ADR-001 ĐÓNG (giữ foliate-js)**. `:androidApp:assembleDebug` + 19 unit test +
+  iOS(sim) compile xanh. Mốc 1 (pipeline `scan_ocr`→EPUB) vẫn như cũ; **chưa đọc thử KOReader**.
+  *(IDE cần Android Studio 2026 ≥ Rabbit để sync AGP 9.)*
+- **Việc kế tiếp**: **Mốc 3** — chọn văn bản → highlight + ghi chú + xuất Markdown/DB. **Nợ từ Mốc 2 phải
+  xử trước**: lớp chạm Compose phủ WebView chặn nhấn-giữ chọn chữ → chuyển cử chỉ sang JS hoặc cho long-press
+  xuyên qua (xem docs/07 Mốc 3). Nhân tiện **đọc thử EPUB bằng KOReader** chốt ngưỡng heuristic.
 - **Việc riêng đang mở**: **iOS shell** (SPIKE-2 phần iOS) — chưa build iOS lần nào, chưa có `.xcodeproj` (chưa cài Xcode) → **[issue #3](https://github.com/trinhvandat/sepia/issues/3)**, xem `iosApp/README.md`. Xem [07-roadmap.md](./docs/07-roadmap.md).

@@ -44,9 +44,9 @@ adb shell am start -n io.github.trinhvandat.sepia/.MainActivity
    (nút ‹ Thư viện, tên sách, %, A−/A+). Vị trí đọc tự lưu; mở lại đúng trang.
 5. Nhập lại **bản EPUB build lại** (cùng `bookUid`) → giữ nguyên vị trí đọc và **định vị lại** (re-anchor).
 
-> **Trạng thái Mốc 2 (2026-10-26)**: build + unit test xanh nhưng **chưa kiểm trên thiết bị/emulator**
-> trong môi trường CI hiện tại (không có `adb`). foliate-js render thật cần mở app trên Android để xác nhận
-> (cửa quyết định ADR-001) — xem [docs/06 R-01](./docs/06-risks.md). Chọn chữ/highlight: Mốc 3.
+> **Trạng thái Mốc 2 (2026-10-26)**: **ĐÃ kiểm trên emulator Android (API 36)** — nhập EPUB, foliate-js
+> render tiếng Việt nền sepia, lật trang, nhớ vị trí qua mở lại. Cửa quyết định ADR-001 **đóng (giữ
+> foliate-js)**. Chọn chữ/highlight: Mốc 3 (xem [docs/07](./docs/07-roadmap.md)). iOS: hoãn (issue #3).
 
 ### iOS
 

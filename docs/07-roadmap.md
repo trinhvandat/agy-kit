@@ -67,23 +67,24 @@ graph TD
 
 > **Bản dùng được**: mở EPUB trong Sepia trên Android, đọc theme Sepia, nhớ đúng vị trí (kể cả sau khi build lại EPUB).
 >
-> **Trạng thái (2026-10-26)**: **code xong & build xanh trên Android** (`:androidApp:assembleDebug`),
-> **19 unit test xanh** (parse metadata EPUB, khử trùng/thay file theo bookUid, repository SQLDelight
-> JDBC in-memory, chọn vị trí re-anchor). **CHƯA kiểm trên thiết bị/emulator** (môi trường build không
-> có `adb`/emulator) → **cửa quyết định ADR-001 của SPIKE-1 (foliate-js render thật) vẫn CHƯA đóng** —
-> cần mở app trên emulator/máy Android (Android Studio 2026 ≥ Rabbit) để xác nhận foliate-js hiển thị,
-> lật trang, nhớ vị trí, re-anchor. iOS vẫn hoãn.
+> **Trạng thái (2026-10-26): ĐẠT trên emulator Android (API 36).** `:androidApp:assembleDebug` + **19
+> unit test** xanh; đã **kiểm thực tế** trên `emulator-5554`: nhập `dongy_docling.epub` qua SAF → thư
+> viện hiện "Tự Học Đông Y - Bùi Huy"; mở sách → **foliate-js render EPUB tiếng Việt trên nền sepia**;
+> **chạm phải → sang trang** (mục lục 1–24 → 26–45); **thoát rồi mở lại → đúng trang cũ** (nhớ vị trí qua
+> SQLDelight, kể cả sau khi cài lại APK). → **Cửa quyết định ADR-001 ĐÓNG: giữ foliate-js.** iOS vẫn hoãn.
+> *(Lưu ý: còn một cảnh báo JS `appendChild` benign từ lớp inject bridge của compose-webview-multiplatform;
+> không chặn chức năng. Chọn chữ/highlight: nợ Mốc 3 — lớp chạm Compose chặn nhấn-giữ.)*
 
-- [~] **SPIKE-1** — foliate-js (vendor pin SHA 78914ae, MIT; bỏ vendor/pdfjs) trong WebView +
-  **tự cấu hình WebViewAssetLoader** (AssetsPathHandler `/assets/`, BookPathHandler `/books/` qua https
-  appassets — tránh CORS `file://`), reader.html + bridge.js (open/goTo/next/prev/applyStyle/relocated/
-  reAnchor). **Biên dịch & đóng gói APK OK (24 file foliate có trong APK); CHƯA chạy thật.** **Android: 8h**
+- [x] **SPIKE-1** — foliate-js (vendor pin SHA 78914ae, MIT; bỏ vendor/pdfjs, GIỮ vendor/zip.js + fflate.js)
+  trong WebView + **tự cấu hình WebViewAssetLoader** (AssetsPathHandler `/assets/`, BookPathHandler
+  `/books/` qua https appassets — tránh CORS `file://`), reader.html + bridge.js (open/goTo/next/prev/
+  applyStyle/relocated/reAnchor; chờ kmpJsBridge + ping chống race). **ĐÃ chạy thật trên emulator.** **Android: 8h**
 - [ ] SPIKE-1 (tiếp) — kiểm tra trên **iOS (WKURLSchemeHandler), time-box tối đa 6h**, không chặn Android; gồm **lớp phủ Compose đè WKWebView + chạm xuyên qua**. **6h** *(chưa làm — iOS hoãn, issue #3)*
 - [x] `ReaderEngine` (ReaderController + ReaderEvent) + bridge `kmpJsBridge` (open, goTo, next/prev, applyStyle, reAnchor). Bọc foliate sau interface (ADR-001).
 - [x] Nhập EPUB vào app (SAF `ACTION_OPEN_DOCUMENT`) + **đọc `dc:identifier`→bookUid, khử trùng/thay file theo bookUid** + lưu `Book` (bookUid, contentHash, pipelineVersion) — SQLDelight + Koin.
 - [x] **Theme Sepia** qua CSS (foliate `renderer.setStyles`); chỉnh cỡ chữ cơ bản (A−/A+).
-- [~] **Nhớ vị trí đọc** (Book.positionCfi + positionSnippet/prefix/suffix + progress, debounce ~1s + lưu khi rời) + **re-anchor trong JS** cho vị trí đọc (ADR-008: foliate `search` → chọn CFI gần `progress`, không thấy → `goToFraction`). Highlight re-anchor để Mốc 3. **Logic xong + test chọn vị trí; luồng foliate search CHƯA kiểm thiết bị.**
-- **Thành quả**: dogfood trên Android **(sau khi kiểm emulator)**; nhập bản EPUB build lại giữ vị trí đọc + re-anchor.
+- [x] **Nhớ vị trí đọc** (Book.positionCfi + positionSnippet/prefix/suffix + progress, debounce ~1s + lưu khi rời) + **re-anchor trong JS** cho vị trí đọc (ADR-008: foliate `search` → chọn CFI gần `progress`, không thấy → `goToFraction`). Nhớ vị trí **đã kiểm trên emulator** (thoát/mở lại đúng trang). Highlight re-anchor để Mốc 3. *(Re-anchor xuyên-build chưa kiểm vì chưa có bản EPUB build-lại khác cấu trúc để nhập — kiểm khi pipeline đổi; logic + unit test chọn vị trí đã có.)*
+- **Thành quả**: **dogfood được trên Android** (mở EPUB, đọc theme Sepia, lật trang, nhớ vị trí). Nhập bản EPUB build lại giữ vị trí đọc + re-anchor (logic sẵn, kiểm xuyên-build khi có mẫu).
 
 ## Mốc 3 — Highlight, ghi chú, xuất Markdown/DB · ~17h (~2 tuần) · [App]
 
