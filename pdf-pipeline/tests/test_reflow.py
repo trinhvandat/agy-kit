@@ -212,15 +212,27 @@ def test_paragraph_break_on_indent() -> None:
     assert len(paras) == 2
 
 
+# Tiêu đề chạy thật nằm trong dải mép trên (``top_ratio`` ≤ band_ratio=0.08); nhãn mục giữa trang
+# có ``top_ratio`` lớn hơn. Chỉ đường Docling ghi ``top_ratio``; heuristic để None (xem model.py).
+_TOP = 0.03  # sát mép trên → ứng viên tiêu đề chạy
+_MID = 0.30  # giữa trang → KHÔNG phải tiêu đề chạy
+
+
+def test_running_header_drop_disabled_by_default() -> None:
+    # SPIKE-4 v4: bbox không tách được header chạy khỏi nhãn mục trong sách tra cứu → bước này
+    # tắt mặc định (convert chỉ gọi drop_running_headers khi cờ bật). Hàm vẫn dùng được khi bật.
+    assert ReflowConfig().drop_running_headers_enabled is False
+
+
 def test_drop_running_headers_dedups_repeated_page_head() -> None:
     from sepia_pipeline.reflow import drop_running_headers
 
-    # Tiêu đề chạy đầu trang KHÔNG SỐ lặp trên 5 trang (đầu mỗi trang) + thân bài riêng.
+    # Tiêu đề chạy đầu trang KHÔNG SỐ lặp trên 5 trang (sát mép trên) + thân bài riêng.
     # (Docling tách số trang thành khối riêng nên header chạy thật không chứa số.)
     running = "ĐÔNG Y VÀ BÍ QUYẾT DƯỠNG SINH BỐN MÙA"
     blocks: list = []
     for p in range(1, 6):
-        blocks.append(Heading(text=running, level=2, page=p))
+        blocks.append(Heading(text=running, level=2, page=p, top_ratio=_TOP))
         blocks.append(Paragraph(text=f"Nội dung thân bài của trang {p} đầy đủ và dài.", page=p))
     result = drop_running_headers(blocks)
     assert result.removed == 4  # 5 lần → giữ 1, bỏ 4
@@ -231,11 +243,36 @@ def test_drop_running_headers_dedups_repeated_page_head() -> None:
     assert result.examples == (f"{running} (×5)",)
 
 
+def test_drop_running_headers_keeps_label_outside_top_band() -> None:
+    from sepia_pipeline.reflow import drop_running_headers
+
+    # Nhãn mục thật ("Tên gọi:") mở đầu 5 trang nhưng nằm GIỮA trang (top_ratio≈0.3 > band) →
+    # KHÔNG phải tiêu đề chạy → GIỮ đủ cả 5 (lỗi cũ: bỏ 4 vì chỉ xét "mở đầu trang + lặp ≥3").
+    label = "Tên gọi:"
+    blocks = [Heading(text=label, level=3, page=p, top_ratio=_MID) for p in range(1, 6)]
+    result = drop_running_headers(blocks)
+    assert result.removed == 0
+    assert sum(1 for b in result.kept if getattr(b, "text", "") == label) == 5
+    assert result.examples == ()
+
+
+def test_drop_running_headers_never_drops_without_top_ratio() -> None:
+    from sepia_pipeline.reflow import drop_running_headers
+
+    # Khối không có top_ratio (đường heuristic) → không bao giờ là ứng viên, dù lặp nhiều trang.
+    running = "ĐÔNG Y VÀ BÍ QUYẾT DƯỠNG SINH BỐN MÙA"
+    blocks = [Heading(text=running, level=2, page=p) for p in range(1, 6)]  # top_ratio=None
+    result = drop_running_headers(blocks)
+    assert result.removed == 0
+    assert len(result.kept) == 5
+    assert result.examples == ()
+
+
 def test_drop_running_headers_keeps_if_below_threshold() -> None:
     from sepia_pipeline.reflow import drop_running_headers
 
     running = "CHƯƠNG MỞ ĐẦU"
-    blocks = [Heading(text=running, level=2, page=p) for p in (1, 2)]  # chỉ 2 trang < 3
+    blocks = [Heading(text=running, level=2, page=p, top_ratio=_TOP) for p in (1, 2)]  # 2 < 3
     result = drop_running_headers(blocks)
     assert result.removed == 0
     assert len(result.kept) == 2
@@ -245,11 +282,12 @@ def test_drop_running_headers_keeps_if_below_threshold() -> None:
 def test_drop_running_headers_keeps_distinct_section_headings() -> None:
     from sepia_pipeline.reflow import drop_running_headers
 
+    # Dù đều sát mép trên (ứng viên), khoá KHÁC nhau → không gộp → giữ đủ.
     blocks = [
-        Heading(text="DƯỠNG SINH MÙA THU", level=1, page=1),
-        Heading(text="THỂ CHẤT KHÍ HƯ", level=2, page=2),
-        Heading(text="KINH MẠCH LÀ GÌ", level=2, page=3),
-        Heading(text="MẤT NGỦ DO TÂM THẦN BẤT AN", level=2, page=4),
+        Heading(text="DƯỠNG SINH MÙA THU", level=1, page=1, top_ratio=_TOP),
+        Heading(text="THỂ CHẤT KHÍ HƯ", level=2, page=2, top_ratio=_TOP),
+        Heading(text="KINH MẠCH LÀ GÌ", level=2, page=3, top_ratio=_TOP),
+        Heading(text="MẤT NGỦ DO TÂM THẦN BẤT AN", level=2, page=4, top_ratio=_TOP),
     ]
     result = drop_running_headers(blocks)
     assert result.removed == 0
@@ -263,7 +301,7 @@ def test_drop_running_headers_keeps_numbered_chapter_headings() -> None:
     # chỉ còn "Chương 1". Khoá giữ chữ số → 5 heading chương KHÁC nhau → GIỮ đủ cả 5.
     blocks: list = []
     for p in range(1, 6):
-        blocks.append(Heading(text=f"Chương {p}", level=1, page=p))
+        blocks.append(Heading(text=f"Chương {p}", level=1, page=p, top_ratio=_TOP))
         blocks.append(Paragraph(text=f"Nội dung chương {p} đầy đủ và khá dài cho thật.", page=p))
     result = drop_running_headers(blocks)
     assert result.removed == 0
@@ -277,7 +315,7 @@ def test_drop_running_headers_keeps_numbered_lesson_headings() -> None:
     from sepia_pipeline.reflow import drop_running_headers
 
     # "Bài 1".."Bài 4" ở đầu 4 trang — heading bài học thật, KHÔNG phải header lặp → giữ đủ.
-    blocks = [Heading(text=f"Bài {p}", level=2, page=p) for p in range(1, 5)]
+    blocks = [Heading(text=f"Bài {p}", level=2, page=p, top_ratio=_TOP) for p in range(1, 5)]
     result = drop_running_headers(blocks)
     assert result.removed == 0
     assert len(result.kept) == 4

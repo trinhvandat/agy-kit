@@ -51,9 +51,17 @@ class ReflowConfig:
     # hoặc ≤ ``garbage_short_max_chars`` ký tự) → bỏ; khối dài điểm thấp → GIỮ nhưng cảnh báo.
     garbage_vn_threshold: float = 0.5
     garbage_short_max_chars: int = 60
-    # Header chạy đầu trang (đường Docling): nội dung (sau chuẩn hoá bỏ số) trùng ở ≥ bấy nhiêu
-    # trang → giữ lần đầu, bỏ các lần sau.
+    # Header chạy đầu trang (đường Docling): nội dung (sau chuẩn hoá, GIỮ số) trùng ở ≥ bấy nhiêu
+    # trang → giữ lần đầu, bỏ các lần sau. Chỉ xét khối nằm trong dải mép trên (``top_ratio`` ≤
+    # ``band_ratio``) để không bỏ nhầm nhãn mục giữa trang.
     running_header_min_pages: int = 3
+    # TẮT MẶC ĐỊNH (SPIKE-4 v4): trên sách tra cứu mẫu (Đông y), Docling đặt header chạy thật
+    # ("CẠO GIÓ BẢO VỆ SỨC KHỎE", top_ratio≈0.10) **cùng dải dọc** với heading mục thật và nhãn
+    # "LẤY HUYỆT"/"Tên gọi:" (0.10–0.17) — KHÔNG trong dải mép trên 0.08. Thêm điều kiện bbox thì
+    # không còn header nào bị bỏ (removed=0); nới ngưỡng sẽ bỏ nhầm heading thật. Theo chủ trương
+    # "không chồng thêm heuristic", để bước này **tắt mặc định**; bật khi có sách header nằm sát
+    # mép trên thật sự. Xem docs/spikes/spike-4-docling.md §v4.
+    drop_running_headers_enabled: bool = False
 
 
 # Dấu kết câu (docs/03 §6). Các ký tự đóng (ngoặc/nháy) được "trong suốt": bỏ ở cuối rồi mới xét.
@@ -401,9 +409,14 @@ class RunningHeaderResult:
 def drop_running_headers(
     blocks: list[Block], config: ReflowConfig | None = None
 ) -> RunningHeaderResult:
-    """Bỏ **tiêu đề chạy đầu trang** lặp lại (đường Docling — khối không có toạ độ).
+    """Bỏ **tiêu đề chạy đầu trang** lặp lại (đường Docling).
 
-    "Đầu trang" = khối **mở đầu** mỗi trang theo thứ tự đọc, nếu là ``Heading`` hoặc khối ngắn.
+    "Đầu trang" = khối **mở đầu** mỗi trang theo thứ tự đọc, nếu là ``Heading`` (hoặc khối ngắn)
+    **và nằm trong dải mép trên** — ``top_ratio`` ghi được và ≤ ``band_ratio`` (tái dùng ngưỡng dải
+    mép của heuristic). Điều kiện ``top_ratio`` tránh bỏ nhầm **nhãn mục thật** nằm giữa trang (vd
+    "Tên gọi:", "LẤY HUYỆT" trong sách tra cứu — lặp đầu mỗi bài nhưng không ở mép trên). Khối
+    **không có** ``top_ratio`` (đường heuristic) → không bao giờ là ứng viên.
+
     Dùng :func:`_running_head_key` (**giữ chữ số** + hạ thường) làm khoá so khớp. Khoá xuất hiện ở
     đầu trang trên ≥ ``running_header_min_pages`` trang khác nhau → **giữ lần đầu, bỏ các lần sau**.
     Trả :class:`RunningHeaderResult` — ``examples`` liệt kê header duy nhất đã bỏ + số trang (giống
@@ -412,6 +425,9 @@ def drop_running_headers(
     config = config or ReflowConfig()
 
     def is_head_candidate(b: Block) -> bool:
+        top = getattr(b, "top_ratio", None)
+        if top is None or top > config.band_ratio:
+            return False
         return isinstance(b, Heading) or (
             isinstance(b, Paragraph) and _non_space_len(b.text) <= config.garbage_short_max_chars
         )

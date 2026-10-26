@@ -145,10 +145,11 @@ def convert_pdf(
             )
         blocks = build_blocks(doc_model, config.reflow)
 
-    # Đường Docling: bỏ tiêu đề chạy đầu trang lặp (khối không có toạ độ như heuristic).
+    # Đường Docling: bỏ tiêu đề chạy đầu trang lặp (dùng ``top_ratio`` từ bbox để chỉ xét khối ở
+    # dải mép trên). TẮT MẶC ĐỊNH — xem ``ReflowConfig.drop_running_headers_enabled`` & spike-4 §v4.
     running_headers_removed = 0
     running_header_examples: tuple[str, ...] = ()
-    if engine_used == "docling":
+    if engine_used == "docling" and config.reflow.drop_running_headers_enabled:
         header_result = drop_running_headers(blocks, config.reflow)
         blocks = header_result.kept
         running_headers_removed = header_result.removed

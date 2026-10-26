@@ -179,7 +179,59 @@ Thêm **2 khối DÀI điểm thấp** được **giữ** (ghi cảnh báo, nghi
 **Kiểm**: build 2 lần **byte-identical** ✓; **epubcheck: HỢP LỆ (valid)** ✓; EPUB 2.7 MB, 161 ảnh,
 7 file XHTML.
 
-### v3 — Lọc dòng rác (âm tiết Việt) + bỏ tiêu đề chạy đầu trang (`PIPELINE_VERSION 3`)
+### v4 — Bỏ tiêu đề chạy đầu trang: thêm điều kiện bbox → TẮT mặc định (`PIPELINE_VERSION 4`)
+
+**Vấn đề (từ v3)**: bước bỏ tiêu đề chạy đầu trang chỉ xét "khối **mở đầu** trang theo thứ tự đọc,
+lặp ≥ 3 trang". Docling đã tự bỏ nhãn `page_header`/`page_footer`, nên phần còn lại là **heading
+thật** — tiêu chí này quá yếu với **sách tra cứu** (mỗi bài huyệt lặp cùng bộ nhãn). v3 đã bỏ **10
+khối** (3 duy nhất), trong đó **2 là nhãn mục THẬT bị xoá oan**:
+
+| Header v3 bỏ | Số trang | Thực chất |
+|---|---|---|
+| `CẠO GIÓ BẢO VỆ SỨC KHỎE` | ×5 | tiêu đề chạy thật |
+| `LẤY HUYỆT` | ×3 | **nhãn mục thật** (xoá oan) |
+| `Tên gọi:` | ×5 | **nhãn mục thật** (xoá oan) |
+
+**Sửa**: adapter Docling ghi `top_ratio` = `prov[0].bbox` quy về gốc trên-trái / chiều cao trang
+(None nếu không có toạ độ — đường heuristic). `drop_running_headers` chỉ coi là ứng viên khi
+`top_ratio` ≤ `band_ratio` (0.08, **tái dùng** dải mép của heuristic, không thêm hằng số).
+
+**Kết quả trên cuốn mẫu** (`top_ratio` đo thực tế của các khối mở đầu trang):
+
+- Tiêu đề chạy thật `CẠO GIÓ BẢO VỆ SỨC KHỎE`: `top_ratio` ≈ **0.10** (các trang 208/214/220/224/228).
+- Nhãn `LẤY HUYỆT` ≈ **0.17**; `Tên gọi:` ≈ **0.17**; heading mục thật `□ PHƯƠNG PHÁP CẠO GIÓ…`
+  ≈ **0.10–0.17**.
+
+→ Header chạy thật nằm **cùng dải dọc** với heading mục thật & nhãn; **không** khối nào ≤ 0.08. Thêm
+điều kiện bbox thì **không còn header nào bị bỏ** (removed = **10 → 0**). Nới ngưỡng để bắt 0.10 sẽ
+bỏ nhầm hàng loạt heading mục thật.
+
+**Quyết định**: theo tiêu chí bước 4 ("nếu không còn header nào bị bỏ → TẮT bước này mặc định thay vì
+chồng thêm heuristic") → thêm cờ `ReflowConfig.drop_running_headers_enabled` **mặc định `False`**;
+`convert` chỉ gọi bước này khi cờ bật. Giữ nguyên hàm (đã có điều kiện bbox) để bật cho sách thật sự
+có header sát mép trên. Đổi output → **`PIPELINE_VERSION 3 → 4`**.
+
+**Số liệu v3 → v4** (cùng mốc 366 215 ký tự lớp chữ PDF; `convert --engine docling` toàn cuốn):
+
+| Chỉ số | v3 | **v4** |
+|---|---|---|
+| Header chạy đầu trang bỏ | 10 (gồm 2 nhãn oan) | **0 (bước tắt)** |
+| Heading (cuối) | 702 | **712** (+10 khối giữ lại) |
+| Độ phủ chữ (raw / theo trang) | 95.72% / 95.35% | **95.78% / 95.38%** (không tụt) |
+| Khối rác bỏ / mục lục bỏ | 23 / 12 | **23 / 12** (không đổi) |
+| `Tên gọi:` / `LẤY HUYỆT` còn trong EPUB | bị bỏ | **giữ** (8 / 28 khối) |
+| EPUB | 2.7 MB, 161 ảnh, 7 file | **2.71 MB, 161 ảnh, 7 file** |
+| epubcheck / tất định | HỢP LỆ / ✓ | **HỢP LỆ / ✓ byte-identical** |
+
+> Giữ lại `CẠO GIÓ BẢO VỆ SỨC KHỎE` lặp 5 lần là đánh đổi chấp nhận được: thừa một tiêu đề chạy ít
+> hại hơn **xoá mất nhãn mục thật**. Unit test mới: nhãn giữa trang (`top_ratio`≈0.3) → giữ; khối
+> không có `top_ratio` → không bao giờ bỏ; header sát mép trên lặp ≥3 → vẫn bỏ (khi bật).
+
+### v3 — Lọc dòng rác (âm tiết Việt) + bỏ tiêu đề chạy đầu trang (`PIPELINE_VERSION 3`) — ĐÃ THAY THẾ
+
+> **ĐÃ THAY THẾ** (giữ cho lịch sử): mục này mô tả bản đầu (dùng `_band_key` bỏ số, "27 khối",
+> header `ĐÔNG Y VÀ BÍ QUYẾT…`) **trước** 2 lần sửa review — xem **"### v3 chi tiết"** ở trên cho số
+> liệu v3 đúng, và **"### v4"** cho trạng thái hiện tại. Số dưới đây **không còn hiệu lực**.
 
 Hai bước hậu xử lý trên danh sách khối (áp **sau** Docling/heuristic, **trước** khi dựng EPUB):
 
