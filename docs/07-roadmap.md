@@ -45,23 +45,23 @@ graph TD
 
 ## Mốc 1 — Pipeline ra EPUB sạch, đọc bằng KOReader · ~24h (~2.5 tuần) · [Pipeline]
 
-> **Bản dùng được**: bạn đọc được sách thật trong kho của mình ở chế độ reflow **ngay trên KOReader**, chưa cần app Sepia.
+> **Bản dùng được**: bạn đọc được sách thật trong kho của mình ở chế độ reflow, chưa cần app Sepia.
 >
-> **Trạng thái (đang làm, CHƯA đạt)**: khung `convert` **chạy được** đầu-cuối (PR #4, chưa merge) và
-> EPUB **epubcheck hợp lệ + build tất định**, NHƯNG **chất lượng chưa đạt** trên mẫu duy nhất hiện có —
-> `Tự Học Đông Y - Bùi Huy.pdf` hóa ra là **sách scan ABBYY FineReader 11**: mọi trang có **ảnh phủ kín +
-> lớp chữ OCR hiển thị** (render mode 0) nằm dưới ảnh. Hệ quả: reflow trộn cột, **mất hình minh hoạ**,
-> heading sai (≈421 h3 / 1 h1, có chương ~655 KB). Đang chạy **SPIKE-4** (so với Docling) để quyết hướng
-> cho sách scan/nhiều cột trước khi coi Mốc 1 là xong.
+> **Trạng thái**: **XONG cho sách `scan_ocr`** (Docling) — mẫu `Tự Học Đông Y - Bùi Huy.pdf` (scan
+> ABBYY FineReader 11) ra EPUB **epubcheck hợp lệ, tất định**, độ phủ chữ **~96%**, 7 file XHTML,
+> 2.7 MB, giữ 161 hình (PR #4 = Mốc 1a đã merge; PR #5 = Mốc 1b định tuyến + Docling). **Đường
+> heuristic (sách born-digital chữ sạch) CHƯA kiểm trên sách thật** (chưa có mẫu loại này). **Chưa
+> đọc thử bằng KOReader** — sẽ kiểm khi có MVP (Mốc 2). `convert` tự chọn engine theo nhãn `detect`
+> (`text_unicode`/`legacy_*` → heuristic; `scan_ocr` → Docling).
 
-- [~] **SPIKE-3** — chuyển mã TCVN3 so dấu bằng mắt (R-03). **4h** — *làm trên dữ liệu **tổng hợp** (`out/spike3_synthetic_tcvn3.txt`) vì `samples/` chưa có sách TCVN3/VNI thật; round-trip khớp 100%. VNI hoãn (chưa có bảng + chưa có mẫu).*
-- [x] `extract.py` trích **theo span** (PyMuPDF `get_text("dict", sort=True)`) + SHA-256 + mô hình `model.py`. **3h**
-- [x] `legacy_encoding.py` — port bảng TCVN3 (libiconv, dời từ test — một nguồn), NFC, theo span. VNI chưa làm (không có mẫu). **5h**
-- [~] `reflow.py` + `toc.py` — **khung xong, chất lượng chưa đạt**: ghép đoạn + bỏ header/footer/số trang chạy; nhưng trên sách scan nhiều cột thì thứ tự đọc lẫn và heading sai. Đang chỉnh (giới hạn độ dài heading, gộp khối chữ-to thành đoạn, chia chương + cắt file theo kích thước). **6h → còn tiếp**
-- [x] `build_epub.py` (ebooklib 0.20) + **`dc:identifier` ổn định** + CSS **`font-family: serif` mặc định** (+ cờ `--font-profile` + `font_profiles.toml`) + nhúng trang ảnh (US-A6) + **EPUB tất định từng byte**. **3h**
-- [~] `quality.py` kiểm tra nhẹ (whitelist CJK) + **epubcheck** (có Java) — xong. **SPIKE-4** (so Docling, đọc KOReader) **đang làm**; sách scan cho thấy heuristic chưa đủ cho loại này.
-- **Thành quả (chưa đạt)**: khung `convert` chạy + EPUB hợp lệ/tất định trên 1 cuốn, **nhưng cuốn đó là scan nên đọc chưa tốt**. Cần: thêm **mẫu chữ sạch** vào `samples/`, hoàn tất SPIKE-4, rồi mới chốt ngưỡng + hướng xử lý scan/nhiều cột.
-- ⚠️ **SPIKE-0/mẫu hiện tại chủ yếu là scan có lớp OCR** → đúng cảnh báo R-11: cần nhánh riêng cho sách scan/nhiều cột (Docling hoặc OCR lại). Xem [docs/spikes/spike-4-docling.md](./spikes/spike-4-docling.md).
+- [~] **SPIKE-3** — chuyển mã TCVN3 so dấu bằng mắt (R-03). *Làm trên dữ liệu **tổng hợp** (`out/spike3_synthetic_tcvn3.txt`) vì `samples/` chưa có sách TCVN3/VNI thật; round-trip khớp 100%. VNI hoãn.*
+- [x] `extract.py` trích **theo span** (PyMuPDF `get_text("dict", sort=True)`) + SHA-256 + `model.py`.
+- [x] `legacy_encoding.py` — port bảng TCVN3 (libiconv, một nguồn), NFC, theo span. VNI chưa làm (không có mẫu).
+- [x] `reflow.py` + `toc.py` — ghép đoạn (vắt trang), bỏ header/footer/số trang + **mục lục in sẵn**, heading (giới hạn độ dài/dòng), chia chương + cắt file theo kích thước. *(Hiệu chỉnh ngưỡng chữ-sạch chờ có mẫu + đọc KOReader.)*
+- [x] `build_epub.py` (ebooklib 0.20) + **`dc:identifier` ổn định** + CSS `serif` (+ `--font-profile`) + trang ảnh (US-A6) + **EPUB tất định từng byte** + nén ảnh (JPEG q80/≤1200px).
+- [x] `quality.py` kiểm nhẹ (whitelist CJK, % đoạn ngắn, độ phủ chữ) + **epubcheck**. **SPIKE-4** (so Docling) xong → chọn định tuyến theo engine. Xem [docs/spikes/spike-4-docling.md](./spikes/spike-4-docling.md).
+- [x] **Định tuyến engine + Docling cho `scan_ocr`** (Mốc 1b): khôi phục chữ trong "picture", gộp chương, nén ảnh → độ phủ 75%→96%, file 721→7, EPUB 71MB→2.7MB.
+- **Thành quả**: sách `scan_ocr` → EPUB đọc được, `bookUid` ổn định, hợp lệ/tất định. **Còn lại**: thêm **mẫu chữ sạch** để kiểm đường heuristic; **đọc thử KOReader** (làm cùng Mốc 2); VNI khi có mẫu.
 
 ## Mốc 2 — App mở sách + Sepia + nhớ trang (re-anchor + bookUid) · ~29h (~3 tuần) · [App]
 
