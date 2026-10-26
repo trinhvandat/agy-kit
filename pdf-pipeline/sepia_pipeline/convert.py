@@ -22,7 +22,9 @@ from .reflow import (
     ReflowConfig,
     build_blocks,
     collect_warnings,
+    drop_garbage_blocks,
     drop_printed_toc,
+    drop_running_headers,
     is_image_page,
 )
 
@@ -141,6 +143,16 @@ def convert_pdf(
             )
         blocks = build_blocks(doc_model, config.reflow)
 
+    # Đường Docling: bỏ tiêu đề chạy đầu trang lặp (khối không có toạ độ như heuristic).
+    if engine_used == "docling":
+        blocks, header_removed = drop_running_headers(blocks, config.reflow)
+        if header_removed:
+            warnings += (f"đã bỏ {header_removed} tiêu đề chạy đầu trang lặp (Docling)",)
+
+    # Lọc dòng rác theo âm tiết Việt — áp cho CẢ hai engine.
+    garbage = drop_garbage_blocks(blocks, config.reflow)
+    blocks = garbage.kept
+
     blocks, toc_removed = drop_printed_toc(blocks, config.reflow)
     n_image_pages = sum(1 for b in blocks if isinstance(b, ImageBlock))
     epub_report = build_epub(
@@ -151,7 +163,14 @@ def convert_pdf(
         pipeline_version=PIPELINE_VERSION,
     )
 
-    quality = check_blocks(blocks, is_scan_ocr=is_scan_ocr, printed_toc_removed=toc_removed)
+    quality = check_blocks(
+        blocks,
+        is_scan_ocr=is_scan_ocr,
+        printed_toc_removed=toc_removed,
+        garbage_blocks_removed=len(garbage.removed),
+        garbage_examples=garbage.removed,
+        garbage_long_low=len(garbage.long_low_score),
+    )
     if run_check:
         quality = dataclasses.replace(quality, epubcheck=run_epubcheck(str(out_path)))
 

@@ -66,6 +66,7 @@ def format_convert(report: ConvertReport) -> str:
         f"  đoạn/heading: {q.n_paragraphs} đoạn, {q.n_headings} heading"
         f" ({q.pct_short40:.0%} đoạn < 40 ký tự)",
         f"  ký tự rác   : {q.garbage_chars} ({q.garbage_ratio:.4f})",
+        f"  khối rác bỏ : {q.garbage_blocks_removed} khối (điểm âm tiết Việt thấp)",
         f"  mục lục bỏ  : {q.printed_toc_removed} dòng",
         f"  epubcheck   : {q.epubcheck or '(chưa chạy)'}",
     ]

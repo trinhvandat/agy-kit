@@ -39,6 +39,8 @@ class QualityReport:
     nfc_ok: bool
     is_scan_ocr: bool = False
     printed_toc_removed: int = 0
+    garbage_blocks_removed: int = 0
+    garbage_examples: tuple[str, ...] = field(default_factory=tuple)
     warnings: tuple[str, ...] = field(default_factory=tuple)
     epubcheck: str | None = None
 
@@ -116,8 +118,16 @@ def check_blocks(
     *,
     is_scan_ocr: bool = False,
     printed_toc_removed: int = 0,
+    garbage_blocks_removed: int = 0,
+    garbage_examples: tuple[str, ...] = (),
+    garbage_long_low: int = 0,
 ) -> QualityReport:
-    """Chạy các kiểm tra nhẹ trên danh sách khối đã reflow."""
+    """Chạy các kiểm tra nhẹ trên danh sách khối đã reflow.
+
+    ``garbage_blocks_removed``/``garbage_examples``/``garbage_long_low`` do bước lọc rác
+    (:func:`reflow.drop_garbage_blocks`) cung cấp — ghi lại để báo cáo (số khối rác đã bỏ + ví dụ,
+    và số khối dài điểm thấp vẫn giữ nhưng đáng ngờ).
+    """
     config = config or QualityConfig()
     paras = [b for b in blocks if isinstance(b, Paragraph)]
     headings = [b for b in blocks if isinstance(b, Heading)]
@@ -159,6 +169,16 @@ def check_blocks(
         warnings.append(f"{long_} đoạn quá dài (> {config.long_para_chars} ký tự), nghi thiếu ngắt")
     if not nfc_ok:
         warnings.append("có text chưa chuẩn hóa NFC")
+    if garbage_blocks_removed:
+        ex = "; ".join(garbage_examples[:3])
+        warnings.append(
+            f"đã bỏ {garbage_blocks_removed} khối rác (điểm âm tiết Việt thấp)"
+            f"{f' — vd: {ex}' if ex else ''}"
+        )
+    if garbage_long_low:
+        warnings.append(
+            f"{garbage_long_low} khối DÀI điểm âm tiết Việt thấp (giữ lại, nghi OCR/font hỏng)"
+        )
 
     return QualityReport(
         n_paragraphs=len(paras),
@@ -174,6 +194,8 @@ def check_blocks(
         nfc_ok=nfc_ok,
         is_scan_ocr=is_scan_ocr,
         printed_toc_removed=printed_toc_removed,
+        garbage_blocks_removed=garbage_blocks_removed,
+        garbage_examples=tuple(garbage_examples),
         warnings=tuple(warnings),
     )
 

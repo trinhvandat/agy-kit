@@ -20,6 +20,7 @@ from dataclasses import dataclass
 
 from . import toc
 from .model import Block, Document, Heading, ImageBlock, Line, Paragraph, Table
+from .vietnamese import vietnamese_score
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,13 @@ class ReflowConfig:
     # Tiêu đề thật ngắn: ≤ bấy nhiêu dòng liên tiếp cùng cấp. Nhiều hơn (vd lời giới thiệu in chữ
     # to nhiều dòng) → coi là ĐOẠN VĂN, không phải chuỗi heading.
     max_heading_lines: int = 2
+    # Lọc dòng rác theo âm tiết Việt: khối chữ có tỷ lệ âm tiết hợp lệ < ngưỡng VÀ ngắn (heading
+    # hoặc ≤ ``garbage_short_max_chars`` ký tự) → bỏ; khối dài điểm thấp → GIỮ nhưng cảnh báo.
+    garbage_vn_threshold: float = 0.5
+    garbage_short_max_chars: int = 60
+    # Header chạy đầu trang (đường Docling): nội dung (sau chuẩn hoá bỏ số) trùng ở ≥ bấy nhiêu
+    # trang → giữ lần đầu, bỏ các lần sau.
+    running_header_min_pages: int = 3
 
 
 # Dấu kết câu (docs/03 §6). Các ký tự đóng (ngoặc/nháy) được "trong suốt": bỏ ở cuối rồi mới xét.
@@ -321,6 +329,104 @@ def drop_printed_toc(
         else:
             i += 1
     kept = [b for b, d in zip(blocks, drop, strict=True) if not d]
+    return kept, removed
+
+
+# --- Lọc dòng rác (âm tiết Việt) — áp cho cả hai engine ----------------------
+
+
+def _non_space_len(text: str) -> int:
+    return sum(1 for ch in text if not ch.isspace())
+
+
+@dataclass(frozen=True)
+class GarbageFilterResult:
+    """Kết quả lọc rác: khối giữ lại, text khối đã bỏ (ví dụ để báo cáo), khối dài điểm thấp."""
+
+    kept: list[Block]
+    removed: tuple[str, ...]  # text các khối rác ngắn đã bỏ
+    long_low_score: tuple[str, ...]  # khối DÀI điểm thấp: GIỮ nhưng cảnh báo (nghi OCR/ font hỏng)
+
+
+def drop_garbage_blocks(
+    blocks: list[Block], config: ReflowConfig | None = None
+) -> GarbageFilterResult:
+    """Bỏ **khối chữ rác** (tỷ lệ âm tiết Việt hợp lệ thấp) — chỉ khi NGẮN, để không mất nội dung.
+
+    Chỉ xét ``Heading``/``Paragraph`` (ảnh/bảng giữ nguyên). Khối điểm < ``garbage_vn_threshold``:
+    - **ngắn** (heading, hoặc ≤ ``garbage_short_max_chars`` ký tự) → bỏ (rác trang trí / OCR hỏng);
+    - **dài** → giữ (có thể là nội dung thật dính lỗi) nhưng ghi vào ``long_low_score`` để cảnh báo.
+    """
+    config = config or ReflowConfig()
+    kept: list[Block] = []
+    removed: list[str] = []
+    long_low: list[str] = []
+    for b in blocks:
+        if not isinstance(b, Heading | Paragraph):
+            kept.append(b)
+            continue
+        if vietnamese_score(b.text) >= config.garbage_vn_threshold:
+            kept.append(b)
+            continue
+        is_short = (
+            isinstance(b, Heading)
+            or _non_space_len(b.text) <= config.garbage_short_max_chars
+        )
+        if is_short:
+            removed.append(b.text)
+        else:
+            long_low.append(b.text)
+            kept.append(b)
+    return GarbageFilterResult(kept=kept, removed=tuple(removed), long_low_score=tuple(long_low))
+
+
+# --- Bỏ header chạy đầu trang (đường Docling) --------------------------------
+
+
+def drop_running_headers(
+    blocks: list[Block], config: ReflowConfig | None = None
+) -> tuple[list[Block], int]:
+    """Bỏ **tiêu đề chạy đầu trang** lặp lại (đường Docling — khối không có toạ độ).
+
+    "Đầu trang" = khối **mở đầu** mỗi trang theo thứ tự đọc, nếu là ``Heading`` hoặc khối ngắn.
+    Tái dùng :func:`_band_key` (bỏ chữ số + hạ thường) làm khoá so khớp như heuristic. Khoá xuất
+    hiện ở đầu trang trên ≥ ``running_header_min_pages`` trang khác nhau → **giữ lần đầu, bỏ các lần
+    sau**. Trả ``(blocks_còn_lại, số_khối_đã_bỏ)``.
+    """
+    config = config or ReflowConfig()
+
+    def is_head_candidate(b: Block) -> bool:
+        return isinstance(b, Heading) or (
+            isinstance(b, Paragraph) and _non_space_len(b.text) <= config.garbage_short_max_chars
+        )
+
+    # Khối mở đầu mỗi trang (theo thứ tự đọc) + khoá band của nó.
+    leading_key: dict[int, str] = {}  # index khối → khoá band
+    seen_page: set[int] = set()
+    for i, b in enumerate(blocks):
+        page = getattr(b, "page", 0)
+        if page in seen_page:
+            continue
+        seen_page.add(page)
+        if is_head_candidate(b):
+            key = _band_key(getattr(b, "text", ""))
+            if key:
+                leading_key[i] = key
+
+    counts: Counter[str] = Counter(leading_key.values())
+    repeating = {k for k, n in counts.items() if n >= config.running_header_min_pages}
+
+    kept: list[Block] = []
+    first_kept: set[str] = set()
+    removed = 0
+    for i, b in enumerate(blocks):
+        key = leading_key.get(i)
+        if key is not None and key in repeating:
+            if key in first_kept:
+                removed += 1
+                continue
+            first_kept.add(key)
+        kept.append(b)
     return kept, removed
 
 

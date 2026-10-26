@@ -212,6 +212,58 @@ def test_paragraph_break_on_indent() -> None:
     assert len(paras) == 2
 
 
+def test_drop_running_headers_dedups_repeated_page_head() -> None:
+    from sepia_pipeline.reflow import drop_running_headers
+
+    # Tiêu đề chạy đầu trang lặp trên 5 trang (đầu mỗi trang) + thân bài riêng.
+    running = "ĐÔNG Y VÀ BÍ QUYẾT DƯỠNG SINH BỐN MÙA"
+    blocks: list = []
+    for p in range(1, 6):
+        blocks.append(Heading(text=running, level=2, page=p))
+        blocks.append(Paragraph(text=f"Nội dung thân bài của trang {p} đầy đủ và dài.", page=p))
+    kept, removed = drop_running_headers(blocks)
+    assert removed == 4  # 5 lần → giữ 1, bỏ 4
+    assert sum(1 for b in kept if getattr(b, "text", "") == running) == 1
+    # Thân bài không bị đụng.
+    assert sum(1 for b in kept if isinstance(b, Paragraph)) == 5
+
+
+def test_drop_running_headers_keeps_if_below_threshold() -> None:
+    from sepia_pipeline.reflow import drop_running_headers
+
+    running = "CHƯƠNG MỞ ĐẦU"
+    blocks = [Heading(text=running, level=2, page=p) for p in (1, 2)]  # chỉ 2 trang < 3
+    kept, removed = drop_running_headers(blocks)
+    assert removed == 0
+    assert len(kept) == 2
+
+
+def test_drop_running_headers_keeps_distinct_section_headings() -> None:
+    from sepia_pipeline.reflow import drop_running_headers
+
+    blocks = [
+        Heading(text="DƯỠNG SINH MÙA THU", level=1, page=1),
+        Heading(text="THỂ CHẤT KHÍ HƯ", level=2, page=2),
+        Heading(text="KINH MẠCH LÀ GÌ", level=2, page=3),
+        Heading(text="MẤT NGỦ DO TÂM THẦN BẤT AN", level=2, page=4),
+    ]
+    kept, removed = drop_running_headers(blocks)
+    assert removed == 0
+    assert len(kept) == 4
+
+
+def test_drop_running_headers_matches_despite_page_number_in_head() -> None:
+    from sepia_pipeline.reflow import drop_running_headers
+
+    # Header kèm số trang đổi theo trang → _band_key bỏ số nên vẫn khớp.
+    blocks: list = []
+    for p in range(1, 5):
+        blocks.append(Heading(text=f"Dưỡng sinh bốn mùa {p}", level=3, page=p))
+        blocks.append(Paragraph(text=f"Thân bài trang {p} có nội dung thật sự.", page=p))
+    kept, removed = drop_running_headers(blocks)
+    assert removed == 3  # 4 trang → giữ 1, bỏ 3
+
+
 def test_drop_printed_toc_run() -> None:
     from sepia_pipeline.reflow import drop_printed_toc
 
@@ -239,6 +291,72 @@ def test_toc_single_line_kept() -> None:
     kept, removed = drop_printed_toc(blocks)
     assert removed == 0
     assert len(kept) == 2
+
+
+def test_drop_garbage_blocks_removes_ocr_junk_heading() -> None:
+    from sepia_pipeline.reflow import drop_garbage_blocks
+
+    blocks = [
+        Heading(text="?>?H$ 4 í im Àub1$ *íhA", level=1, page=1),  # rác OCR chữ trang trí
+        Heading(text="DƯỠNG SINH MÙA THU", level=1, page=1),  # tiêu đề thật
+        Paragraph(text="Mùa thu khí trời hanh khô, cần dưỡng phế và giữ ẩm cơ thể.", page=1),
+    ]
+    result = drop_garbage_blocks(blocks)
+    kept_texts = [getattr(b, "text", "") for b in result.kept]
+    assert "DƯỠNG SINH MÙA THU" in kept_texts
+    assert any("dưỡng phế" in t for t in kept_texts)
+    assert all("Àub1$" not in t for t in kept_texts)
+    assert "?>?H$ 4 í im Àub1$ *íhA" in result.removed
+
+
+def test_drop_garbage_blocks_keeps_real_headings() -> None:
+    from sepia_pipeline.reflow import drop_garbage_blocks
+
+    blocks = [
+        Heading(text="THỂ CHẤT KHÍ HƯ", level=2, page=3),
+        Heading(text="KINH MẠCH LÀ GÌ?", level=2, page=5),
+        Heading(text="DƯỠNG SINH MÙA THU", level=1, page=7),
+    ]
+    result = drop_garbage_blocks(blocks)
+    assert len(result.kept) == 3
+    assert result.removed == ()
+
+
+def test_drop_garbage_blocks_keeps_sentence_with_foreign_and_cjk() -> None:
+    from sepia_pipeline.reflow import drop_garbage_blocks
+
+    blocks = [
+        Paragraph(text="Mỗi sáng đi spa và ăn vài gram thuốc bổ cho khỏe người.", page=1),
+        Heading(text="Huyệt 穴 trên kinh mạch 經絡", level=2, page=2),
+    ]
+    result = drop_garbage_blocks(blocks)
+    assert len(result.kept) == 2
+    assert result.removed == ()
+
+
+def test_drop_garbage_blocks_long_low_score_kept_but_warned() -> None:
+    from sepia_pipeline.reflow import drop_garbage_blocks
+
+    # Đoạn DÀI điểm thấp (font cũ sót / OCR hỏng cả đoạn) → GIỮ nhưng ghi vào long_low_score.
+    junk_long = " ".join(["Àub1$"] * 30)
+    blocks = [Paragraph(text=junk_long, page=1)]
+    result = drop_garbage_blocks(blocks)
+    assert len(result.kept) == 1  # không bỏ khối dài
+    assert result.removed == ()
+    assert junk_long in result.long_low_score
+
+
+def test_drop_garbage_blocks_ignores_images_and_tables() -> None:
+    from sepia_pipeline.model import Table
+    from sepia_pipeline.reflow import drop_garbage_blocks
+
+    img = ImageBlock(png=b"\x89PNG", page=1)
+    tbl = Table(rows=(("a", "b"),), page=1)
+    blocks = [img, tbl, Heading(text="?>?H$ *íhA Àub1$", level=1, page=1)]
+    result = drop_garbage_blocks(blocks)
+    assert img in result.kept
+    assert tbl in result.kept
+    assert len(result.removed) == 1
 
 
 def test_drop_printed_toc_table() -> None:

@@ -68,6 +68,24 @@ def test_no_heading_warns() -> None:
     assert any("heading" in w for w in r.warnings)
 
 
+def test_garbage_blocks_removed_recorded() -> None:
+    blocks = [Paragraph(text="Một đoạn văn tiếng Việt sạch và đủ dài để không vụn.", page=1)]
+    r = check_blocks(
+        blocks,
+        garbage_blocks_removed=3,
+        garbage_examples=("?>?H$ *íhA", "Àub1$ x"),
+    )
+    assert r.garbage_blocks_removed == 3
+    assert r.garbage_examples == ("?>?H$ *íhA", "Àub1$ x")
+    assert any("rác" in w and "bỏ" in w for w in r.warnings)
+
+
+def test_garbage_long_low_score_warns() -> None:
+    blocks = [Paragraph(text="Một đoạn văn tiếng Việt sạch và đủ dài để không vụn.", page=1)]
+    r = check_blocks(blocks, garbage_long_low=2)
+    assert any("điểm âm tiết Việt thấp" in w for w in r.warnings)
+
+
 def test_epubcheck_valid(tmp_path: Path) -> None:
     pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 16, 16))
     pix.set_rect(pix.irect, (200, 180, 150))
