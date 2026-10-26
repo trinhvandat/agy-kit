@@ -12,7 +12,7 @@ import unicodedata
 from dataclasses import dataclass, field
 
 from .detect import _legacy_counts
-from .model import Block, Heading, ImageBlock, Paragraph
+from .model import Block, Heading, ImageBlock, Paragraph, Table
 
 
 @dataclass(frozen=True)
@@ -45,6 +45,69 @@ class QualityReport:
 
 def _non_space_len(text: str) -> int:
     return sum(1 for ch in text if not ch.isspace())
+
+
+def _block_text(b: Block) -> str:
+    if isinstance(b, Heading | Paragraph):
+        return b.text
+    if isinstance(b, Table):
+        return " ".join(c for row in b.rows for c in row)
+    return ""
+
+
+@dataclass(frozen=True)
+class CoverageReport:
+    """So độ phủ chữ: lớp chữ PDF (PyMuPDF) vs chữ trong các khối sẽ dựng EPUB, theo trang."""
+
+    total_pdf_chars: int
+    total_block_chars: int
+    coverage: float
+    low_pages: tuple[tuple[int, int, int, float], ...]  # (trang, pdf_chars, block_chars, cov)
+    empty_pages: tuple[int, ...]  # trang có chữ PDF nhưng khối rỗng
+    n_pages: int
+    max_block_page: int  # trang lớn nhất có khối → xác nhận đã xử lý tới đâu
+
+
+def text_coverage_by_page(
+    pdf_path, blocks: list[Block], *, low_threshold: float = 0.70
+) -> CoverageReport:
+    """Đếm ký tự lớp chữ PDF từng trang vs ký tự trong khối gán cho trang đó.
+
+    Liệt kê trang phủ < ``low_threshold`` và trang có chữ PDF nhưng khối rỗng.
+    """
+    import pymupdf as fitz
+
+    doc = fitz.open(str(pdf_path))
+    pdf_chars = [_non_space_len(page.get_text("text")) for page in doc]
+    doc.close()
+
+    block_chars: dict[int, int] = {}
+    for b in blocks:
+        block_chars[b.page] = block_chars.get(b.page, 0) + _non_space_len(_block_text(b))
+
+    low: list[tuple[int, int, int, float]] = []
+    empty: list[int] = []
+    for i, pc in enumerate(pdf_chars, start=1):
+        bc = block_chars.get(i, 0)
+        if pc <= 0:
+            continue
+        cov = bc / pc
+        if bc == 0:
+            empty.append(i)
+        if cov < low_threshold:
+            low.append((i, pc, bc, round(cov, 3)))
+
+    total_pdf = sum(pdf_chars)
+    total_block = sum(block_chars.values())
+    return CoverageReport(
+        total_pdf_chars=total_pdf,
+        total_block_chars=total_block,
+        coverage=(total_block / total_pdf) if total_pdf else 0.0,
+        low_pages=tuple(low),
+        empty_pages=tuple(empty),
+        n_pages=len(pdf_chars),
+        max_block_page=max(block_chars) if block_chars else 0,
+    )
 
 
 def check_blocks(
