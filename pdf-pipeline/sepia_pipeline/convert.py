@@ -14,7 +14,7 @@ import pymupdf as fitz
 
 from . import PIPELINE_VERSION
 from .build_epub import EpubReport, build_epub, load_font_family
-from .detect import DetectConfig
+from .detect import DetectConfig, scan_ocr_book_signal
 from .extract import extract_document, render_page_png
 from .model import Document, Page
 from .quality import QualityReport, check_blocks, run_epubcheck
@@ -36,6 +36,7 @@ class ConvertReport:
     epub: EpubReport
     n_pages: int
     n_image_pages: int
+    is_scan_ocr: bool
     quality: QualityReport
     warnings: tuple[str, ...]
     pipeline_version: int
@@ -84,10 +85,15 @@ def convert_pdf(
         fitz_doc.close()
 
     warnings = list(collect_warnings(doc_model, config.reflow))
+    n_pages = len(doc_model.pages)
     n_image_pages = sum(1 for p in doc_model.pages if p.is_image_page)
-    if doc_model.pages and n_image_pages / len(doc_model.pages) > 0.5:
+    # Cuốn scan có lớp OCR hiển thị? (dùng chung tín hiệu với detect, tính trên model đã trích)
+    full_image = sum(1 for p in doc_model.pages if p.has_full_page_image)
+    texty = sum(1 for p in doc_model.pages if p.char_count >= config.detect.scan_min_chars)
+    is_scan_ocr = scan_ocr_book_signal(n_pages, full_image, texty, config.detect)
+    if n_pages and n_image_pages / n_pages > 0.5:
         warnings.append(
-            f"{n_image_pages}/{len(doc_model.pages)} trang là ảnh — sách có thể chủ yếu scan "
+            f"{n_image_pages}/{n_pages} trang là ảnh — sách có thể chủ yếu scan "
             "(cân nhắc OCR, xem R-11); EPUB sẽ phần lớn là ảnh."
         )
 
@@ -100,15 +106,16 @@ def convert_pdf(
         pipeline_version=PIPELINE_VERSION,
     )
 
-    quality = check_blocks(blocks)
+    quality = check_blocks(blocks, is_scan_ocr=is_scan_ocr)
     if run_check:
         quality = dataclasses.replace(quality, epubcheck=run_epubcheck(str(out_path)))
 
     return ConvertReport(
         pdf_name=pdf_path.name,
         epub=epub_report,
-        n_pages=len(doc_model.pages),
+        n_pages=n_pages,
         n_image_pages=n_image_pages,
+        is_scan_ocr=is_scan_ocr,
         quality=quality,
         warnings=(*warnings, *quality.warnings),
         pipeline_version=PIPELINE_VERSION,

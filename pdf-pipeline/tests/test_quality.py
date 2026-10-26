@@ -14,8 +14,14 @@ from sepia_pipeline.quality import check_blocks, run_epubcheck
 def test_clean_blocks_no_warnings() -> None:
     blocks = [
         Heading(text="CHƯƠNG MỘT", level=1, page=1),
-        Paragraph(text="Một đoạn văn tiếng Việt sạch sẽ, đủ dài và đúng dấu.", page=1),
-        Paragraph(text="Đoạn thứ hai cũng bình thường, có chữ Hán 經 絡.", page=1),
+        Paragraph(
+            text="Một đoạn văn tiếng Việt sạch sẽ, đủ dài và đúng dấu để không bị tính là vụn.",
+            page=1,
+        ),
+        Paragraph(
+            text="Đoạn thứ hai cũng bình thường và khá dài, lại có chèn chữ Hán 經 絡 minh hoạ.",
+            page=1,
+        ),
     ]
     r = check_blocks(blocks)
     assert r.n_paragraphs == 2 and r.n_headings == 1
@@ -33,6 +39,27 @@ def test_garbage_flagged() -> None:
     r = check_blocks(blocks)
     assert r.garbage_ratio > 0.02
     assert any("rác" in w for w in r.warnings)
+
+
+def test_short40_ratio_warns() -> None:
+    # >25% đoạn < 40 ký tự → cảnh báo trộn cột / cắt vụn.
+    blocks = [Paragraph(text="ngắn.", page=1) for _ in range(3)]
+    blocks.append(
+        Paragraph(text="Một đoạn dài đầy đủ hơn bốn mươi ký tự để không bị tính là vụn.", page=1)
+    )
+    r = check_blocks(blocks)
+    assert r.pct_short40 > 0.25
+    assert any("< 40 ký tự" in w for w in r.warnings)
+
+
+def test_scan_ocr_warning() -> None:
+    blocks = [
+        Heading(text="C", level=1, page=1),
+        Paragraph(text="Một đoạn văn tiếng Việt đủ dài và sạch sẽ, đúng dấu hoàn toàn.", page=1),
+    ]
+    r = check_blocks(blocks, is_scan_ocr=True)
+    assert r.is_scan_ocr
+    assert any("scan_ocr" in w for w in r.warnings)
 
 
 def test_no_heading_warns() -> None:

@@ -59,9 +59,11 @@ def format_convert(report: ConvertReport) -> str:
         f"  → {report.epub.path}",
         f"  bookUid     : {report.epub.book_uid}",
         f"  pipeline_ver: {report.pipeline_version}",
-        f"  trang       : {report.n_pages} (ảnh: {report.n_image_pages})",
+        f"  trang       : {report.n_pages} (ảnh: {report.n_image_pages})"
+        f"{'  [scan_ocr]' if report.is_scan_ocr else ''}",
         f"  chương/ảnh  : {report.epub.n_chapters} chương, {report.epub.n_images} ảnh nhúng",
-        f"  đoạn/heading: {q.n_paragraphs} đoạn, {q.n_headings} heading",
+        f"  đoạn/heading: {q.n_paragraphs} đoạn, {q.n_headings} heading"
+        f" ({q.pct_short40:.0%} đoạn < 40 ký tự)",
         f"  ký tự rác   : {q.garbage_chars} ({q.garbage_ratio:.4f})",
         f"  epubcheck   : {q.epubcheck or '(chưa chạy)'}",
     ]

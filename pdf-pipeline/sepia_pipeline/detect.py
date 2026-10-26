@@ -492,20 +492,30 @@ _BOOK_LABEL_PRIORITY = {
 }
 
 
-def _is_scan_ocr_book(pages: list[PageResult], config: DetectConfig) -> bool:
-    """Cuốn scan có lớp OCR **hiển thị**: ≥ ngưỡng trang ảnh phủ kín VÀ ≥ ngưỡng trang đủ chữ.
+def scan_ocr_book_signal(
+    n_pages: int, full_image_pages: int, texty_pages: int, config: DetectConfig | None = None
+) -> bool:
+    """Tín hiệu "cuốn scan có lớp OCR hiển thị" từ các con số đếm (hàm thuần, dùng chung).
 
-    Bắt trường hợp ABBYY/Foxit xuất PDF: mỗi trang là ảnh scan + chữ OCR vẽ hiển thị (render mode 0)
-    nằm dưới — quy tắc mức trang (dựa chữ ẩn) không bắt được.
+    ≥ ngưỡng trang ảnh phủ kín VÀ ≥ ngưỡng trang đủ chữ (và đủ số trang) → True. Bắt trường hợp
+    ABBYY/Foxit: mỗi trang là ảnh scan + chữ OCR vẽ **hiển thị** (render mode 0) — quy tắc mức
+    trang (dựa chữ ẩn) không bắt được.
     """
-    n = len(pages)
-    if n < config.scan_ocr_book_min_pages:
+    config = config or DetectConfig()
+    if n_pages < config.scan_ocr_book_min_pages:
         return False
-    full_image = sum(1 for p in pages if p.has_full_page_image)
-    texty = sum(1 for p in pages if p.char_count >= config.scan_min_chars)
     return (
-        full_image / n >= config.scan_ocr_book_image_fraction
-        and texty / n >= config.scan_ocr_book_text_fraction
+        full_image_pages / n_pages >= config.scan_ocr_book_image_fraction
+        and texty_pages / n_pages >= config.scan_ocr_book_text_fraction
+    )
+
+
+def _is_scan_ocr_book(pages: list[PageResult], config: DetectConfig) -> bool:
+    return scan_ocr_book_signal(
+        len(pages),
+        sum(1 for p in pages if p.has_full_page_image),
+        sum(1 for p in pages if p.char_count >= config.scan_min_chars),
+        config,
     )
 
 

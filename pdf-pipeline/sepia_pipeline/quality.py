@@ -20,6 +20,8 @@ class QualityConfig:
     short_para_chars: int = 3  # đoạn ngắn hơn (ký tự không-trắng) → nghi ghép dòng sai
     long_para_chars: int = 2500  # đoạn dài hơn → nghi thiếu ngắt đoạn
     garbage_ratio_warn: float = 0.02  # tỷ lệ ký tự rác vượt mức này → cảnh báo (nghi legacy sót)
+    short40_chars: int = 40  # đoạn < bấy nhiêu ký tự = "vụn"
+    short40_ratio_warn: float = 0.25  # > 25% đoạn vụn → nghi trộn cột / cắt dòng vụn
 
 
 @dataclass(frozen=True)
@@ -32,7 +34,10 @@ class QualityReport:
     garbage_ratio: float
     short_paragraphs: int
     long_paragraphs: int
+    short40_paragraphs: int
+    pct_short40: float
     nfc_ok: bool
+    is_scan_ocr: bool = False
     warnings: tuple[str, ...] = field(default_factory=tuple)
     epubcheck: str | None = None
 
@@ -41,7 +46,9 @@ def _non_space_len(text: str) -> int:
     return sum(1 for ch in text if not ch.isspace())
 
 
-def check_blocks(blocks: list[Block], config: QualityConfig | None = None) -> QualityReport:
+def check_blocks(
+    blocks: list[Block], config: QualityConfig | None = None, *, is_scan_ocr: bool = False
+) -> QualityReport:
     """Chạy các kiểm tra nhẹ trên danh sách khối đã reflow."""
     config = config or QualityConfig()
     paras = [b for b in blocks if isinstance(b, Paragraph)]
@@ -55,6 +62,8 @@ def check_blocks(blocks: list[Block], config: QualityConfig | None = None) -> Qu
 
     short = sum(1 for p in paras if _non_space_len(p.text) < config.short_para_chars)
     long_ = sum(1 for p in paras if _non_space_len(p.text) > config.long_para_chars)
+    short40 = sum(1 for p in paras if _non_space_len(p.text) < config.short40_chars)
+    pct_short40 = short40 / len(paras) if paras else 0.0
     nfc_ok = all(
         b.text == unicodedata.normalize("NFC", b.text)
         for b in blocks
@@ -62,10 +71,17 @@ def check_blocks(blocks: list[Block], config: QualityConfig | None = None) -> Qu
     )
 
     warnings: list[str] = []
+    if is_scan_ocr:
+        warnings.append("cuốn là scan_ocr — chất lượng text phụ thuộc lớp OCR gốc (ABBYY…)")
     if garbage_ratio > config.garbage_ratio_warn:
         warnings.append(
             f"tỷ lệ ký tự rác {garbage_ratio:.3f} > {config.garbage_ratio_warn} "
             f"({suspect} ký tự) — nghi font cũ chưa chuyển hết"
+        )
+    if pct_short40 > config.short40_ratio_warn:
+        warnings.append(
+            f"{pct_short40:.0%} đoạn < {config.short40_chars} ký tự "
+            f"({short40}/{len(paras)}) — nghi trộn cột / cắt dòng vụn"
         )
     if not headings:
         warnings.append("không tìm thấy heading nào — TOC sẽ rỗng, kiểm lại ngưỡng cỡ chữ")
@@ -85,7 +101,10 @@ def check_blocks(blocks: list[Block], config: QualityConfig | None = None) -> Qu
         garbage_ratio=garbage_ratio,
         short_paragraphs=short,
         long_paragraphs=long_,
+        short40_paragraphs=short40,
+        pct_short40=pct_short40,
         nfc_ok=nfc_ok,
+        is_scan_ocr=is_scan_ocr,
         warnings=tuple(warnings),
     )
 
