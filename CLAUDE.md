@@ -59,5 +59,6 @@ sepia/
 
 ## Mốc hiện tại & việc kế tiếp
 
-- **Hiện tại**: đang làm **Mốc 0**. Đã dựng khung `pdf-pipeline/` (uv + PyMuPDF 1.27.x) với bước **`detect`** (phân loại PDF theo trang/span) + test.
-- **Việc kế tiếp (Mốc 0)**: SPIKE-0 = chạy `detect` trên **vài sách mẫu** (`samples/`) → quyết định OCR; SPIKE-2 **Android xong** (khung KMP build xanh, APK chạy được); **iOS còn tồn đọng** (chưa cài Xcode — xem `iosApp/README.md`). Xem [07-roadmap.md](./docs/07-roadmap.md).
+- **Hiện tại**: **Mốc 0 xong phần nền tảng** — `pdf-pipeline/` (uv + PyMuPDF 1.27.x, bước `detect` + test) và **app Android** (khung KMP + Compose MP, build xanh, đã chạy trên emulator: màn hình mở đầu "Sepia"). *(IDE cần Android Studio 2026 ≥ Rabbit để sync AGP 9.)*
+- **Việc kế tiếp**: sang **Mốc 1** (pipeline ra EPUB sạch, đọc bằng KOReader). Còn **SPIKE-0** (chạy `detect` trên `samples/` → quyết định OCR) trong Mốc 0.
+- **Việc riêng đang mở**: **iOS shell** (SPIKE-2 phần iOS) — chưa build iOS lần nào, chưa có `.xcodeproj` (chưa cài Xcode) → **[issue #3](https://github.com/trinhvandat/sepia/issues/3)**, xem `iosApp/README.md`. Xem [07-roadmap.md](./docs/07-roadmap.md).
