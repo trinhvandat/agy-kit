@@ -85,6 +85,25 @@ def full_image_visible_text_pdf(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def scan_ocr_visible_book_pdf(tmp_path: Path) -> Path:
+    """Sách scan kiểu ABBYY: NHIỀU trang ảnh phủ kín + chữ OCR **hiển thị** (render mode 0).
+
+    Không có chữ ẩn → quy tắc mức trang không bắt; phải dựa quy tắc mức CUỐN (≥80% trang ảnh).
+    """
+    doc = fitz.open()
+    for _ in range(6):
+        page = doc.new_page()
+        pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 1, 1))
+        pix.set_rect(pix.irect, (235, 225, 200))
+        page.insert_image(page.rect, pixmap=pix)
+        tw = fitz.TextWriter(page.rect)
+        tw.append((72, 120), VI_UNICODE_TEXT, font=fitz.Font("cjk"), fontsize=14)
+        tw.write_text(page)  # render mode 0 = hiển thị
+    doc.set_metadata({"producer": "ABBYY FineReader 11", "creator": "Foxit"})
+    return _write(doc, tmp_path / "scan_ocr_visible_book.pdf")
+
+
+@pytest.fixture
 def empty_pdf(tmp_path: Path) -> Path:
     """Trang trắng, không chữ không ảnh → empty."""
     doc = fitz.open()

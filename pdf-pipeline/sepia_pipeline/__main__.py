@@ -26,12 +26,14 @@ def format_human(result: BookResult) -> str:
     dist = ", ".join(f"{label}={n}" for label, n in sorted(result.page_distribution.items()))
     fonts = ", ".join(result.legacy_fonts) if result.legacy_fonts else "—"
     scan_ocr = result.page_distribution.get(SCAN_OCR, 0)
+    source = " / ".join(x for x in (result.producer, result.creator) if x) or "—"
     lines += [
         f"  loại chính : {result.label}",
         f"  số trang   : {result.n_pages}",
         f"  phân bố    : {dist or '—'}",
         f"  font legacy: {fonts}",
         f"  scan/scan_ocr/empty : {result.scan_pages} / {scan_ocr} / {result.empty_pages}",
+        f"  nguồn (gợi ý): {source}",
     ]
     return "\n".join(lines)
 

@@ -160,3 +160,26 @@ def test_encrypted_pdf_returns_error_not_crash(encrypted_pdf: Path) -> None:
 def test_missing_file_returns_error(tmp_path: Path) -> None:
     res = detect_pdf(tmp_path / "khong-ton-tai.pdf")
     assert res.error is not None
+
+
+def test_scan_ocr_visible_book_labeled_scan_ocr(scan_ocr_visible_book_pdf: Path) -> None:
+    # Sách scan ABBYY: mọi trang ảnh phủ kín + chữ OCR hiển thị → nhãn cuốn scan_ocr (mức CUỐN).
+    res = detect_pdf(scan_ocr_visible_book_pdf)
+    assert res.label == SCAN_OCR
+    assert res.producer == "ABBYY FineReader 11"
+    assert res.creator == "Foxit"
+    # Trang lẻ vẫn được gán theo nội dung (có chữ hiển thị) — không phải trang nào cũng scan_ocr.
+    assert res.page_distribution.get(TEXT_UNICODE, 0) >= 1
+
+
+def test_single_image_page_does_not_flip_book(multi_page_pdf: Path) -> None:
+    # Sách chữ thường (không ảnh phủ kín) → KHÔNG bị gán scan_ocr.
+    res = detect_pdf(multi_page_pdf)
+    assert res.label == TEXT_UNICODE
+
+
+def test_single_page_full_image_not_scan_ocr_book(full_image_visible_text_pdf: Path) -> None:
+    # 1 trang ảnh nền + chữ hiển thị: quá ít trang (< min_pages) → KHÔNG kết luận cuốn scan_ocr.
+    res = detect_pdf(full_image_visible_text_pdf)
+    assert res.label != SCAN_OCR
+    assert res.label == TEXT_UNICODE
