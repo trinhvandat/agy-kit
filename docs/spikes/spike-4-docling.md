@@ -82,26 +82,36 @@ bên nào sửa được nếu không **OCR lại** (Tesseract/Surya `vie`). Đ�
 
 Chạy `convert` toàn bộ `Tự Học Đông Y - Bùi Huy.pdf` (PIPELINE_VERSION 2, đã bỏ mục lục in sẵn):
 
-| Chỉ số | `--engine heuristic` | `--engine docling` (auto) |
-|---|---|---|
-| Thời gian (CPU) | ~tức thì | **~51 giây** |
-| Chương (file XHTML) | 10 | **721** ⚠️ (mỗi section-header → 1 chương) |
-| Hình nhúng | 4 (chỉ render nguyên trang scan) | **351 hình cắt rời** |
-| Đoạn văn | 5220 | 1535 |
-| Heading | 398 (lẫn rác) | 720 (sạch hơn) |
-| **% đoạn < 40 ký tự** | **53.5%** (trộn cột/vụn) | **21.9%** (tốt hơn hẳn) |
-| Mục lục in sẵn bỏ | 3 dòng | 12 dòng |
-| Tỷ lệ ký tự rác | 0.0007 | 0.0005 |
-| NFC nhất quán | ✓ | ✓ |
-| epubcheck | **HỢP LỆ** | **HỢP LỆ** |
-| Kích thước EPUB | 2.5 MB | **71 MB** (351 ảnh, `images_scale=2.0`) |
-| Tất định (2 lần build) | ✓ byte-identical | ✓ byte-identical |
+Lớp chữ PDF (PyMuPDF) = **366 215 ký tự** (mốc so độ phủ).
 
-**Nhận xét**: Docling **giảm mạnh đoạn vụn** (53.5% → 21.9%) và **giữ được 351 hình** — đúng điểm yếu
-nhất của heuristic trên sách minh hoạ. Hai điểm cần tinh chỉnh (ghi nhận, chưa làm ở 1b):
-1. **721 chương quá nhiều** (mỗi section-header thành một file) → TOC rất dài. Hướng chỉnh: chỉ chia
-   file theo heading **cấp cao nhất** + dựa thêm size-cap, hoặc gộp heading nhỏ.
-2. **EPUB 71 MB** do nhúng 351 ảnh ở `images_scale=2.0` → cân nhắc hạ scale/nén để nhẹ hơn.
+| Chỉ số | `--engine heuristic` | Docling (1b đầu) | **Docling (sau sửa)** |
+|---|---|---|---|
+| Thời gian trích (CPU) | ~1.4 giây | ~43 giây | **~43 giây** |
+| **Ký tự** (trong EPUB) | 364 192 | 275 467 | **351 337** |
+| **Từ** | 101 419 | — | **100 081** |
+| **% độ phủ chữ** (so lớp chữ PDF) | 99.6% | 75.2% ⚠️ | **95.9%** |
+| **Số file XHTML** | 9 | 721 ⚠️ | **7** |
+| **Kích thước EPUB** | 0.3 MB | 71 MB ⚠️ | **2.7 MB** |
+| **Số ảnh nhúng** | 4 | 351 | **161** (bỏ ảnh tí hon; khung chữ → text) |
+| Heading | 398 | 720 | 720 |
+| **% đoạn < 40 ký tự** | 53.5% | 21.9% | **20.1%** |
+| Mục lục in sẵn bỏ | 3 dòng | 12 | 12 dòng |
+| epubcheck | HỢP LỆ | HỢP LỆ | **HỢP LỆ** |
+| Tất định (2 lần build) | ✓ | ✓ | ✓ byte-identical |
+
+**Trước khi sửa (1b đầu)**: Docling chỉ phủ **75.2%** chữ — mất ~25% nội dung thật vì coi **khung chữ
+là "picture"** (chỉ cắt ảnh). 106 trang < 70%, 28 trang rỗng (vd trang 23: 2767 ký tự → 0).
+
+**Sau khi sửa (bước 1–4)**:
+- **Khôi phục chữ trong picture** (đọc lớp chữ PDF trong bbox): độ phủ **75.2% → 95.9%** (≈ 96.3% so
+  với heuristic). Phần còn thiếu chủ yếu là **mục lục in sẵn** (trang 9–11) — đã cố ý bỏ — và vài
+  trang bìa/giới thiệu.
+- **Gộp chương**: 721 → **7 file** (chỉ cắt theo kích thước + heading cấp cao hiếm; 720 heading vẫn
+  là mục nav qua anchor).
+- **Nén ảnh**: 71 MB → **2.7 MB** (JPEG q80, cạnh ≤ 1200 px; bỏ ảnh tí hon < 64 px).
+
+**Còn lại / đánh đổi**: Docling vẫn ~**43 giây/cuốn** (CPU) và kéo theo dep nặng; chất lượng chữ bị
+chặn bởi OCR gốc (ABBYY). Nếu OCR gốc kém → cân nhắc OCR lại `vie` (US-A7).
 
 ## Phụ lục — số liệu máy chạy
 `summary.json`: `seconds=41.07`, `seconds_per_page=4.11`, `n_pictures=10`, `ocr_used=false`
