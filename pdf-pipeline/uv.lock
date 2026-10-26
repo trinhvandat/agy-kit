@@ -2750,6 +2750,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "ebooklib" },
+    { name = "pillow" },
     { name = "pymupdf" },
 ]
 
@@ -2761,7 +2762,6 @@ docling = [
 [package.dev-dependencies]
 dev = [
     { name = "epubcheck" },
-    { name = "pillow" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -2770,6 +2770,7 @@ dev = [
 requires-dist = [
     { name = "docling", marker = "extra == 'docling'", specifier = ">=2.142,<3" },
     { name = "ebooklib", specifier = ">=0.20,<0.21" },
+    { name = "pillow", specifier = ">=11,<14" },
     { name = "pymupdf", specifier = ">=1.27.2,<1.28" },
 ]
 provides-extras = ["docling"]
@@ -2777,7 +2778,6 @@ provides-extras = ["docling"]
 [package.metadata.requires-dev]
 dev = [
     { name = "epubcheck", specifier = ">=5.3.0" },
-    { name = "pillow", specifier = ">=11,<14" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "ruff", specifier = ">=0.6" },
 ]
