@@ -49,7 +49,7 @@ flowchart TD
 Dùng **PyMuPDF (fitz)** `1.27.x`. Với mỗi trang:
 
 - **Text vs scan**: ít chữ (`< scan_min_chars`, không tính khoảng trắng) + ảnh phủ **union** ≥ `scan_image_coverage` ⇒ `scan`; ít chữ không ảnh lớn ⇒ `empty`.
-- **Scan có lớp OCR (`scan_ocr`)**: **đủ chữ VÀ** ảnh phủ ≥ `scan_image_coverage` ⇒ ảnh scan kèm text layer (thường do OCR). Đếm **tỷ lệ chữ ẩn** (render mode 3, qua `page.get_texttrace()`) ghi vào `PageResult.hidden_text_ratio` để xác nhận.
+- **Scan có lớp OCR (`scan_ocr`)**: đủ chữ + ảnh phủ ≥ `scan_image_coverage` **và** phần lớn chữ là **ẩn** (`hidden_text_ratio ≥ scan_ocr_hidden_min`, đo render mode 3 qua `page.get_texttrace()` — chỉ gọi khi có ảnh phủ kín). Nếu chữ **hiển thị thật** trên nền ảnh thì phân loại theo mã chữ bình thường và chỉ bật cờ `PageResult.has_full_page_image`. Khi độ phủ **dừng sớm** (trang rất nhiều ảnh), `image_coverage` là **cận dưới** và `PageResult.coverage_is_lower_bound = True`.
 - **Nội dung thắng tên font**: span có **chữ Việt Unicode thật** (U+1EA0–U+1EF9 hoặc ơ ư ă đ…) thì coi là `text_unicode` dù tên font khớp `.Vn*`/`VNI-*` (tên font vẫn ghi lại để theo dõi).
 - **Font cũ (TCVN3/VNI)** — hai lớp heuristic để chắc hơn:
   1. **Tên font** từ `page.get_fonts()` / span `font`. Regex phải **xử lý tiền tố subset** dạng `ABCDEF+` (6 chữ in hoa + `+`):

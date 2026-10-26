@@ -67,12 +67,19 @@ Mỗi file in: **loại chính**, **phân bố nhãn theo trang**, **tên font l
 | `legacy_vni` | Span dùng font cũ VNI (`VNI-Times`…) |
 | `legacy_other` | Nghi font cũ (heuristic) nhưng không rõ TCVN3 hay VNI |
 | `scan` | Ít chữ + có ảnh phủ phần lớn trang (ảnh scan, chưa có text) |
-| `scan_ocr` | Đủ chữ **và** ảnh phủ phần lớn trang (ảnh scan + lớp text, thường là OCR) |
+| `scan_ocr` | Đủ chữ + ảnh phủ phần lớn trang **và** phần lớn chữ là **ẩn** (render mode 3) → ảnh scan + lớp OCR |
 | `empty` | Ít chữ, không có ảnh lớn (trang trắng/gần trắng) |
 | `mixed` | Một trang trộn nhiều loại mã (vd vừa Unicode vừa legacy) |
 
-> `scan_ocr` còn kèm `hidden_text_ratio` trong `PageResult` (JSON) — tỷ lệ ký tự vẽ ẩn (render
-> mode 3), dấu hiệu lớp OCR nằm dưới ảnh.
+> **`scan_ocr` cần bằng chứng chữ ẩn.** Chỉ "ảnh phủ kín + đủ chữ" là **chưa đủ**: nếu chữ
+> **hiển thị thật** (vd chữ in trên nền ảnh) thì trang được phân loại theo mã chữ bình thường
+> (`text_unicode`/`legacy_*`…) và chỉ bật cờ `has_full_page_image = true`. Để thành `scan_ocr`
+> cần `hidden_text_ratio ≥ scan_ocr_hidden_min` (mặc định 0.5).
+>
+> Các trường bổ trợ trong `PageResult` (JSON): `hidden_text_ratio` (tỷ lệ ký tự vẽ ẩn — chỉ đo
+> khi có ảnh phủ kín, trang khác = 0.0), `has_full_page_image` (có ảnh phủ ≥ ngưỡng, dù nhãn là
+> gì), `coverage_is_lower_bound` (độ phủ đã **dừng sớm** nên chỉ là **cận dưới** — xảy ra ở trang
+> rất nhiều ảnh).
 
 ### Ngưỡng (có thể chỉnh — `DetectConfig`)
 
