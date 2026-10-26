@@ -29,7 +29,7 @@ sdk.dir=/Users/<ban>/Library/Android/sdk
 
 # Cài & mở trên emulator/thiết bị (cần adb trong PATH hoặc dùng đường dẫn đầy đủ)
 adb install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk
-adb shell am start -n com.sepia/.MainActivity
+adb shell am start -n io.github.trinhvandat.sepia/.MainActivity
 ```
 
 > Ghi chú: AGP 9 không cho `com.android.application` ở chung module với plugin KMP, nên `:composeApp` là **thư viện** KMP, còn `:androidApp` là **launcher** mỏng. Build app phải gọi `:androidApp:assembleDebug` (không phải `:composeApp`).

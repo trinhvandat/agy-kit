@@ -19,8 +19,8 @@ kotlin {
     }
 
     // iOS: cùng codebase, làm sau (SPIKE-2 phần iOS). Framework tĩnh cho iosApp link vào.
+    // Máy phát triển là Apple Silicon → chỉ cần iosArm64 (thiết bị) + iosSimulatorArm64 (simulator).
     listOf(
-        iosX64(),
         iosArm64(),
         iosSimulatorArm64(),
     ).forEach { iosTarget ->
