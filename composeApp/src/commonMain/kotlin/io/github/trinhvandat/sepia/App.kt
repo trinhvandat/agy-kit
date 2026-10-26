@@ -1,35 +1,87 @@
 package io.github.trinhvandat.sepia
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
+import io.github.trinhvandat.sepia.data.BookRepository
+import io.github.trinhvandat.sepia.data.ImportBookUseCase
+import io.github.trinhvandat.sepia.domain.ImportOutcome
+import io.github.trinhvandat.sepia.feature.LibraryContent
+import io.github.trinhvandat.sepia.feature.ReaderContent
+import io.github.trinhvandat.sepia.feature.rememberEpubPicker
+import io.github.trinhvandat.sepia.theme.SepiaTheme
 import io.github.trinhvandat.sepia.variant.VariantConfig
+import kotlinx.coroutines.launch
+import org.koin.compose.KoinContext
+import org.koin.compose.koinInject
 
-/** Màu nền sepia dịu mắt (docs/01 phong cách sách giấy). */
-private val BackgroundSepia = Color(0xFFF2E7D0)
+private val SepiaColors = lightColorScheme(
+    background = Color(SepiaTheme.BackgroundArgb),
+    surface = Color(SepiaTheme.BackgroundArgb),
+    onBackground = Color(SepiaTheme.ForegroundArgb),
+    onSurface = Color(SepiaTheme.ForegroundArgb),
+    primary = Color(SepiaTheme.ForegroundArgb),
+)
 
-/** Màn hình mở đầu: nền sepia, hiện tên app lấy từ VariantConfig. */
+/**
+ * Gốc app: thư viện ↔ màn đọc (điều hướng bằng state, chưa cần thư viện nav — một người, MVP).
+ * Yêu cầu Koin đã khởi tạo (Android: Application.onCreate → initKoinAndroid).
+ */
 @Composable
 fun App(variant: VariantConfig = VariantConfig.Default) {
-    MaterialTheme {
-        Box(
-            modifier = Modifier.fillMaxSize().background(BackgroundSepia),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = variant.appName,
-                color = Color(variant.brandColor),
-                fontSize = 40.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
+    MaterialTheme(colorScheme = SepiaColors) {
+        KoinContext {
+            val repo = koinInject<BookRepository>()
+            val importer = koinInject<ImportBookUseCase>()
+            val scope = rememberCoroutineScope()
+
+            val books by repo.observeBooks().collectAsState(initial = emptyList())
+            var openId by remember { mutableStateOf<String?>(null) }
+            var reAnchorId by remember { mutableStateOf<String?>(null) }
+            var status by remember { mutableStateOf<String?>(null) }
+
+            val pickEpub = rememberEpubPicker { picked ->
+                scope.launch {
+                    val fallback = picked.displayName.removeSuffix(".epub")
+                    status = when (val outcome = importer.import(picked.bytes, fallback)) {
+                        is ImportOutcome.Created ->
+                            if (outcome.external) "Đã thêm sách ngoài (không re-anchor xuyên bản build)"
+                            else "Đã thêm \"${outcome.book.title}\""
+                        is ImportOutcome.Replaced -> {
+                            if (outcome.contentChanged && outcome.book.positionSnippet != null) {
+                                reAnchorId = outcome.book.id
+                            }
+                            if (outcome.contentChanged) "Đã cập nhật \"${outcome.book.title}\" — sẽ định vị lại vị trí đọc"
+                            else "Sách không đổi"
+                        }
+                    }
+                }
+            }
+
+            val current = openId?.let { id -> books.firstOrNull { it.id == id } }
+            if (current == null) {
+                LibraryContent(
+                    books = books,
+                    onAdd = pickEpub,
+                    onOpen = { openId = it.id },
+                    status = status,
+                    onStatusShown = { status = null },
+                )
+            } else {
+                ReaderContent(
+                    book = current,
+                    needsReAnchor = reAnchorId == current.id,
+                    onBack = { openId = null; reAnchorId = null },
+                    variant = variant,
+                )
+            }
         }
     }
 }
