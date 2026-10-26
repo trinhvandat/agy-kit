@@ -9,8 +9,44 @@ from sepia_pipeline.detect import (
     SCAN_OCR,
     TEXT_UNICODE,
     BookResult,
+    DetectConfig,
+    detect_page,
     detect_pdf,
 )
+
+
+class _Rect:
+    width = 100.0
+    height = 100.0
+
+
+class _FakePage:
+    """Trang giả: get_text("dict") trả span; get_text() KHÔNG tham số → lỗi (điểm 5)."""
+
+    number = 0
+    rect = _Rect()
+
+    def __init__(self, text: str) -> None:
+        self._text = text
+
+    def get_text(self, kind: str | None = None):
+        if kind != "dict":
+            raise AssertionError("detect_page không được gọi get_text() thường (điểm 5)")
+        return {"blocks": [{"lines": [{"spans": [{"font": "Literata", "text": self._text}]}]}]}
+
+    def get_image_info(self):
+        return []
+
+    def get_texttrace(self):
+        return []
+
+
+def test_detect_page_reads_text_from_dict_spans_only() -> None:
+    text = "Tôi học huyệt vị Đông y mỗi ngày thật chăm chỉ và đều đặn"
+    res = detect_page(_FakePage(text), DetectConfig())
+    assert res.label == TEXT_UNICODE
+    # char_count = số ký tự không-trắng lấy từ span của dict
+    assert res.char_count == sum(1 for ch in text if not ch.isspace())
 
 
 def test_unicode_book(unicode_vi_pdf: Path) -> None:

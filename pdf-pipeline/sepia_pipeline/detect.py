@@ -407,9 +407,11 @@ def _hidden_text_ratio(page: fitz.Page) -> float:
 
 def detect_page(page: fitz.Page, config: DetectConfig) -> PageResult:
     """Phân loại một trang PyMuPDF."""
-    text = page.get_text()
-    char_count = _non_space_len(text)
+    # Điểm 5: chỉ gọi get_text("dict") một lần; text trang dựng từ chính các span (nhất quán với
+    # phần phân loại encoding, tránh hai nguồn trích khác nhau).
     spans = _page_spans(page)
+    text = "\n".join(t for _, t in spans)
+    char_count = _non_space_len(text)
     coverage = _page_image_coverage(page, config)
     label = classify_page(spans, char_count, coverage, config)
     legacy_fonts = tuple(
