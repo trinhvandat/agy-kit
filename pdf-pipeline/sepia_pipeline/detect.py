@@ -45,6 +45,10 @@ class DetectConfig:
       dù tên font sạch (bắt font bị đổi tên). **Heuristic để gắn cờ nghi ngờ, không tuyệt đối.**
     - ``legacy_min_chars``: cần tối thiểu bấy nhiêu ký tự chữ/nghi mới tin heuristic (tránh dương
       tính giả ở span rất ngắn toàn ký hiệu, vd « » °).
+    - ``legacy_long_text_chars`` + ``legacy_no_vi_ratio_threshold``: với văn bản **dài** (≥
+      ``legacy_long_text_chars`` chữ cái) có ký tự nghi nhưng **không** có chữ Việt Unicode thật
+      (mis-decode không bao giờ sinh ạ/ế/đ/ơ…), hạ ngưỡng xuống ``legacy_no_vi_ratio_threshold``
+      để bắt mis-decode nhẹ. Tiếng Pháp/Anh ratio vốn rất thấp (<0.06) nên vẫn an toàn.
     - ``mixed_min_fraction``: ≥ 2 loại mã, mỗi loại chiếm ≥ tỷ lệ này chữ của trang → ``mixed``.
     """
 
@@ -52,6 +56,8 @@ class DetectConfig:
     scan_image_coverage: float = 0.70
     legacy_char_ratio_threshold: float = 0.15
     legacy_min_chars: int = 6
+    legacy_long_text_chars: int = 40
+    legacy_no_vi_ratio_threshold: float = 0.08
     mixed_min_fraction: float = 0.15
 
 
@@ -146,7 +152,16 @@ def classify_span(font_name: str | None, text: str, config: DetectConfig) -> str
         return by_name
     if denom < config.legacy_min_chars:
         return TEXT_UNICODE  # span quá ngắn → không tin heuristic
-    if suspect / denom >= config.legacy_char_ratio_threshold:
+    threshold = config.legacy_char_ratio_threshold
+    # Tín hiệu mạnh (điểm 2): văn bản dài, có ký tự nghi, nhưng KHÔNG có chữ Việt Unicode thật →
+    # nhiều khả năng mis-decode (chứ không phải tiếng Pháp/Anh, vốn ratio rất thấp) → hạ ngưỡng.
+    if (
+        letters >= config.legacy_long_text_chars
+        and suspect > 0
+        and not has_real_vietnamese_unicode(text)
+    ):
+        threshold = config.legacy_no_vi_ratio_threshold
+    if suspect / denom >= threshold:
         return LEGACY_OTHER
     return TEXT_UNICODE
 
