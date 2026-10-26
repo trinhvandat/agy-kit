@@ -1,6 +1,8 @@
 package io.github.trinhvandat.sepia.reader
 
+import android.content.pm.ApplicationInfo
 import android.webkit.WebResourceResponse
+import android.webkit.WebView as AndroidWebView
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -13,6 +15,7 @@ import com.multiplatform.webview.jsbridge.IJsMessageHandler
 import com.multiplatform.webview.jsbridge.JsMessage
 import com.multiplatform.webview.jsbridge.rememberWebViewJsBridge
 import com.multiplatform.webview.web.AccompanistWebViewClient
+import com.multiplatform.webview.web.LoadingState
 import com.multiplatform.webview.web.PlatformWebViewParams
 import com.multiplatform.webview.web.WebView
 import com.multiplatform.webview.web.WebViewNavigator
@@ -57,6 +60,13 @@ actual fun ReaderSurface(
         onDispose { controller.evaluate = null }
     }
 
+    // Khi trang reader.html tải xong → yêu cầu bridge gửi lại bridgeReady (backup cho race, review #2).
+    LaunchedEffect(state.loadingState) {
+        if (state.loadingState is LoadingState.Finished) {
+            navigator.evaluateJavaScript("window.sepia && window.sepia.ping && window.sepia.ping();")
+        }
+    }
+
     // Đăng ký handler JS→Kotlin (một lần cho mỗi bridge).
     LaunchedEffect(jsBridge, controller) {
         jsBridge.register(handler("bridgeReady") { controller.emit(ReaderEvent.BridgeReady) })
@@ -84,6 +94,11 @@ actual fun ReaderSurface(
         captureBackPresses = false,
         navigator = navigator,
         webViewJsBridge = jsBridge,
+        onCreated = { webView ->
+            // Debug build: bật chrome://inspect để soi console/network foliate-js.
+            val debuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+            if (debuggable) AndroidWebView.setWebContentsDebuggingEnabled(true)
+        },
         platformWebViewParams = PlatformWebViewParams(client = client),
     )
 }

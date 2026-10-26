@@ -60,23 +60,30 @@ fun ReaderContent(
     val controller = remember(book.id) { ReaderController() }
     var uiVisible by remember { mutableStateOf(true) }
     var fontScale by remember { mutableStateOf(SepiaTheme.DefaultFontScale) }
-    var failure by remember { mutableStateOf<String?>(null) }
+    var failure by remember(book.id) { mutableStateOf<String?>(null) }
+    var opened by remember(book.id) { mutableStateOf(false) }
+    var ready by remember(book.id) { mutableStateOf(false) }
     val relocations = remember(book.id) { MutableStateFlow<ReaderEvent.Relocated?>(null) }
 
     val css = SepiaTheme.css(fontScale, variant.fontFallback)
 
     ImmersiveReaderEffect(enabled = !uiVisible)
 
-    // Nhận sự kiện từ foliate: mở sách khi bridge sẵn sàng, re-anchor khi cần, gom relocate.
+    // Nhận sự kiện từ foliate: mở sách khi bridge sẵn sàng (idempotent), re-anchor khi cần, gom relocate.
     LaunchedEffect(controller, book.id) {
         controller.events.collect { event ->
             when (event) {
                 ReaderEvent.BridgeReady -> {
-                    controller.applyStyle(css)
-                    val startCfi = if (needsReAnchor) null else book.positionCfi
-                    controller.open(book.contentHash, startCfi)
+                    // bridgeReady có thể đến hai lần (tự phát + ping) → chỉ mở một lần.
+                    if (!opened) {
+                        opened = true
+                        controller.applyStyle(css)
+                        val startCfi = if (needsReAnchor) null else book.positionCfi
+                        controller.open(book.contentHash, startCfi)
+                    }
                 }
                 is ReaderEvent.Ready -> {
+                    ready = true
                     if (needsReAnchor) book.readingAnchor()?.let { a ->
                         controller.reAnchor("pos", AnchorText.fullQuery(a), AnchorText.snippetQuery(a), a.progress)
                     }
@@ -86,13 +93,23 @@ fun ReaderContent(
                     val cfi = event.cfis.firstOrNull()
                     if (cfi != null) controller.goTo(cfi) else controller.goToFraction(book.progress)
                 }
-                is ReaderEvent.Failure -> failure = event.message
+                is ReaderEvent.Failure -> failure = "${event.where}: ${event.message}"
             }
         }
     }
 
-    // Đổi cỡ chữ → tiêm lại CSS.
-    LaunchedEffect(css) { controller.applyStyle(css) }
+    // Quá ~5s sau khi mở mà chưa 'ready' → báo lỗi thay vì màn trống (docs/07 Mốc 2, review #2).
+    LaunchedEffect(opened) {
+        if (opened) {
+            kotlinx.coroutines.delay(5000)
+            if (!ready && failure == null) {
+                failure = "Quá hạn mở sách: foliate-js không phản hồi (xem logcat/chrome://inspect)"
+            }
+        }
+    }
+
+    // Đổi cỡ chữ → tiêm lại CSS (chỉ sau khi bridge sẵn sàng; tránh gọi window.sepia khi chưa định nghĩa).
+    LaunchedEffect(css, opened) { if (opened) controller.applyStyle(css) }
 
     // Lưu vị trí có debounce (docs/04 §2: positionCfi + snippet/prefix/suffix + progress).
     LaunchedEffect(book.id) {

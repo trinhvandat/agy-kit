@@ -75,7 +75,7 @@ async function open(url, cfi) {
   try {
     if (view) { view.remove(); view = null }
     view = document.createElement('foliate-view')
-    document.body.appendChild(view)
+    ;(document.body || document.documentElement).appendChild(view)
     view.addEventListener('relocate', onRelocate)
     await view.open(url)
     try { view.renderer.setAttribute('flow', 'paginated') } catch (_) {}
@@ -115,7 +115,18 @@ async function reAnchor(token, fullQuery, snippetQuery, _targetFraction) {
   post('reanchorResult', { token, cfis })
 }
 
-window.sepia = { open, goTo, goToFraction, next, prev, applyStyle, reAnchor }
+// Báo bridgeReady NHƯNG chờ tới khi window.kmpJsBridge được chèn (compose-webview-multiplatform
+// chèn sau khi module này có thể đã chạy → tránh mất tín hiệu). Poll ngắn, tối đa ~5s.
+function sendReady(attempt) {
+  attempt = attempt || 0
+  if (window.kmpJsBridge && typeof window.kmpJsBridge.callNative === 'function') {
+    post('bridgeReady', {})
+  } else if (attempt < 100) {
+    setTimeout(function () { sendReady(attempt + 1) }, 50)
+  }
+}
 
-// Báo cho Kotlin biết bridge đã nạp xong (trước khi mở sách).
-post('bridgeReady', {})
+// ping(): Kotlin gọi sau onPageFinished để yêu cầu gửi lại bridgeReady (phòng khi tín hiệu đầu mất).
+window.sepia = { open, goTo, goToFraction, next, prev, applyStyle, reAnchor, ping: function () { sendReady(0) } }
+
+sendReady(0)

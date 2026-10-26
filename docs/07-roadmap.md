@@ -88,6 +88,13 @@ graph TD
 ## Mốc 3 — Highlight, ghi chú, xuất Markdown/DB · ~17h (~2 tuần) · [App]
 
 > **Bản dùng được**: vừa đọc vừa đánh dấu & ghi chú, sao lưu được, không sợ mất dữ liệu.
+>
+> ⚠️ **Nợ kỹ thuật từ Mốc 2 (phải xử lý trước khi làm highlight)**: màn đọc Mốc 2 phủ **lớp chạm
+> Compose** lên WebView để lật trang (trái/phải) + ẩn/hiện thanh (giữa). Lớp phủ này **nuốt** nhấn-giữ
+> nên **chọn chữ trong foliate-js sẽ không hoạt động**. Mốc 3 phải: chuyển cử chỉ sang **JS trong foliate**
+> (tap vùng để lật, long-press để chọn) **hoặc** cho long-press/selection **xuyên qua** lớp phủ (chỉ bắt
+> tap đơn ở hai mép, chừa vùng giữa cho selection). Xem `reader/ReaderScreen.kt` (TapZone) + bridge
+> `selectionRange` (thêm mới). Liên quan docs/02 §8, docs/06 R-01.
 
 - [ ] Chọn văn bản → **highlight** (1–2 màu) với CFI range + lưu prefix/suffix/textSnippet/contentHash. **5h**
 - [ ] **Ghi chú gõ phím** gắn highlight (trường `note` gộp trong Highlight). **3h**
