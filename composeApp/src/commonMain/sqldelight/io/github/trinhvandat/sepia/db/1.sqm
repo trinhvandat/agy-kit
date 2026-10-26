@@ -1,0 +1,6 @@
+-- Migration schema v1 → v2: thêm bảng Setting (cài đặt người dùng — cỡ chữ).
+-- Giữ nguyên bảng Book + vị trí đọc hiện có trên máy đã cài bản Mốc 2 (không mất dữ liệu).
+CREATE TABLE Setting (
+    key   TEXT NOT NULL PRIMARY KEY,
+    value TEXT NOT NULL
+);

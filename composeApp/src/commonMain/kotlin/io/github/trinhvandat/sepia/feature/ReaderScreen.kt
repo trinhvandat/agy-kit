@@ -34,6 +34,7 @@ import io.github.trinhvandat.sepia.reader.ReaderEvent
 import io.github.trinhvandat.sepia.reader.ReaderSurface
 import io.github.trinhvandat.sepia.theme.SepiaTheme
 import io.github.trinhvandat.sepia.data.BookRepository
+import io.github.trinhvandat.sepia.data.SettingsRepository
 import io.github.trinhvandat.sepia.variant.VariantConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
@@ -56,9 +57,11 @@ fun ReaderContent(
     variant: VariantConfig = VariantConfig.Default,
 ) {
     val repo = koinInject<BookRepository>()
+    val settings = koinInject<SettingsRepository>()
     val appScope = koinInject<CoroutineScope>()
     val controller = remember(book.id) { ReaderController() }
     var uiVisible by remember { mutableStateOf(true) }
+    // Cỡ chữ bền: nạp giá trị đã lưu khi mở; A−/A+ lưu lại ngay. Mặc định cho tới khi nạp xong.
     var fontScale by remember { mutableStateOf(SepiaTheme.DefaultFontScale) }
     var failure by remember(book.id) { mutableStateOf<String?>(null) }
     var opened by remember(book.id) { mutableStateOf(false) }
@@ -66,6 +69,16 @@ fun ReaderContent(
     val relocations = remember(book.id) { MutableStateFlow<ReaderEvent.Relocated?>(null) }
 
     val css = SepiaTheme.css(fontScale, variant.fontFallback)
+
+    // Nạp cỡ chữ đã lưu (một lần). css đổi → LaunchedEffect(css, opened) tiêm lại CSS; CFI giữ nguyên.
+    LaunchedEffect(Unit) { fontScale = settings.fontScalePercent() }
+
+    // Đổi cỡ chữ: kẹp vào khoảng hợp lệ, cập nhật UI, và LƯU bền ngay (appScope sống lâu hơn màn hình).
+    fun changeFontScale(next: Int) {
+        val clamped = next.coerceIn(SepiaTheme.MinFontScale, SepiaTheme.MaxFontScale)
+        fontScale = clamped
+        appScope.launch { settings.setFontScalePercent(clamped) }
+    }
 
     ImmersiveReaderEffect(enabled = !uiVisible)
 
@@ -160,8 +173,8 @@ fun ReaderContent(
                 percent = book.progressPercent,
                 fontScale = fontScale,
                 onBack = ::flushAndBack,
-                onFontDec = { fontScale = (fontScale - SepiaTheme.FontScaleStep).coerceAtLeast(SepiaTheme.MinFontScale) },
-                onFontInc = { fontScale = (fontScale + SepiaTheme.FontScaleStep).coerceAtMost(SepiaTheme.MaxFontScale) },
+                onFontDec = { changeFontScale(fontScale - SepiaTheme.FontScaleStep) },
+                onFontInc = { changeFontScale(fontScale + SepiaTheme.FontScaleStep) },
                 modifier = Modifier.align(Alignment.TopCenter),
             )
         }
