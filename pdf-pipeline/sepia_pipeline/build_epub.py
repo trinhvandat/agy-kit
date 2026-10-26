@@ -102,6 +102,11 @@ def _esc(text: str) -> str:
     return html.escape(text, quote=False)
 
 
+def _attr(text: str) -> str:
+    """Escape cho **giá trị thuộc tính** (có cả dấu nháy) — tránh vỡ thẻ, vd alt chứa `"`."""
+    return html.escape(text, quote=True)
+
+
 def _process_image(png: bytes) -> tuple[bytes, str, str] | None:
     """Nén/đổi cỡ ảnh → ``(bytes, ext, media_type)`` hoặc ``None`` nếu bỏ (ảnh tí hon).
 
@@ -155,13 +160,14 @@ def _block_html(b: Block, images: list[tuple[str, bytes, str]]) -> str:
         return _table_html(b)
     # ImageBlock — nén/đổi cỡ; ảnh tí hon bị bỏ (chỉ còn caption nếu có để vẫn tìm được).
     processed = _process_image(b.png)
-    caption = f"<figcaption>{_esc(b.caption)}</figcaption>" if b.caption else ""
     if processed is None:
-        return caption  # ảnh tí hon → bỏ ảnh, giữ chú thích (nếu có)
+        # ảnh tí hon → bỏ ảnh; giữ chú thích dạng <p> (figcaption trần ngoài <figure> là HTML lỗi).
+        return f"<p>{_esc(b.caption)}</p>" if b.caption else ""
+    caption = f"<figcaption>{_esc(b.caption)}</figcaption>" if b.caption else ""
     data, ext, media_type = processed
     name = f"images/img_{len(images):04d}.{ext}"  # tên theo thứ tự duyệt → duy nhất + tất định
     images.append((name, data, media_type))
-    alt = _esc(b.caption) if b.caption else f"Trang {b.page}"
+    alt = _attr(b.caption) if b.caption else f"Trang {b.page}"
     return f'<figure><img src="{name}" alt="{alt}"/>{caption}</figure>'
 
 

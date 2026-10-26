@@ -209,3 +209,36 @@ def test_tiny_image_dropped(tmp_path: Path) -> None:
     build_epub(_doc(), blocks, out)
     with zipfile.ZipFile(out) as z:
         assert not [n for n in z.namelist() if n.startswith("EPUB/images/")]
+
+
+def test_tiny_image_with_caption_becomes_paragraph(tmp_path: Path) -> None:
+    import pymupdf as fitz
+    tiny = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 20, 20))
+    tiny.set_rect(tiny.irect, (10, 10, 10))
+    blocks = [
+        Heading(text="C", level=1, page=1),
+        ImageBlock(png=tiny.tobytes("png"), page=1, caption="Hợp cốc"),
+    ]
+    out = tmp_path / "b.epub"
+    build_epub(_doc(), blocks, out)
+    with zipfile.ZipFile(out) as z:
+        body = z.read(next(n for n in z.namelist() if n.endswith("chap_0001.xhtml"))).decode()
+        assert not [n for n in z.namelist() if n.startswith("EPUB/images/")]
+    assert "<p>Hợp cốc</p>" in body
+    assert "<figcaption>" not in body  # không có figcaption trần (HTML hợp lệ)
+
+
+def test_caption_with_quotes_escaped(tmp_path: Path) -> None:
+    import shutil
+    blocks = [
+        Heading(text="C", level=1, page=1),
+        ImageBlock(png=PNG, page=1, caption='Huyệt "Hợp cốc" & <đồ hình>'),
+    ]
+    out = tmp_path / "b.epub"
+    build_epub(_doc(), blocks, out)
+    with zipfile.ZipFile(out) as z:
+        body = z.read(next(n for n in z.namelist() if n.endswith("chap_0001.xhtml"))).decode()
+    assert 'alt="Huyệt &quot;Hợp cốc&quot; &amp; &lt;đồ hình&gt;"' in body
+    if shutil.which("java"):
+        from sepia_pipeline.quality import run_epubcheck
+        assert run_epubcheck(str(out)).startswith("epubcheck: HỢP LỆ")
