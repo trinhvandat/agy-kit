@@ -12,7 +12,7 @@ import sys
 from collections.abc import Sequence
 
 from . import PIPELINE_VERSION
-from .detect import BookResult, detect_pdf
+from .detect import SCAN_OCR, BookResult, detect_pdf
 
 
 def format_human(result: BookResult) -> str:
@@ -23,12 +23,13 @@ def format_human(result: BookResult) -> str:
         return "\n".join(lines)
     dist = ", ".join(f"{label}={n}" for label, n in sorted(result.page_distribution.items()))
     fonts = ", ".join(result.legacy_fonts) if result.legacy_fonts else "—"
+    scan_ocr = result.page_distribution.get(SCAN_OCR, 0)
     lines += [
         f"  loại chính : {result.label}",
         f"  số trang   : {result.n_pages}",
         f"  phân bố    : {dist or '—'}",
         f"  font legacy: {fonts}",
-        f"  scan/empty : {result.scan_pages} / {result.empty_pages}",
+        f"  scan/scan_ocr/empty : {result.scan_pages} / {scan_ocr} / {result.empty_pages}",
     ]
     return "\n".join(lines)
 

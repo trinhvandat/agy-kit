@@ -53,6 +53,24 @@ def scan_pdf(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def scan_ocr_pdf(tmp_path: Path) -> Path:
+    """Trang ảnh phủ kín + lớp chữ ẩn (render mode 3) kiểu OCR → scan_ocr."""
+    doc = fitz.open()
+    page = doc.new_page()
+    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 1, 1))
+    pix.set_rect(pix.irect, (210, 190, 160))
+    page.insert_image(page.rect, pixmap=pix)
+    page.insert_text(
+        (72, 100),
+        "day la lop chu an OCR nam ben duoi anh scan cua trang sach nay de minh hoa",
+        render_mode=3,  # invisible — giống lớp text OCR
+        fontname="helv",
+        fontsize=12,
+    )
+    return _write(doc, tmp_path / "scan_ocr.pdf")
+
+
+@pytest.fixture
 def empty_pdf(tmp_path: Path) -> Path:
     """Trang trắng, không chữ không ảnh → empty."""
     doc = fitz.open()

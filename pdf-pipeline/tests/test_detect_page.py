@@ -6,6 +6,7 @@ from sepia_pipeline.detect import (
     LEGACY_VNI,
     MIXED,
     SCAN,
+    SCAN_OCR,
     TEXT_UNICODE,
     DetectConfig,
     PageResult,
@@ -114,6 +115,19 @@ def test_unicode_page() -> None:
     assert classify_page(spans, char_count=len(VI), image_coverage=0.0, config=CFG) == TEXT_UNICODE
 
 
+def test_scan_ocr_page() -> None:
+    # Đủ chữ (≥ scan_min_chars) VÀ ảnh phủ kín → scan có lớp OCR.
+    spans = [("Literata", VI)]
+    label = classify_page(spans, char_count=len(VI), image_coverage=0.95, config=CFG)
+    assert label == SCAN_OCR
+
+
+def test_text_page_with_small_image_is_not_scan_ocr() -> None:
+    spans = [("Literata", VI)]
+    label = classify_page(spans, char_count=len(VI), image_coverage=0.2, config=CFG)
+    assert label == TEXT_UNICODE
+
+
 def test_tcvn3_page_by_font() -> None:
     spans = [(".VnTime", LEGACY_TEXT)]
     n = len(LEGACY_TEXT)
@@ -149,6 +163,17 @@ def test_book_tie_prefers_actionable_legacy_over_unicode() -> None:
     # Hòa 50/50 giữa legacy và unicode → chọn nhãn "cần xử lý" (legacy), không giấu dưới unicode.
     book = _aggregate("b.pdf", [_page(TEXT_UNICODE), _page(LEGACY_TCVN3)])
     assert book.label == LEGACY_TCVN3
+
+
+def test_book_tie_scan_over_scan_ocr() -> None:
+    # Scan thuần (chưa có text) "cần xử lý" hơn scan đã có lớp OCR.
+    book = _aggregate("b.pdf", [_page(SCAN), _page(SCAN_OCR)])
+    assert book.label == SCAN
+
+
+def test_book_tie_scan_ocr_over_text_unicode() -> None:
+    book = _aggregate("b.pdf", [_page(SCAN_OCR), _page(TEXT_UNICODE)])
+    assert book.label == SCAN_OCR
 
 
 def test_book_tie_prefers_legacy_over_scan() -> None:

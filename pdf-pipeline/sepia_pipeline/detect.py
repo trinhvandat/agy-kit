@@ -2,7 +2,7 @@
 
 Phân loại **theo trang** và **theo span** (xem docs/03-pdf-pipeline.md §3):
 
-- Trang: `text_unicode | legacy_tcvn3 | legacy_vni | legacy_other | scan | empty | mixed`.
+- Trang: text_unicode | legacy_tcvn3 | legacy_vni | legacy_other | scan | scan_ocr | empty | mixed.
 - Cuốn: nhãn chiếm đa số + phân bố theo trang.
 
 Thiết kế **để dễ bọc thành service**: phần lõi là **hàm thuần** (nhận chuỗi/dict/bbox, trả
@@ -26,6 +26,7 @@ LEGACY_TCVN3 = "legacy_tcvn3"
 LEGACY_VNI = "legacy_vni"
 LEGACY_OTHER = "legacy_other"
 SCAN = "scan"
+SCAN_OCR = "scan_ocr"
 EMPTY = "empty"
 MIXED = "mixed"
 
@@ -285,13 +286,17 @@ def classify_page(
 ) -> str:
     """Gộp các span thành một nhãn trang.
 
-    Trang ít chữ (``char_count < scan_min_chars``) được quyết trước: có ảnh lớn → ``scan``,
-    không → ``empty`` (ưu tiên này bắt cả trang scan có vài chú thích nhỏ). Ngược lại gộp
-    encoding từng span (theo số ký tự không-trắng): nếu ≥ 2 loại mã cùng đáng kể → ``mixed``,
-    nếu không → loại chiếm ưu thế.
+    Thứ tự quyết định:
+    1. Trang ít chữ (``char_count < scan_min_chars``): ảnh phủ lớn → ``scan``, không → ``empty``.
+    2. Đủ chữ **và** ảnh phủ ≥ ``scan_image_coverage`` → ``scan_ocr`` (ảnh scan + lớp text,
+       thường là OCR). Tỷ lệ chữ ẩn được ghi riêng ở ``PageResult.hidden_text_ratio``.
+    3. Còn lại: gộp encoding từng span (theo số ký tự không-trắng) → ``mixed`` nếu ≥ 2 loại mã
+       cùng đáng kể, nếu không → loại chiếm ưu thế.
     """
     if char_count < config.scan_min_chars:
         return SCAN if image_coverage >= config.scan_image_coverage else EMPTY
+    if image_coverage >= config.scan_image_coverage:
+        return SCAN_OCR
 
     counts: dict[str, int] = {}
     for font_name, text in spans:
@@ -328,6 +333,7 @@ class PageResult:
     image_coverage: float
     legacy_ratio: float
     legacy_fonts: tuple[str, ...] = ()
+    hidden_text_ratio: float = 0.0  # tỷ lệ ký tự ẩn (render mode 3) — gợi ý lớp OCR
 
 
 @dataclass(frozen=True)
@@ -380,6 +386,25 @@ def _page_image_coverage(page: fitz.Page, config: DetectConfig) -> float:
     )
 
 
+def _hidden_text_ratio(page: fitz.Page) -> float:
+    """Tỷ lệ ký tự vẽ ở render mode 3 (ẩn) — dấu hiệu lớp OCR nằm dưới ảnh scan.
+
+    Dùng ``get_texttrace`` (mỗi span có ``type``; 3 = invisible). Không có API này → trả 0.0.
+    """
+    try:
+        trace = page.get_texttrace()
+    except Exception:
+        return 0.0
+    hidden = 0
+    total = 0
+    for span in trace:
+        n = len(span.get("chars", ()))
+        total += n
+        if span.get("type") == 3:
+            hidden += n
+    return hidden / total if total else 0.0
+
+
 def detect_page(page: fitz.Page, config: DetectConfig) -> PageResult:
     """Phân loại một trang PyMuPDF."""
     text = page.get_text()
@@ -397,16 +422,18 @@ def detect_page(page: fitz.Page, config: DetectConfig) -> PageResult:
         image_coverage=coverage,
         legacy_ratio=legacy_char_ratio(text),
         legacy_fonts=legacy_fonts,
+        hidden_text_ratio=_hidden_text_ratio(page),
     )
 
 
 # Khi số trang hòa nhau, ưu tiên nhãn "cần xử lý" (legacy/scan/mixed) hơn text_unicode/empty,
 # để một cuốn nửa-legacy không bị dán nhãn text_unicode rồi đi sai nhánh trích ở Mốc 1.
 _BOOK_LABEL_PRIORITY = {
-    LEGACY_TCVN3: 6,
-    LEGACY_VNI: 5,
-    LEGACY_OTHER: 4,
-    SCAN: 3,
+    LEGACY_TCVN3: 7,
+    LEGACY_VNI: 6,
+    LEGACY_OTHER: 5,
+    SCAN: 4,  # scan thuần (chưa có text) cần OCR nhất
+    SCAN_OCR: 3,  # scan nhưng đã có lớp text
     MIXED: 2,
     TEXT_UNICODE: 1,
     EMPTY: 0,

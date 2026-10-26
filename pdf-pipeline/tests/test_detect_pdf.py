@@ -6,6 +6,7 @@ from sepia_pipeline.detect import (
     EMPTY,
     LEGACY_OTHER,
     SCAN,
+    SCAN_OCR,
     TEXT_UNICODE,
     BookResult,
     detect_pdf,
@@ -38,6 +39,13 @@ def test_scan_book(scan_pdf: Path) -> None:
     res = detect_pdf(scan_pdf)
     assert res.label == SCAN
     assert res.scan_pages == 1
+
+
+def test_scan_ocr_book(scan_ocr_pdf: Path) -> None:
+    res = detect_pdf(scan_ocr_pdf)
+    assert res.label == SCAN_OCR
+    # Lớp chữ ẩn (render mode 3) được ghi lại.
+    assert res.pages[0].hidden_text_ratio > 0.9
 
 
 def test_empty_book(empty_pdf: Path) -> None:

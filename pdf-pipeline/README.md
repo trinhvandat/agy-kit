@@ -35,8 +35,9 @@ uv sync                 # tạo .venv và cài PyMuPDF + dev deps (pytest, ruff)
 cd pdf-pipeline
 python3.11 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"   # cài package + dev deps
-# hoặc tối thiểu: pip install "pymupdf>=1.27.2,<1.28" pytest ruff
+pip install -e . --group dev   # pip ≥ 25.1 (đọc [dependency-groups] trong pyproject)
+# pip cũ hơn → cài dev deps riêng:
+#   pip install -e . && pip install pytest ruff
 ```
 
 > PyMuPDF ghim trong dải **1.27.x** (bản mới nhất 1.27.x = `1.27.2.3`, kiểm 2026-10) để khớp
@@ -65,9 +66,13 @@ Mỗi file in: **loại chính**, **phân bố nhãn theo trang**, **tên font l
 | `legacy_tcvn3` | Span dùng font cũ TCVN3/ABC (`.VnTime`…) hoặc heuristic nghi TCVN3 |
 | `legacy_vni` | Span dùng font cũ VNI (`VNI-Times`…) |
 | `legacy_other` | Nghi font cũ (heuristic) nhưng không rõ TCVN3 hay VNI |
-| `scan` | Ít chữ + có ảnh phủ phần lớn trang (ảnh scan) |
+| `scan` | Ít chữ + có ảnh phủ phần lớn trang (ảnh scan, chưa có text) |
+| `scan_ocr` | Đủ chữ **và** ảnh phủ phần lớn trang (ảnh scan + lớp text, thường là OCR) |
 | `empty` | Ít chữ, không có ảnh lớn (trang trắng/gần trắng) |
 | `mixed` | Một trang trộn nhiều loại mã (vd vừa Unicode vừa legacy) |
+
+> `scan_ocr` còn kèm `hidden_text_ratio` trong `PageResult` (JSON) — tỷ lệ ký tự vẽ ẩn (render
+> mode 3), dấu hiệu lớp OCR nằm dưới ảnh.
 
 ### Ngưỡng (có thể chỉnh — `DetectConfig`)
 
