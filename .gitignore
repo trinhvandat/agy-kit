@@ -44,8 +44,10 @@ captures/
 # === Xcode / iOS ===
 xcuserdata/
 *.xcuserstate
+*.xcodeproj/xcuserdata/
 DerivedData/
 *.xcworkspace/xcuserdata/
+*.xcframework
 Pods/
 .swiftpm/
 

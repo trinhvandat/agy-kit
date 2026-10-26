@@ -1,0 +1,27 @@
+# Version catalog tập trung cho app KMP (Sepia).
+# Phiên bản bám bảng chốt ở docs/05-tech-decisions.md; AGP/Gradle/compileSdk/activity-compose
+# được thêm ở Mốc 0 (docs/05 không pin) — kiểm tra nguồn chính thức 2026-10-26.
+# Giai đoạn này CHƯA thêm SQLDelight/Koin/compose-webview-multiplatform (thêm ở SPIKE-1 trở đi).
+
+[versions]
+kotlin = "2.4.20"                 # docs/05: 2.x hiện hành
+composeMultiplatform = "1.12.2"   # docs/05: iOS Stable; không cần tự align Kotlin
+agp = "9.4.1"                     # mới nhất ổn định (9/2026); AGP ≥ 9.0 bắt buộc tách module app/library KMP
+androidxActivity = "1.13.0"       # activity-compose ổn định (3/2026)
+
+# SDK Android (AGP 9.4 hỗ trợ tới API 37)
+compileSdk = "37"
+targetSdk = "37"
+minSdk = "26"
+
+[libraries]
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidxActivity" }
+
+[plugins]
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+androidApplication = { id = "com.android.application", version.ref = "agp" }
+# AGP 9: KMP không còn dùng chung module với com.android.application → shared dùng library plugin này.
+androidKotlinMultiplatformLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
+# Compose compiler plugin phải cùng version với Kotlin (bắt buộc từ Kotlin 2.0).
+composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Nhãn launcher; tên hiển thị trong app lấy từ VariantConfig (Compose). -->
+    <string name="app_name">Sepia</string>
+</resources>
