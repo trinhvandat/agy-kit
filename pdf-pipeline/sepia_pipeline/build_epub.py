@@ -23,7 +23,7 @@ from pathlib import Path
 from ebooklib import epub
 
 from . import PIPELINE_VERSION
-from .model import Block, Document, Heading, ImageBlock, Paragraph
+from .model import Block, Document, Heading, ImageBlock, Paragraph, Table
 
 # Ngày sửa đổi cố định (EPUB yêu cầu đúng MỘT dcterms:modified — ebooklib tự ghi theo opt `mtime`).
 # Cố định để đầu ra tất định.
@@ -54,6 +54,9 @@ def _css(font_family: str) -> str:
         "p { margin: 0 0 0.8em; }\n"
         "img { max-width: 100%; height: auto; }\n"
         "figure { margin: 1em 0; text-align: center; }\n"
+        "figcaption { font-size: 0.9em; font-style: italic; }\n"
+        "table { border-collapse: collapse; margin: 1em 0; }\n"
+        "td { border: 1px solid #999; padding: 2px 6px; vertical-align: top; }\n"
     )
 
 
@@ -81,15 +84,27 @@ def _esc(text: str) -> str:
     return html.escape(text, quote=False)
 
 
+def _table_html(t: Table) -> str:
+    rows = []
+    for r in t.rows:
+        cells = "".join(f"<td>{_esc(c)}</td>" for c in r)
+        rows.append(f"<tr>{cells}</tr>")
+    return "<table>" + "".join(rows) + "</table>"
+
+
 def _block_html(b: Block, images: list[tuple[str, bytes]]) -> str:
     if isinstance(b, Heading):
         lvl = min(max(b.level, 1), 3)
         return f"<h{lvl}>{_esc(b.text)}</h{lvl}>"
     if isinstance(b, Paragraph):
         return f"<p>{_esc(b.text)}</p>"
-    name = f"images/p{b.page:04d}.png"
+    if isinstance(b, Table):
+        return _table_html(b)
+    # ImageBlock — tên ảnh theo thứ tự duyệt (duy nhất + tất định, kể cả nhiều ảnh/ trang).
+    name = f"images/img_{len(images):04d}.png"
     images.append((name, b.png))
-    return f'<figure><img src="{name}" alt="Trang {b.page}"/></figure>'
+    caption = f"<figcaption>{_esc(b.caption)}</figcaption>" if b.caption else ""
+    return f'<figure><img src="{name}" alt="Trang {b.page}"/>{caption}</figure>'
 
 
 def _blocks_to_chapters(
@@ -122,7 +137,7 @@ def _blocks_to_chapters(
         elif (
             cur["bytes"] > 0
             and cur["bytes"] > max_file_bytes
-            and isinstance(b, Paragraph | ImageBlock)
+            and isinstance(b, Paragraph | ImageBlock | Table)
         ):
             # Cắt file quá lớn tại ranh giới đoạn/ảnh (chương dài không dồn vào một XHTML).
             cur = start_chapter(f"{cur['title']} (tiếp)")

@@ -121,7 +121,23 @@ def test_image_embedded(tmp_path: Path) -> None:
     build_epub(_doc(), _blocks(), out)
     with zipfile.ZipFile(out) as z:
         names = z.namelist()
-        assert any(n.endswith("images/p0001.png") for n in names)
+        assert any(n.endswith("images/img_0000.png") for n in names)
+
+
+def test_table_and_caption_rendered(tmp_path: Path) -> None:
+    from sepia_pipeline.model import Table
+
+    blocks = [
+        Heading(text="CHƯƠNG MỘT", level=1, page=1),
+        ImageBlock(png=PNG, page=1, caption="Hình 1: sơ đồ kinh lạc"),
+        Table(rows=(("Huyệt", "Vị trí"), ("Hợp cốc", "mu bàn tay")), page=1),
+    ]
+    out = tmp_path / "book.epub"
+    build_epub(_doc(), blocks, out)
+    with zipfile.ZipFile(out) as z:
+        body = z.read(next(n for n in z.namelist() if n.endswith("chap_0001.xhtml"))).decode()
+    assert "<figcaption>Hình 1: sơ đồ kinh lạc</figcaption>" in body
+    assert "<table>" in body and "<td>Hợp cốc</td>" in body
 
 
 def test_font_profile_default_is_serif() -> None:

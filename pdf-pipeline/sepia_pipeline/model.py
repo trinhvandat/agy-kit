@@ -121,13 +121,22 @@ class Paragraph:
 
 @dataclass(frozen=True)
 class ImageBlock:
-    """Trang ảnh render nguyên trang (US-A6) → ``<img>``."""
+    """Ảnh (trang ảnh US-A6 hoặc hình do Docling cắt) → ``<figure><img>`` + ``<figcaption>``."""
 
     png: bytes
     page: int
+    caption: str = ""
 
 
-Block = Heading | Paragraph | ImageBlock
+@dataclass(frozen=True)
+class Table:
+    """Bảng (chủ yếu do Docling nhận dạng) → ``<table>``. ``rows`` là các hàng ô text."""
+
+    rows: tuple[tuple[str, ...], ...]
+    page: int
+
+
+Block = Heading | Paragraph | ImageBlock | Table
 
 
 @dataclass(frozen=True)
