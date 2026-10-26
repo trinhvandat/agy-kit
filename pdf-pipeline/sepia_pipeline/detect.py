@@ -50,6 +50,8 @@ class DetectConfig:
       ``legacy_long_text_chars`` chữ cái) có ký tự nghi nhưng **không** có chữ Việt Unicode thật
       (mis-decode không bao giờ sinh ạ/ế/đ/ơ…), hạ ngưỡng xuống ``legacy_no_vi_ratio_threshold``
       để bắt mis-decode nhẹ. Tiếng Pháp/Anh ratio vốn rất thấp (<0.06) nên vẫn an toàn.
+    - ``scan_ocr_hidden_min``: để gán ``scan_ocr`` (ảnh phủ kín + đủ chữ) cần tỷ lệ chữ ẩn (render
+      mode 3) ≥ mức này; nếu chữ hiển thị thật thì phân loại theo mã chữ, chỉ bật cờ ảnh-kín.
     - ``mixed_min_fraction``: ≥ 2 loại mã, mỗi loại chiếm ≥ tỷ lệ này chữ của trang → ``mixed``.
     - ``image_grid_threshold``: nhiều hơn bấy nhiêu ảnh thì tính độ phủ bằng **lưới thô** (nhanh)
       thay vì union chính xác (O(n²)).
@@ -58,6 +60,7 @@ class DetectConfig:
 
     scan_min_chars: int = 30
     scan_image_coverage: float = 0.70
+    scan_ocr_hidden_min: float = 0.5
     legacy_char_ratio_threshold: float = 0.15
     legacy_min_chars: int = 6
     legacy_long_text_chars: int = 40
@@ -283,19 +286,25 @@ def classify_page(
     char_count: int,
     image_coverage: float,
     config: DetectConfig,
+    hidden_text_ratio: float = 0.0,
 ) -> str:
     """Gộp các span thành một nhãn trang.
 
     Thứ tự quyết định:
     1. Trang ít chữ (``char_count < scan_min_chars``): ảnh phủ lớn → ``scan``, không → ``empty``.
-    2. Đủ chữ **và** ảnh phủ ≥ ``scan_image_coverage`` → ``scan_ocr`` (ảnh scan + lớp text,
-       thường là OCR). Tỷ lệ chữ ẩn được ghi riêng ở ``PageResult.hidden_text_ratio``.
+    2. Đủ chữ **và** ảnh phủ ≥ ``scan_image_coverage`` **và** chữ phần lớn là ẩn
+       (``hidden_text_ratio ≥ scan_ocr_hidden_min``) → ``scan_ocr`` (ảnh scan + lớp OCR ẩn).
+       Nếu chữ hiển thị thật (ví dụ chữ trên nền ảnh) → rơi xuống bước 3 (phân loại theo mã chữ);
+       việc "có ảnh phủ kín" được ghi riêng ở ``PageResult.has_full_page_image``.
     3. Còn lại: gộp encoding từng span (theo số ký tự không-trắng) → ``mixed`` nếu ≥ 2 loại mã
        cùng đáng kể, nếu không → loại chiếm ưu thế.
     """
     if char_count < config.scan_min_chars:
         return SCAN if image_coverage >= config.scan_image_coverage else EMPTY
-    if image_coverage >= config.scan_image_coverage:
+    if (
+        image_coverage >= config.scan_image_coverage
+        and hidden_text_ratio >= config.scan_ocr_hidden_min
+    ):
         return SCAN_OCR
 
     counts: dict[str, int] = {}
@@ -334,6 +343,7 @@ class PageResult:
     legacy_ratio: float
     legacy_fonts: tuple[str, ...] = ()
     hidden_text_ratio: float = 0.0  # tỷ lệ ký tự ẩn (render mode 3) — gợi ý lớp OCR
+    has_full_page_image: bool = False  # có ảnh phủ ≥ scan_image_coverage (dù nhãn là gì)
 
 
 @dataclass(frozen=True)
@@ -413,7 +423,9 @@ def detect_page(page: fitz.Page, config: DetectConfig) -> PageResult:
     text = "\n".join(t for _, t in spans)
     char_count = _non_space_len(text)
     coverage = _page_image_coverage(page, config)
-    label = classify_page(spans, char_count, coverage, config)
+    has_full_page_image = coverage >= config.scan_image_coverage
+    hidden_ratio = _hidden_text_ratio(page)
+    label = classify_page(spans, char_count, coverage, config, hidden_ratio)
     legacy_fonts = tuple(
         sorted({fn for fn, _ in spans if fn and classify_font_name(fn) is not None})
     )
@@ -424,7 +436,8 @@ def detect_page(page: fitz.Page, config: DetectConfig) -> PageResult:
         image_coverage=coverage,
         legacy_ratio=legacy_char_ratio(text),
         legacy_fonts=legacy_fonts,
-        hidden_text_ratio=_hidden_text_ratio(page),
+        hidden_text_ratio=hidden_ratio,
+        has_full_page_image=has_full_page_image,
     )
 
 

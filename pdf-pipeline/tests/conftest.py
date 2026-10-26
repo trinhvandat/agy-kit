@@ -71,6 +71,20 @@ def scan_ocr_pdf(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def full_image_visible_text_pdf(tmp_path: Path) -> Path:
+    """Ảnh nền phủ kín + chữ Việt Unicode **hiển thị** (không ẩn) → text_unicode, cờ ảnh-kín bật."""
+    doc = fitz.open()
+    page = doc.new_page()
+    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 1, 1))
+    pix.set_rect(pix.irect, (235, 225, 200))
+    page.insert_image(page.rect, pixmap=pix)
+    tw = fitz.TextWriter(page.rect)
+    tw.append((72, 120), VI_UNICODE_TEXT, font=fitz.Font("cjk"), fontsize=14)
+    tw.write_text(page)  # render mode mặc định = 0 (hiển thị)
+    return _write(doc, tmp_path / "full_image_visible_text.pdf")
+
+
+@pytest.fixture
 def empty_pdf(tmp_path: Path) -> Path:
     """Trang trắng, không chữ không ảnh → empty."""
     doc = fitz.open()

@@ -80,8 +80,16 @@ def test_scan_book(scan_pdf: Path) -> None:
 def test_scan_ocr_book(scan_ocr_pdf: Path) -> None:
     res = detect_pdf(scan_ocr_pdf)
     assert res.label == SCAN_OCR
-    # Lớp chữ ẩn (render mode 3) được ghi lại.
+    # Lớp chữ ẩn (render mode 3) được ghi lại; cờ ảnh phủ kín bật.
     assert res.pages[0].hidden_text_ratio > 0.9
+    assert res.pages[0].has_full_page_image is True
+
+
+def test_full_image_visible_text_is_text_unicode(full_image_visible_text_pdf: Path) -> None:
+    res = detect_pdf(full_image_visible_text_pdf)
+    assert res.label == TEXT_UNICODE
+    assert res.pages[0].has_full_page_image is True  # vẫn ghi nhận có ảnh phủ kín
+    assert res.pages[0].hidden_text_ratio < 0.5  # chữ hiển thị, không phải lớp OCR ẩn
 
 
 def test_empty_book(empty_pdf: Path) -> None:

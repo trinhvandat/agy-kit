@@ -115,11 +115,31 @@ def test_unicode_page() -> None:
     assert classify_page(spans, char_count=len(VI), image_coverage=0.0, config=CFG) == TEXT_UNICODE
 
 
-def test_scan_ocr_page() -> None:
-    # Đủ chữ (≥ scan_min_chars) VÀ ảnh phủ kín → scan có lớp OCR.
+def test_scan_ocr_requires_hidden_text() -> None:
+    # Đủ chữ + ảnh phủ kín + nhiều chữ ẩn (≥ scan_ocr_hidden_min) → scan_ocr.
     spans = [("Literata", VI)]
-    label = classify_page(spans, char_count=len(VI), image_coverage=0.95, config=CFG)
+    label = classify_page(
+        spans, char_count=len(VI), image_coverage=0.95, config=CFG, hidden_text_ratio=0.9
+    )
     assert label == SCAN_OCR
+
+
+def test_full_image_with_visible_unicode_is_text_unicode() -> None:
+    # Ảnh nền phủ kín NHƯNG chữ thật hiển thị (không ẩn) → phân loại theo mã chữ (text_unicode).
+    spans = [("Literata", VI)]
+    label = classify_page(
+        spans, char_count=len(VI), image_coverage=0.95, config=CFG, hidden_text_ratio=0.0
+    )
+    assert label == TEXT_UNICODE
+
+
+def test_full_image_with_visible_legacy_font_is_legacy() -> None:
+    # Ảnh phủ kín + span .VnTime chữ không dấu hiển thị → legacy_tcvn3 (không phải scan_ocr).
+    spans = [(".VnTime", LEGACY_TEXT)]
+    label = classify_page(
+        spans, char_count=len(LEGACY_TEXT), image_coverage=0.95, config=CFG, hidden_text_ratio=0.0
+    )
+    assert label == LEGACY_TCVN3
 
 
 def test_text_page_with_small_image_is_not_scan_ocr() -> None:
