@@ -15,12 +15,14 @@ from __future__ import annotations
 
 import datetime
 import html
+import io
 import tomllib
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
 from ebooklib import epub
+from PIL import Image
 
 from . import PIPELINE_VERSION
 from .model import Block, Document, Heading, ImageBlock, Paragraph, Table
@@ -68,7 +70,7 @@ _MAX_FORCED_CHAPTERS = 40
 _NAV_MAX_LEVEL = 2
 
 # Ảnh: ảnh chụp/scan → JPEG q80, cạnh dài ≤ _IMG_MAX_EDGE; ảnh ít màu (≤ _IMG_PALETTE_MAX màu) giữ
-# PNG. Bỏ ảnh tí hon (cạnh < _IMG_MIN_EDGE px). (Thiếu Pillow → giữ PNG nguyên, không resize/bỏ.)
+# PNG. Bỏ ảnh tí hon (cạnh < _IMG_MIN_EDGE px). Pillow là dependency runtime bắt buộc.
 _IMG_MAX_EDGE = 1200
 _IMG_JPEG_QUALITY = 80
 _IMG_MIN_EDGE = 64
@@ -111,14 +113,8 @@ def _process_image(png: bytes) -> tuple[bytes, str, str] | None:
     """Nén/đổi cỡ ảnh → ``(bytes, ext, media_type)`` hoặc ``None`` nếu bỏ (ảnh tí hon).
 
     Ảnh ít màu → PNG (optimize); ảnh nhiều màu (chụp/scan) → JPEG q80. Cạnh dài ≤ ``_IMG_MAX_EDGE``.
-    Thiếu Pillow → giữ PNG nguyên (không resize/bỏ) để đường heuristic không cần Pillow.
+    Ảnh không mở/giải mã được (bytes hỏng) → giữ PNG nguyên.
     """
-    try:
-        from PIL import Image
-    except Exception:
-        return png, "png", "image/png"
-    import io
-
     try:
         img = Image.open(io.BytesIO(png))
         img.load()
