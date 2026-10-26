@@ -222,10 +222,14 @@ def _coverage_grid(
     height: float,
     cells: int,
     early_stop_at: float | None,
-) -> float:
-    """Độ phủ xấp xỉ bằng lưới ``cells×cells`` ô (nhanh khi nhiều ảnh); dừng sớm khi vượt ngưỡng."""
+) -> tuple[float, bool]:
+    """Độ phủ xấp xỉ bằng lưới ``cells×cells`` ô (nhanh khi nhiều ảnh).
+
+    Trả ``(coverage, early_stopped)``. Khi ``early_stopped`` = True thì ``coverage`` là **cận dưới**
+    (đã dừng ngay khi vượt ``early_stop_at``, chưa quét hết ảnh).
+    """
     if width <= 0 or height <= 0:
-        return 0.0
+        return 0.0, False
     cw, ch = width / cells, height / cells
     grid = bytearray(cells * cells)
     covered_cells = 0
@@ -244,8 +248,40 @@ def _coverage_grid(
                     grid[idx] = 1
                     covered_cells += 1
         if stop_cells is not None and covered_cells >= stop_cells:
-            break
-    return min(1.0, covered_cells * cell_area / page_area)
+            return min(1.0, covered_cells * cell_area / page_area), True
+    return min(1.0, covered_cells * cell_area / page_area), False
+
+
+def image_coverage_detail(
+    bboxes: list[tuple[float, float, float, float]],
+    page_area: float,
+    config: DetectConfig | None = None,
+    *,
+    page_size: tuple[float, float] | None = None,
+    early_stop_at: float | None = None,
+) -> tuple[float, bool]:
+    """Như :func:`image_coverage` nhưng trả thêm cờ **cận dưới**.
+
+    Trả ``(coverage, is_lower_bound)``. ``is_lower_bound`` = True khi dùng lưới thô và **dừng sớm**
+    lúc vượt ``early_stop_at``: giá trị trả về là cận dưới của độ phủ thật (đủ để kết luận scan,
+    nhưng không phải con số chính xác). Đường chính xác (ít ảnh) luôn trả cờ False.
+    """
+    if page_area <= 0:
+        return 0.0, False
+    config = config or DetectConfig()
+    rects = _normalize_rects(bboxes, page_size)
+    if not rects:
+        return 0.0, False
+    if len(rects) > config.image_grid_threshold:
+        if page_size is not None:
+            width, height = page_size
+        else:
+            width = max(r[2] for r in rects)
+            height = max(r[3] for r in rects)
+        return _coverage_grid(
+            rects, page_area, width, height, config.image_grid_cells, early_stop_at
+        )
+    return _coverage_exact(rects, page_area), False
 
 
 def image_coverage(
@@ -260,25 +296,13 @@ def image_coverage(
 
     Dùng union (không phải ảnh lớn nhất) để bắt scan bị cắt thành nhiều dải. Khi số ảnh vượt
     ``config.image_grid_threshold`` thì chuyển sang **lưới thô** (``image_grid_cells`` ô/chiều)
-    cho nhanh, và **dừng sớm** khi đã vượt ``early_stop_at`` (dùng lúc phân loại scan). Nếu biết
+    cho nhanh, và **dừng sớm** khi đã vượt ``early_stop_at`` — lúc đó giá trị trả về là **cận
+    dưới** (xem :func:`image_coverage_detail` nếu cần biết đã dừng sớm hay chưa). Nếu biết
     ``page_size`` thì cắt bbox về khung trang trước. An toàn khi ``page_area`` = 0.
     """
-    if page_area <= 0:
-        return 0.0
-    config = config or DetectConfig()
-    rects = _normalize_rects(bboxes, page_size)
-    if not rects:
-        return 0.0
-    if len(rects) > config.image_grid_threshold:
-        if page_size is not None:
-            width, height = page_size
-        else:
-            width = max(r[2] for r in rects)
-            height = max(r[3] for r in rects)
-        return _coverage_grid(
-            rects, page_area, width, height, config.image_grid_cells, early_stop_at
-        )
-    return _coverage_exact(rects, page_area)
+    return image_coverage_detail(
+        bboxes, page_area, config, page_size=page_size, early_stop_at=early_stop_at
+    )[0]
 
 
 def classify_page(
@@ -344,6 +368,7 @@ class PageResult:
     legacy_fonts: tuple[str, ...] = ()
     hidden_text_ratio: float = 0.0  # tỷ lệ ký tự ẩn (render mode 3) — gợi ý lớp OCR
     has_full_page_image: bool = False  # có ảnh phủ ≥ scan_image_coverage (dù nhãn là gì)
+    coverage_is_lower_bound: bool = False  # image_coverage dừng sớm → chỉ là cận dưới
 
 
 @dataclass(frozen=True)
@@ -379,15 +404,16 @@ def _page_spans(page: fitz.Page) -> list[tuple[str | None, str]]:
     return spans
 
 
-def _page_image_coverage(page: fitz.Page, config: DetectConfig) -> float:
+def _page_image_coverage(page: fitz.Page, config: DetectConfig) -> tuple[float, bool]:
+    """Trả ``(coverage, is_lower_bound)`` cho trang (xem :func:`image_coverage_detail`)."""
     rect = page.rect
     page_area = rect.width * rect.height
     try:
         infos = page.get_image_info()
     except Exception:
-        return 0.0
+        return 0.0, False
     bboxes = [tuple(info["bbox"]) for info in infos if "bbox" in info]
-    return image_coverage(
+    return image_coverage_detail(
         bboxes,
         page_area,
         config,
@@ -422,7 +448,7 @@ def detect_page(page: fitz.Page, config: DetectConfig) -> PageResult:
     spans = _page_spans(page)
     text = "\n".join(t for _, t in spans)
     char_count = _non_space_len(text)
-    coverage = _page_image_coverage(page, config)
+    coverage, coverage_is_lower_bound = _page_image_coverage(page, config)
     has_full_page_image = coverage >= config.scan_image_coverage
     # Điểm 2: chỉ đo chữ ẩn (get_texttrace, khá tốn) khi có ảnh phủ kín — nơi scan_ocr mới khả dĩ.
     hidden_ratio = _hidden_text_ratio(page) if has_full_page_image else 0.0
@@ -439,6 +465,7 @@ def detect_page(page: fitz.Page, config: DetectConfig) -> PageResult:
         legacy_fonts=legacy_fonts,
         hidden_text_ratio=hidden_ratio,
         has_full_page_image=has_full_page_image,
+        coverage_is_lower_bound=coverage_is_lower_bound,
     )
 
 

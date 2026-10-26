@@ -73,6 +73,20 @@ def test_texttrace_called_when_full_image() -> None:
     assert page.texttrace_calls == 1
 
 
+def test_page_result_lower_bound_false_for_normal_page() -> None:
+    page = _FakePage("Tôi học huyệt vị Đông y mỗi ngày thật chăm chỉ và đều đặn")
+    res = detect_page(page, DetectConfig())
+    assert res.coverage_is_lower_bound is False
+
+
+def test_page_result_lower_bound_true_when_early_stopped() -> None:
+    # Nhiều ảnh lát kín (> ngưỡng lưới) → độ phủ dừng sớm → cờ lower_bound True.
+    imgs = [(i % 20 * 5, i // 20 * 5, i % 20 * 5 + 5, i // 20 * 5 + 5) for i in range(400)]
+    page = _FakePage("x" * 100, images=imgs)
+    res = detect_page(page, DetectConfig())
+    assert res.coverage_is_lower_bound is True
+
+
 def test_unicode_book(unicode_vi_pdf: Path) -> None:
     res = detect_pdf(unicode_vi_pdf)
     assert isinstance(res, BookResult)

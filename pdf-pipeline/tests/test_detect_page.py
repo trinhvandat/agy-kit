@@ -13,6 +13,7 @@ from sepia_pipeline.detect import (
     _aggregate,
     classify_page,
     image_coverage,
+    image_coverage_detail,
 )
 
 
@@ -81,6 +82,31 @@ def test_grid_fast_on_many_images() -> None:
     elapsed = time.perf_counter() - start
     assert elapsed < 0.2, f"quá chậm: {elapsed:.3f}s"
     assert 0.0 <= cov <= 1.0
+
+
+def test_coverage_detail_lower_bound_on_early_stop() -> None:
+    # Nhiều ảnh lát kín + dừng sớm → giá trị là cận dưới → cờ lower_bound True.
+    boxes = [(i % 20 * 5, i // 20 * 5, i % 20 * 5 + 5, i // 20 * 5 + 5) for i in range(400)]
+    cov, lower = image_coverage_detail(
+        boxes, page_area=100 * 100, page_size=(100, 100), early_stop_at=0.5
+    )
+    assert cov >= 0.5
+    assert lower is True
+
+
+def test_coverage_detail_exact_not_lower_bound() -> None:
+    cov, lower = image_coverage_detail([(0, 0, 50, 50)], page_area=100 * 100, page_size=(100, 100))
+    assert abs(cov - 0.25) < 1e-9
+    assert lower is False
+
+
+def test_coverage_detail_grid_complete_not_lower_bound() -> None:
+    # Nhiều ảnh nhưng tổng phủ thấp → lưới chạy hết (không dừng sớm) → lower_bound False.
+    boxes = [(i % 20 * 2, i // 20 * 2, i % 20 * 2 + 1, i // 20 * 2 + 1) for i in range(400)]
+    cov, lower = image_coverage_detail(
+        boxes, page_area=100 * 100, page_size=(100, 100), early_stop_at=0.7
+    )
+    assert lower is False
 
 
 def test_grid_early_stop_reaches_threshold() -> None:
