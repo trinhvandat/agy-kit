@@ -27,6 +27,14 @@
   - **Làm trên Android trước.** Phần iOS **time-box tối đa ~6 giờ** và **không chặn** việc dùng app hằng ngày trên Android.
   - **Checklist iOS riêng**: xác nhận **lớp phủ Compose vẽ đè WKWebView** (qua interop) hiển thị đúng (độ ấm/độ sáng), **và** thao tác **chạm xuyên qua lớp phủ** để lật trang/chọn chữ trong WKWebView vẫn hoạt động (đây là điểm iOS dễ khác Android).
   - **Cửa quyết định ADR-001**: dựa trên **kết quả Android** + kết quả iOS trong khung giờ. Nếu Android ổn nhưng iOS bế tắc trong 6h → vẫn tiến trên Android, ghi nợ iOS, cân nhắc Readium cho iOS sau.
+- **Trạng thái (2026-10-26, Mốc 2)**: **còn mở — cửa quyết định CHƯA đóng.** Đã dựng xong đường tích hợp Android:
+  foliate-js vendor pin SHA (bỏ vendor/pdfjs), WebViewAssetLoader (AssetsPathHandler `/assets/` + BookPathHandler
+  `/books/` qua https appassets), bridge kmpJsBridge (open/goTo/next/prev/applyStyle/relocated/reAnchor), bọc sau
+  `ReaderController`/`ReaderEvent` (ADR-001). **Biên dịch Android + iOS(sim) xanh, APK đóng gói đủ asset foliate,
+  unit test xanh — NHƯNG chưa chạy thật** vì môi trường build không có emulator/`adb`. Phần cần xác nhận trên
+  thiết bị: foliate-js render EPUB tiếng Việt, lật trang, `relocate`→CFI, nhớ vị trí qua mở lại, re-anchor bằng
+  `search` khi nhập bản build lại. Lưu ý rủi ro tương thích: compose-webview-multiplatform 2.0.3 build với
+  Kotlin 2.1.20/CMP 1.8.0, dự án dùng 2.4.20/1.12.2 (resolve + compile OK, runtime chưa kiểm).
 
 ## R-02 — Build iOS lần đầu (bạn chưa từng làm)
 

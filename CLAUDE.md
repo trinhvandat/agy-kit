@@ -59,6 +59,15 @@ sepia/
 
 ## Mốc hiện tại & việc kế tiếp
 
-- **Hiện tại**: **Mốc 1 xong cho sách `scan_ocr`** — `pdf-pipeline/` có lệnh `convert` (PDF → EPUB) với **định tuyến engine** theo nhãn `detect`: `text_unicode`/`legacy_*` → heuristic PyMuPDF; `scan_ocr` → **Docling** (optional extra). Mẫu Đông y (scan ABBYY) ra EPUB epubcheck hợp lệ, tất định, độ phủ chữ ~96%, giữ hình. **Đường heuristic cho sách chữ sạch chưa kiểm trên sách thật** (chưa có mẫu); **chưa đọc thử bằng KOReader**. Nền tảng Mốc 0 vẫn còn: **app Android** rỗng chạy trên emulator. *(IDE cần Android Studio 2026 ≥ Rabbit để sync AGP 9.)*
-- **Việc kế tiếp**: **Mốc 2** — MVP đọc sách trên Android (foliate-js trong WebView, mở EPUB, nhớ vị trí, re-anchor + bookUid). Khi có MVP sẽ **đọc thử EPUB bằng KOReader** để chốt ngưỡng heuristic.
+- **Hiện tại**: **Mốc 2 — code xong, build + test xanh, CHƯA kiểm thiết bị.** App Android đọc EPUB:
+  nhập qua SAF, khử trùng/thay file theo `bookUid`, lưu `Book` (SQLDelight + Koin); màn đọc foliate-js trong
+  WebView (vendor pin SHA, WebViewAssetLoader qua https appassets — tránh CORS `file://`) sau interface
+  `ReaderController`/`ReaderEvent` (ADR-001); theme Sepia qua CSS + cỡ chữ; nhớ vị trí (debounce) + re-anchor
+  vị trí đọc trong JS (ADR-008). `:androidApp:assembleDebug` xanh, 19 unit test xanh, iOS(sim) compile xanh.
+  **Chưa chạy trên emulator/thiết bị** (môi trường build không có `adb`) → **cửa quyết định ADR-001 của SPIKE-1
+  (foliate render thật) CHƯA đóng**; xem [PR Mốc 2] và [docs/06 R-01](./docs/06-risks.md). Mốc 1 (pipeline
+  `scan_ocr` → EPUB) vẫn như cũ; **chưa đọc thử bằng KOReader**. *(IDE cần Android Studio 2026 ≥ Rabbit để sync AGP 9.)*
+- **Việc kế tiếp**: **Kiểm Mốc 2 trên emulator/thiết bị Android** (foliate render EPUB tiếng Việt, lật trang,
+  nhớ vị trí qua mở lại, re-anchor khi nhập bản build lại) để đóng cửa ADR-001; nhân tiện **đọc thử EPUB bằng
+  KOReader** chốt ngưỡng heuristic. Sau đó **Mốc 3** (highlight + ghi chú + xuất MD/DB).
 - **Việc riêng đang mở**: **iOS shell** (SPIKE-2 phần iOS) — chưa build iOS lần nào, chưa có `.xcodeproj` (chưa cài Xcode) → **[issue #3](https://github.com/trinhvandat/sepia/issues/3)**, xem `iosApp/README.md`. Xem [07-roadmap.md](./docs/07-roadmap.md).

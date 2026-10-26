@@ -66,14 +66,24 @@ graph TD
 ## Mốc 2 — App mở sách + Sepia + nhớ trang (re-anchor + bookUid) · ~29h (~3 tuần) · [App]
 
 > **Bản dùng được**: mở EPUB trong Sepia trên Android, đọc theme Sepia, nhớ đúng vị trí (kể cả sau khi build lại EPUB).
+>
+> **Trạng thái (2026-10-26)**: **code xong & build xanh trên Android** (`:androidApp:assembleDebug`),
+> **19 unit test xanh** (parse metadata EPUB, khử trùng/thay file theo bookUid, repository SQLDelight
+> JDBC in-memory, chọn vị trí re-anchor). **CHƯA kiểm trên thiết bị/emulator** (môi trường build không
+> có `adb`/emulator) → **cửa quyết định ADR-001 của SPIKE-1 (foliate-js render thật) vẫn CHƯA đóng** —
+> cần mở app trên emulator/máy Android (Android Studio 2026 ≥ Rabbit) để xác nhận foliate-js hiển thị,
+> lật trang, nhớ vị trí, re-anchor. iOS vẫn hoãn.
 
-- [ ] **SPIKE-1** — foliate-js trong WebView + **tự cấu hình asset loader local** (WebViewAssetLoader Android), mở 1 EPUB, lật trang, CFI, chọn đoạn → CFI+prefix/suffix, highlight proto, tải font, **re-anchor bằng `search` foliate-js** (ADR-008) (R-01). **Android: 8h**
-- [ ] SPIKE-1 (tiếp) — kiểm tra trên **iOS (WKURLSchemeHandler), time-box tối đa 6h**, không chặn Android; gồm **lớp phủ Compose đè WKWebView + chạm xuyên qua**. **6h**
-- [ ] `ReaderEngine` interface + bridge `kmpJsBridge` (loadBook, goTo, currentCfi, applyTheme, reAnchor). **4h**
-- [ ] Nhập EPUB vào app (SAF) + **đọc `dc:identifier`→bookUid, khử trùng/thay file theo bookUid** + lưu `Book` (bookUid, contentHash, pipelineVersion) — SQLDelight. **4h**
-- [ ] **Theme Sepia** qua CSS; chỉnh cỡ chữ cơ bản. **2h**
-- [ ] **Nhớ vị trí đọc** (Book.positionCfi + positionSnippet/prefix/suffix + progress) + **re-anchor trong JS** cho vị trí đọc **và** highlight (ADR-008, chạy khi nhập bản build lại). **5h** *(ước lại — re-anchor + dedup phức tạp hơn bản trước)*
-- **Thành quả**: dogfood trên Android; **nhập bản EPUB build lại vẫn giữ vị trí đọc + highlight** (re-anchor).
+- [~] **SPIKE-1** — foliate-js (vendor pin SHA 78914ae, MIT; bỏ vendor/pdfjs) trong WebView +
+  **tự cấu hình WebViewAssetLoader** (AssetsPathHandler `/assets/`, BookPathHandler `/books/` qua https
+  appassets — tránh CORS `file://`), reader.html + bridge.js (open/goTo/next/prev/applyStyle/relocated/
+  reAnchor). **Biên dịch & đóng gói APK OK (24 file foliate có trong APK); CHƯA chạy thật.** **Android: 8h**
+- [ ] SPIKE-1 (tiếp) — kiểm tra trên **iOS (WKURLSchemeHandler), time-box tối đa 6h**, không chặn Android; gồm **lớp phủ Compose đè WKWebView + chạm xuyên qua**. **6h** *(chưa làm — iOS hoãn, issue #3)*
+- [x] `ReaderEngine` (ReaderController + ReaderEvent) + bridge `kmpJsBridge` (open, goTo, next/prev, applyStyle, reAnchor). Bọc foliate sau interface (ADR-001).
+- [x] Nhập EPUB vào app (SAF `ACTION_OPEN_DOCUMENT`) + **đọc `dc:identifier`→bookUid, khử trùng/thay file theo bookUid** + lưu `Book` (bookUid, contentHash, pipelineVersion) — SQLDelight + Koin.
+- [x] **Theme Sepia** qua CSS (foliate `renderer.setStyles`); chỉnh cỡ chữ cơ bản (A−/A+).
+- [~] **Nhớ vị trí đọc** (Book.positionCfi + positionSnippet/prefix/suffix + progress, debounce ~1s + lưu khi rời) + **re-anchor trong JS** cho vị trí đọc (ADR-008: foliate `search` → chọn CFI gần `progress`, không thấy → `goToFraction`). Highlight re-anchor để Mốc 3. **Logic xong + test chọn vị trí; luồng foliate search CHƯA kiểm thiết bị.**
+- **Thành quả**: dogfood trên Android **(sau khi kiểm emulator)**; nhập bản EPUB build lại giữ vị trí đọc + re-anchor.
 
 ## Mốc 3 — Highlight, ghi chú, xuất Markdown/DB · ~17h (~2 tuần) · [App]
 
