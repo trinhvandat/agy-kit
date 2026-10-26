@@ -10,7 +10,7 @@ plugins {
 kotlin {
     // Android: AGP 9 → KMP là LIBRARY (AAR); module launcher :androidApp link vào.
     android {
-        namespace = "com.sepia.shared"
+        namespace = "io.github.trinhvandat.sepia.shared"
         compileSdk = libs.versions.compileSdk.get().toInt()
         minSdk = libs.versions.minSdk.get().toInt()
         compilerOptions {

@@ -3,4 +3,4 @@
  * đây qua hook/slot và bật bằng feature flag trong VariantConfig — lõi không chứa logic lĩnh vực.
  * Xem docs/02 §4, §7. (Placeholder cấu trúc — chưa có logic.)
  */
-package com.sepia.feature
+package io.github.trinhvandat.sepia.feature

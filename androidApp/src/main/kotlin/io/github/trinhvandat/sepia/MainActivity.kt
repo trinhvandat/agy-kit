@@ -1,4 +1,4 @@
-package com.sepia
+package io.github.trinhvandat.sepia
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity

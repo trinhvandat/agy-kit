@@ -126,6 +126,8 @@ Lý do: tối đa hóa chia sẻ code và né viết Swift/tích hợp 2 toolkit
 
 Đây là **ràng buộc công cụ**, **không phải** việc tách lõi/biến thể (`:core`, `:variant-*`) mà ADR-007 muốn hoãn — ranh giới 3 lớp vẫn ở mức **package** trong `:composeApp`. Việc tách `:core`/`:variant-*` vẫn hoãn tới khi làm app thứ hai.
 
+**Định danh app (chốt Mốc 0)**: `applicationId` Android = bundle ID iOS = package Kotlin gốc = **`io.github.trinhvandat.sepia`** (namespace `:composeApp` = `io.github.trinhvandat.sepia.shared`). **ID này không đổi được sau khi phát hành** (đổi = coi như app mới, mất cập nhật/dữ liệu người dùng) → chốt sớm từ bây giờ.
+
 ---
 
 ## ADR-008 — Re-anchor chạy trong JS (foliate-js `search`), không parser EPUB phía Kotlin

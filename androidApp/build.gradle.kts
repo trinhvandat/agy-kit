@@ -20,11 +20,11 @@ kotlin {
 }
 
 android {
-    namespace = "com.sepia"
+    namespace = "io.github.trinhvandat.sepia"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.sepia"
+        applicationId = "io.github.trinhvandat.sepia"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1

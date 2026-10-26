@@ -1,4 +1,4 @@
-package com.sepia
+package io.github.trinhvandat.sepia
 
 import androidx.compose.ui.window.ComposeUIViewController
 

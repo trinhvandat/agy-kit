@@ -1,4 +1,4 @@
-package com.sepia.variant
+package io.github.trinhvandat.sepia.variant
 
 /**
  * Lớp 3 — Variant Config (ADR-007): cấu hình biến thể dạng một object, CHƯA dùng Gradle flavors/

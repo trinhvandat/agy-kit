@@ -2,6 +2,8 @@
 
 Vỏ iOS nhúng Compose UI chung qua framework `ComposeApp` (Kotlin/Native) do `:composeApp` sinh ra.
 
+**Bundle ID dự kiến**: `io.github.trinhvandat.sepia` (đặt vào `PRODUCT_BUNDLE_IDENTIFIER` khi tạo project Xcode; khớp `applicationId` Android). Định danh này **không đổi được sau khi phát hành** — xem [docs/05 ADR-007](../docs/05-tech-decisions.md#adr-007).
+
 ## Trạng thái (Mốc 0 / SPIKE-2)
 
 ⚠️ **Chưa build/chạy được trên máy hiện tại** vì **chưa cài Xcode đầy đủ** (chỉ có Command Line Tools).

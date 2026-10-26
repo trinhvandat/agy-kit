@@ -3,4 +3,4 @@
  * (Độ ấm/độ sáng KHÔNG ở đây — xem package overlay.) Xem docs/02 §2, §8.
  * (Placeholder cấu trúc — chưa có logic.)
  */
-package com.sepia.theme
+package io.github.trinhvandat.sepia.theme
