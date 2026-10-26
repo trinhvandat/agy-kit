@@ -31,6 +31,10 @@ dev = [
     # epubcheck đóng gói sẵn jar (cần Java) — dùng để kiểm EPUB đầu ra. 5.3.0 = bản mới nhất
     # (kiểm 2026-10-26). Nếu không có Java, quality.py chỉ ghi "chưa kiểm epubcheck".
     "epubcheck>=5.3.0",
+    # Pillow: đường ảnh heuristic trong build_epub (resize/chuyển JPEG/bỏ ảnh tí hon) dùng PIL với
+    # dự phòng "thiếu Pillow → giữ PNG nguyên". Trước đây PIL chỉ có mặt nhờ docling kéo theo gián
+    # tiếp → khai báo tường minh để test ảnh chạy trong CI (uv sync --frozen, KHÔNG cài extra docling).
+    "pillow>=11,<14",
 ]
 
 [build-system]
