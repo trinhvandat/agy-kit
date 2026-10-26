@@ -1,0 +1,18 @@
+foliate-js — vendored (SPIKE-1, docs/05 ADR-001, docs/06 R-01)
+================================================================
+
+Nguồn:   https://github.com/johnfactotum/foliate-js
+Commit:  78914aef4466eb960965702401634c2cb348e9b1   (nhánh main, pin cứng — KHÔNG auto-update)
+Tải lúc: 2026-10-26
+License: MIT (xem ./LICENSE)
+
+Đã LƯỢC BỚT so với repo gốc (giảm kích thước, EPUB-only):
+- BỎ vendor/pdfjs/  (~13MB cmaps/standard_fonts; chỉ cần khi đọc PDF — Sepia chỉ đọc EPUB)
+- BỎ tests/, .github/, rollup/, package*.json, eslint.config.js, rollup.config.js, reader.js
+- GIỮ pdf.js (chỉ được import động khi mở PDF → đường EPUB không chạm tới; vendor/pdfjs thiếu
+  sẽ chỉ ảnh hưởng nếu sau này mở PDF, lúc đó mới cần bổ sung lại).
+
+Cách dùng: reader.html (tự viết) nạp ./foliate/view.js và tạo <foliate-view>; bridge.js bắc cầu
+JS ↔ Kotlin. KHÔNG dùng reader.js/ui mặc định của foliate (ta tự điều khiển qua bridge).
+
+Cập nhật pin: đổi commit ở trên + tải lại subset tương ứng; ghi lại ngày.

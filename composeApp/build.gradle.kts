@@ -61,6 +61,7 @@ kotlin {
             implementation(libs.sqldelight.driver.android)
             implementation(libs.koin.android)
             implementation(libs.androidx.activity.compose)
+            implementation(libs.androidx.webkit)
         }
         // AGP 9 KMP library: test JVM nằm ở src/androidHostTest (withHostTest), chạy bằng :testAndroidHostTest.
         // Dùng driver JDBC in-memory + java.util.zip của JDK để test parse EPUB/repository.
