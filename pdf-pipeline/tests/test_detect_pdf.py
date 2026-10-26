@@ -21,13 +21,18 @@ class _Rect:
 
 
 class _FakePage:
-    """Trang giả: get_text("dict") trả span; get_text() KHÔNG tham số → lỗi (điểm 5)."""
+    """Trang giả: get_text("dict") trả span; get_text() KHÔNG tham số → lỗi (điểm 5).
+
+    ``images`` = danh sách bbox; ``texttrace_calls`` đếm số lần get_texttrace được gọi.
+    """
 
     number = 0
     rect = _Rect()
 
-    def __init__(self, text: str) -> None:
+    def __init__(self, text: str, images: list | None = None) -> None:
         self._text = text
+        self._images = images or []
+        self.texttrace_calls = 0
 
     def get_text(self, kind: str | None = None):
         if kind != "dict":
@@ -35,9 +40,10 @@ class _FakePage:
         return {"blocks": [{"lines": [{"spans": [{"font": "Literata", "text": self._text}]}]}]}
 
     def get_image_info(self):
-        return []
+        return [{"bbox": b} for b in self._images]
 
     def get_texttrace(self):
+        self.texttrace_calls += 1
         return []
 
 
@@ -47,6 +53,24 @@ def test_detect_page_reads_text_from_dict_spans_only() -> None:
     assert res.label == TEXT_UNICODE
     # char_count = số ký tự không-trắng lấy từ span của dict
     assert res.char_count == sum(1 for ch in text if not ch.isspace())
+
+
+def test_texttrace_skipped_when_no_full_image() -> None:
+    # Trang không có ảnh phủ kín → KHÔNG gọi get_texttrace, hidden_text_ratio = 0.0 (điểm 2).
+    page = _FakePage("Tôi học huyệt vị Đông y mỗi ngày thật chăm chỉ và đều đặn")
+    res = detect_page(page, DetectConfig())
+    assert page.texttrace_calls == 0
+    assert res.hidden_text_ratio == 0.0
+
+
+def test_texttrace_called_when_full_image() -> None:
+    # Ảnh phủ kín trang → get_texttrace được gọi để đo tỷ lệ chữ ẩn.
+    page = _FakePage(
+        "Tôi học huyệt vị Đông y mỗi ngày thật chăm chỉ và đều đặn",
+        images=[(0, 0, 100, 100)],
+    )
+    detect_page(page, DetectConfig())
+    assert page.texttrace_calls == 1
 
 
 def test_unicode_book(unicode_vi_pdf: Path) -> None:

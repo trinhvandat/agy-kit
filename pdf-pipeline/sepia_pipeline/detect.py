@@ -424,7 +424,8 @@ def detect_page(page: fitz.Page, config: DetectConfig) -> PageResult:
     char_count = _non_space_len(text)
     coverage = _page_image_coverage(page, config)
     has_full_page_image = coverage >= config.scan_image_coverage
-    hidden_ratio = _hidden_text_ratio(page)
+    # Điểm 2: chỉ đo chữ ẩn (get_texttrace, khá tốn) khi có ảnh phủ kín — nơi scan_ocr mới khả dĩ.
+    hidden_ratio = _hidden_text_ratio(page) if has_full_page_image else 0.0
     label = classify_page(spans, char_count, coverage, config, hidden_ratio)
     legacy_fonts = tuple(
         sorted({fn for fn, _ in spans if fn and classify_font_name(fn) is not None})
