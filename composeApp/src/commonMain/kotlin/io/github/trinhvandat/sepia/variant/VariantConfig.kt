@@ -20,7 +20,7 @@ data class VariantConfig(
         val Default: VariantConfig = VariantConfig(
             appName = "Sepia",
             brandColor = 0xFF5B4636,
-            fontFallback = listOf("Noto Serif", "serif"),
+            fontFallback = listOf("Literata", "Noto Serif", "Noto Serif CJK TC", "Noto Serif CJK SC", "serif"),
             featureFlags = emptyMap(),
         )
     }
