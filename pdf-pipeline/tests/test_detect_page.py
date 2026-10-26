@@ -55,6 +55,42 @@ def test_image_coverage_none() -> None:
     assert image_coverage([], page_area=10000) == 0.0
 
 
+def test_image_coverage_clamps_to_page_frame() -> None:
+    # Ảnh tràn ra ngoài trang: chỉ tính phần trong khung [0,100]×[0,100] → 50..100 = 0.25.
+    cov = image_coverage([(50, 50, 200, 200)], page_area=100 * 100, page_size=(100, 100))
+    assert abs(cov - 0.25) < 1e-9
+
+
+def test_grid_matches_exact_within_2pct() -> None:
+    boxes = [(10, 10, 50, 40), (60, 20, 90, 80), (5, 60, 40, 95)]
+    exact = image_coverage(boxes, page_area=100 * 100, page_size=(100, 100))
+    grid = image_coverage(
+        boxes, page_area=100 * 100, page_size=(100, 100),
+        config=DetectConfig(image_grid_threshold=0),  # ép dùng lưới
+    )
+    assert abs(grid - exact) < 0.02
+
+
+def test_grid_fast_on_many_images() -> None:
+    import time
+
+    boxes = [(i % 20 * 5, i // 20 * 5, i % 20 * 5 + 4, i // 20 * 5 + 4) for i in range(400)]
+    start = time.perf_counter()
+    cov = image_coverage(boxes, page_area=100 * 100, page_size=(100, 100))
+    elapsed = time.perf_counter() - start
+    assert elapsed < 0.2, f"quá chậm: {elapsed:.3f}s"
+    assert 0.0 <= cov <= 1.0
+
+
+def test_grid_early_stop_reaches_threshold() -> None:
+    # 400 ảnh 5×5 lát kín trang; early_stop_at=0.7 → trả về ≥ 0.7 (đủ để kết luận scan).
+    boxes = [(i % 20 * 5, i // 20 * 5, i % 20 * 5 + 5, i // 20 * 5 + 5) for i in range(400)]
+    cov = image_coverage(
+        boxes, page_area=100 * 100, page_size=(100, 100), early_stop_at=0.7
+    )
+    assert cov >= 0.7
+
+
 def test_image_coverage_zero_page_area_safe() -> None:
     assert image_coverage([(0, 0, 10, 10)], page_area=0) == 0.0
 

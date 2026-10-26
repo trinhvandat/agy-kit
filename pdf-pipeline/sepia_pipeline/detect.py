@@ -50,6 +50,9 @@ class DetectConfig:
       (mis-decode không bao giờ sinh ạ/ế/đ/ơ…), hạ ngưỡng xuống ``legacy_no_vi_ratio_threshold``
       để bắt mis-decode nhẹ. Tiếng Pháp/Anh ratio vốn rất thấp (<0.06) nên vẫn an toàn.
     - ``mixed_min_fraction``: ≥ 2 loại mã, mỗi loại chiếm ≥ tỷ lệ này chữ của trang → ``mixed``.
+    - ``image_grid_threshold``: nhiều hơn bấy nhiêu ảnh thì tính độ phủ bằng **lưới thô** (nhanh)
+      thay vì union chính xác (O(n²)).
+    - ``image_grid_cells``: số ô mỗi chiều của lưới thô (vd 200 → lưới 200×200).
     """
 
     scan_min_chars: int = 30
@@ -59,6 +62,8 @@ class DetectConfig:
     legacy_long_text_chars: int = 40
     legacy_no_vi_ratio_threshold: float = 0.08
     mixed_min_fraction: float = 0.15
+    image_grid_threshold: int = 50
+    image_grid_cells: int = 200
 
 
 # --- Heuristic thống kê ký tự --------------------------------------------------
@@ -169,25 +174,29 @@ def classify_span(font_name: str | None, text: str, config: DetectConfig) -> str
 # --- Độ phủ ảnh & nhãn trang ---------------------------------------------------
 
 
-def image_coverage(
-    bboxes: list[tuple[float, float, float, float]], page_area: float
-) -> float:
-    """Tỷ lệ che phủ **hợp (union)** của các ảnh trên diện tích trang (0..1).
+_Rect = tuple[float, float, float, float]
 
-    Dùng union (không phải ảnh lớn nhất) để bắt scan bị cắt thành nhiều dải: vài ảnh không
-    ảnh nào tự phủ ≥70% nhưng gộp lại thì có. Union là diện tích thật (ảnh chồng nhau không
-    bị cộng trùng). Tính bằng nén tọa độ (số ảnh ít nên chi phí không đáng kể). An toàn khi
-    ``page_area`` = 0.
-    """
-    if page_area <= 0:
-        return 0.0
-    rects = [
-        (min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
-        for x0, y0, x1, y1 in bboxes
-        if x0 != x1 and y0 != y1
-    ]
-    if not rects:
-        return 0.0
+
+def _normalize_rects(
+    bboxes: list[tuple[float, float, float, float]],
+    page_size: tuple[float, float] | None,
+) -> list[_Rect]:
+    """Chuẩn hóa (x0<x1, y0<y1), cắt về khung trang nếu biết, bỏ bbox rỗng."""
+    rects: list[_Rect] = []
+    for x0, y0, x1, y1 in bboxes:
+        ax0, ax1 = (x0, x1) if x0 <= x1 else (x1, x0)
+        ay0, ay1 = (y0, y1) if y0 <= y1 else (y1, y0)
+        if page_size is not None:
+            w, h = page_size
+            ax0, ax1 = min(max(ax0, 0.0), w), min(max(ax1, 0.0), w)
+            ay0, ay1 = min(max(ay0, 0.0), h), min(max(ay1, 0.0), h)
+        if ax1 > ax0 and ay1 > ay0:
+            rects.append((ax0, ay0, ax1, ay1))
+    return rects
+
+
+def _coverage_exact(rects: list[_Rect], page_area: float) -> float:
+    """Diện tích union chính xác bằng nén tọa độ (dùng khi ít ảnh)."""
     xs = sorted({x for r in rects for x in (r[0], r[2])})
     ys = sorted({y for r in rects for y in (r[1], r[3])})
     covered = 0.0
@@ -200,6 +209,72 @@ def image_coverage(
             if any(r[0] <= cxmid <= r[2] and r[1] <= cymid <= r[3] for r in rects):
                 covered += (cx1 - cx0) * (cy1 - cy0)
     return min(1.0, covered / page_area)
+
+
+def _coverage_grid(
+    rects: list[_Rect],
+    page_area: float,
+    width: float,
+    height: float,
+    cells: int,
+    early_stop_at: float | None,
+) -> float:
+    """Độ phủ xấp xỉ bằng lưới ``cells×cells`` ô (nhanh khi nhiều ảnh); dừng sớm khi vượt ngưỡng."""
+    if width <= 0 or height <= 0:
+        return 0.0
+    cw, ch = width / cells, height / cells
+    grid = bytearray(cells * cells)
+    covered_cells = 0
+    cell_area = cw * ch
+    stop_cells = (
+        None if early_stop_at is None else int(early_stop_at * page_area / cell_area)
+    )
+    for x0, y0, x1, y1 in rects:
+        i0, i1 = max(0, int(x0 / cw)), min(cells - 1, int((x1 - 1e-9) / cw))
+        j0, j1 = max(0, int(y0 / ch)), min(cells - 1, int((y1 - 1e-9) / ch))
+        for i in range(i0, i1 + 1):
+            base = i * cells
+            for j in range(j0, j1 + 1):
+                idx = base + j
+                if not grid[idx]:
+                    grid[idx] = 1
+                    covered_cells += 1
+        if stop_cells is not None and covered_cells >= stop_cells:
+            break
+    return min(1.0, covered_cells * cell_area / page_area)
+
+
+def image_coverage(
+    bboxes: list[tuple[float, float, float, float]],
+    page_area: float,
+    config: DetectConfig | None = None,
+    *,
+    page_size: tuple[float, float] | None = None,
+    early_stop_at: float | None = None,
+) -> float:
+    """Tỷ lệ che phủ **hợp (union)** của các ảnh trên diện tích trang (0..1).
+
+    Dùng union (không phải ảnh lớn nhất) để bắt scan bị cắt thành nhiều dải. Khi số ảnh vượt
+    ``config.image_grid_threshold`` thì chuyển sang **lưới thô** (``image_grid_cells`` ô/chiều)
+    cho nhanh, và **dừng sớm** khi đã vượt ``early_stop_at`` (dùng lúc phân loại scan). Nếu biết
+    ``page_size`` thì cắt bbox về khung trang trước. An toàn khi ``page_area`` = 0.
+    """
+    if page_area <= 0:
+        return 0.0
+    config = config or DetectConfig()
+    rects = _normalize_rects(bboxes, page_size)
+    if not rects:
+        return 0.0
+    if len(rects) > config.image_grid_threshold:
+        if page_size is not None:
+            width, height = page_size
+        else:
+            width = max(r[2] for r in rects)
+            height = max(r[3] for r in rects)
+        return _coverage_grid(
+            rects, page_area, width, height, config.image_grid_cells, early_stop_at
+        )
+    return _coverage_exact(rects, page_area)
 
 
 def classify_page(
@@ -288,14 +363,21 @@ def _page_spans(page: fitz.Page) -> list[tuple[str | None, str]]:
     return spans
 
 
-def _page_image_coverage(page: fitz.Page) -> float:
-    page_area = page.rect.width * page.rect.height
+def _page_image_coverage(page: fitz.Page, config: DetectConfig) -> float:
+    rect = page.rect
+    page_area = rect.width * rect.height
     try:
         infos = page.get_image_info()
     except Exception:
         return 0.0
     bboxes = [tuple(info["bbox"]) for info in infos if "bbox" in info]
-    return image_coverage(bboxes, page_area)
+    return image_coverage(
+        bboxes,
+        page_area,
+        config,
+        page_size=(rect.width, rect.height),
+        early_stop_at=config.scan_image_coverage,
+    )
 
 
 def detect_page(page: fitz.Page, config: DetectConfig) -> PageResult:
@@ -303,7 +385,7 @@ def detect_page(page: fitz.Page, config: DetectConfig) -> PageResult:
     text = page.get_text()
     char_count = _non_space_len(text)
     spans = _page_spans(page)
-    coverage = _page_image_coverage(page)
+    coverage = _page_image_coverage(page, config)
     label = classify_page(spans, char_count, coverage, config)
     legacy_fonts = tuple(
         sorted({fn for fn, _ in spans if fn and classify_font_name(fn) is not None})
