@@ -5,6 +5,8 @@ import io.github.trinhvandat.sepia.data.BookRepositoryImpl
 import io.github.trinhvandat.sepia.data.DatabaseDriverFactory
 import io.github.trinhvandat.sepia.data.EpubMetadataReader
 import io.github.trinhvandat.sepia.data.ImportBookUseCase
+import io.github.trinhvandat.sepia.data.SettingsRepository
+import io.github.trinhvandat.sepia.data.SettingsRepositoryImpl
 import io.github.trinhvandat.sepia.db.SepiaDatabase
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -23,6 +25,7 @@ val coreModule: Module = module {
     single<CoroutineScope> { CoroutineScope(SupervisorJob() + get<CoroutineDispatcher>()) }
     single { SepiaDatabase(get<DatabaseDriverFactory>().createDriver()) }
     single<BookRepository> { BookRepositoryImpl(get(), get()) }
+    single<SettingsRepository> { SettingsRepositoryImpl(get(), get()) }
     single { EpubMetadataReader() }
     single { ImportBookUseCase(get(), get(), get()) }
 }

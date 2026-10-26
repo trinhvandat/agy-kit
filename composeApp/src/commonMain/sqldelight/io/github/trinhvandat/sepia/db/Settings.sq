@@ -1,0 +1,17 @@
+-- Bảng key-value cho cài đặt người dùng bền vững. Mốc 2: cỡ chữ trình đọc (reader.fontScalePercent).
+-- Vì sao SQLDelight (không thêm DataStore): hạ tầng DB + driver (Android/iOS/JVM-test) đã có sẵn
+-- (ADR-002); thêm DataStore kéo theo phụ thuộc + wiring nền tảng mới cho một giá trị nhỏ — ngược
+-- nguyên tắc "đơn giản, ít phụ thuộc, dễ bảo trì một người" (NFR-4). Dễ test bằng JDBC in-memory.
+
+CREATE TABLE Setting (
+    key   TEXT NOT NULL PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+get:
+SELECT value FROM Setting WHERE key = :key;
+
+-- INSERT OR REPLACE thay cho ON CONFLICT DO UPDATE (dialect SQLite 3.18 của SQLDelight chưa hỗ trợ
+-- UPSERT 3.24). Setting chỉ có key (PK) + value nên REPLACE theo key là đủ.
+upsert:
+INSERT OR REPLACE INTO Setting(key, value) VALUES (:key, :value);
