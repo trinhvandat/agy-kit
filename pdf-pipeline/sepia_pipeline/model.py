@@ -104,19 +104,29 @@ class Page:
 
 @dataclass(frozen=True)
 class Heading:
-    """Tiêu đề (level 1..3) → ``<h1>/<h2>/<h3>`` + mục trong nav."""
+    """Tiêu đề (level 1..3) → ``<h1>/<h2>/<h3>`` + mục trong nav.
+
+    ``top_ratio`` = vị trí dọc mép trên khối / chiều cao trang (gốc trên-trái, 0 = sát mép trên).
+    Chỉ đường Docling ghi (từ ``prov[0].bbox``); đường heuristic để ``None``. Dùng để chặn
+    :func:`reflow.drop_running_headers` chỉ bỏ tiêu đề chạy nằm trong **dải mép trên**.
+    """
 
     text: str
     level: int
     page: int
+    top_ratio: float | None = None
 
 
 @dataclass(frozen=True)
 class Paragraph:
-    """Một đoạn văn đã ghép dòng → ``<p>``."""
+    """Một đoạn văn đã ghép dòng → ``<p>``.
+
+    ``top_ratio``: xem :class:`Heading` (chỉ đường Docling ghi; heuristic để ``None``).
+    """
 
     text: str
     page: int
+    top_ratio: float | None = None
 
 
 @dataclass(frozen=True)

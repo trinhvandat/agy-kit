@@ -81,6 +81,30 @@ def _non_space_len(text: str) -> int:
     return sum(1 for ch in text if not ch.isspace())
 
 
+def _top_ratio(item, fdoc: fitz.Document) -> float | None:
+    """Vị trí dọc (0..1) của **mép trên** khối theo gốc trên-trái; ``None`` nếu không có toạ độ.
+
+    Dùng cho :func:`reflow.drop_running_headers` (đường Docling) để chỉ coi khối nằm trong dải mép
+    trên là ứng viên tiêu đề chạy. Docling trả ``prov[0].bbox`` gốc dưới-trái cùng không gian điểm
+    với PyMuPDF; quy về trên-trái bằng ``to_top_left_origin`` như :func:`_picture_clip_text`.
+    """
+    prov = getattr(item, "prov", None)
+    if not prov:
+        return None
+    page_no = int(getattr(prov[0], "page_no", 0) or 0)
+    if page_no < 1 or page_no > fdoc.page_count:
+        return None
+    h = fdoc[page_no - 1].rect.height
+    if h <= 0:
+        return None
+    bb = prov[0].bbox
+    try:
+        top = bb.to_top_left_origin(page_height=h).t
+    except Exception:
+        top = h - bb.t
+    return top / h
+
+
 def _picture_clip_text(item, fdoc: fitz.Document) -> str:
     """Lớp chữ PDF (PyMuPDF) nằm trong bbox của một picture Docling (theo thứ tự đọc).
 
@@ -173,11 +197,11 @@ def extract_blocks_docling(
                 level = (
                     1 if label == "title" else max(1, min(3, int(getattr(item, "level", 2) or 2)))
                 )
-                blocks.append(Heading(text=text, level=level, page=page))
-            elif label == "picture":
-                blocks.extend(
-                    _picture_blocks(item, doc, fdoc, page, text_in_picture_min_chars)
+                blocks.append(
+                    Heading(text=text, level=level, page=page, top_ratio=_top_ratio(item, fdoc))
                 )
+            elif label == "picture":
+                blocks.extend(_picture_blocks(item, doc, fdoc, page, text_in_picture_min_chars))
             elif label == "table":
                 rows = _table_rows(item)
                 if rows:
@@ -201,7 +225,7 @@ def extract_blocks_docling(
                     continue
                 if label == "list_item":
                     text = f"• {text}"
-                blocks.append(Paragraph(text=text, page=page))
+                blocks.append(Paragraph(text=text, page=page, top_ratio=_top_ratio(item, fdoc)))
     finally:
         fdoc.close()
     return blocks
