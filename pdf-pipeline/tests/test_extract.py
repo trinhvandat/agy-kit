@@ -9,6 +9,7 @@ from sepia_pipeline.detect import DetectConfig
 from sepia_pipeline.extract import extract_document, render_page_png, sha256_file
 from sepia_pipeline.legacy_encoding import encode_tcvn3
 
+
 def _append(tw: fitz.TextWriter, pos, text: str, size: float) -> None:
     tw.append(pos, text, font=fitz.Font("cjk"), fontsize=size)
 
@@ -17,7 +18,7 @@ def _append(tw: fitz.TextWriter, pos, text: str, size: float) -> None:
 def small_pdf(tmp_path: Path) -> Path:
     """2 trang chữ + 1 trang ảnh. Trang chữ có header + số trang + heading cỡ lớn + body."""
     doc = fitz.open()
-    for pno, (num, heading) in enumerate([("12", "GIỚI THIỆU"), ("13", "")]):
+    for num, heading in [("12", "GIỚI THIỆU"), ("13", "")]:
         page = doc.new_page(width=400, height=600)
         tw = fitz.TextWriter(page.rect)
         _append(tw, (40, 20), "Chương 1 — Đông y cơ bản", 8)  # header lặp

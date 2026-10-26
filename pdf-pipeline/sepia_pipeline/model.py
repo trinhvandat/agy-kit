@@ -99,6 +99,37 @@ class Page:
         return self.image_png is not None
 
 
+# --- Khối ngữ nghĩa sau reflow (đầu vào cho build_epub) ------------------------
+
+
+@dataclass(frozen=True)
+class Heading:
+    """Tiêu đề (level 1..3) → ``<h1>/<h2>/<h3>`` + mục trong nav."""
+
+    text: str
+    level: int
+    page: int
+
+
+@dataclass(frozen=True)
+class Paragraph:
+    """Một đoạn văn đã ghép dòng → ``<p>``."""
+
+    text: str
+    page: int
+
+
+@dataclass(frozen=True)
+class ImageBlock:
+    """Trang ảnh render nguyên trang (US-A6) → ``<img>``."""
+
+    png: bytes
+    page: int
+
+
+Block = Heading | Paragraph | ImageBlock
+
+
 @dataclass(frozen=True)
 class Document:
     """Cả cuốn: trang + metadata + định danh ổn định (``pdf_sha256`` → bookUid)."""
