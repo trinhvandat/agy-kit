@@ -59,6 +59,15 @@ sepia/
 
 ## Mốc hiện tại & việc kế tiếp
 
-- **Hiện tại**: **Mốc 1 xong cho sách `scan_ocr`** — `pdf-pipeline/` có lệnh `convert` (PDF → EPUB) với **định tuyến engine** theo nhãn `detect`: `text_unicode`/`legacy_*` → heuristic PyMuPDF; `scan_ocr` → **Docling** (optional extra). Mẫu Đông y (scan ABBYY) ra EPUB epubcheck hợp lệ, tất định, độ phủ chữ ~96%, giữ hình. **Đường heuristic cho sách chữ sạch chưa kiểm trên sách thật** (chưa có mẫu); **chưa đọc thử bằng KOReader**. Nền tảng Mốc 0 vẫn còn: **app Android** rỗng chạy trên emulator. *(IDE cần Android Studio 2026 ≥ Rabbit để sync AGP 9.)*
-- **Việc kế tiếp**: **Mốc 2** — MVP đọc sách trên Android (foliate-js trong WebView, mở EPUB, nhớ vị trí, re-anchor + bookUid). Khi có MVP sẽ **đọc thử EPUB bằng KOReader** để chốt ngưỡng heuristic.
+- **Hiện tại**: **Mốc 2 XONG & đã kiểm trên emulator Android (API 36).** App đọc EPUB: nhập qua SAF, khử
+  trùng/thay file theo `bookUid`, lưu `Book` (SQLDelight + Koin); màn đọc **foliate-js trong WebView**
+  (vendor pin SHA, WebViewAssetLoader qua https appassets — tránh CORS `file://`) sau interface
+  `ReaderController`/`ReaderEvent` (ADR-001); theme Sepia qua CSS + cỡ chữ; nhớ vị trí (debounce) + re-anchor
+  vị trí đọc trong JS (ADR-008). Kiểm thực tế: render EPUB tiếng Việt nền sepia, chạm phải sang trang,
+  thoát/mở lại đúng trang → **ADR-001 ĐÓNG (giữ foliate-js)**. `:androidApp:assembleDebug` + 19 unit test +
+  iOS(sim) compile xanh. Mốc 1 (pipeline `scan_ocr`→EPUB) vẫn như cũ; **chưa đọc thử KOReader**.
+  *(IDE cần Android Studio 2026 ≥ Rabbit để sync AGP 9.)*
+- **Việc kế tiếp**: **Mốc 3** — chọn văn bản → highlight + ghi chú + xuất Markdown/DB. **Nợ từ Mốc 2 phải
+  xử trước**: lớp chạm Compose phủ WebView chặn nhấn-giữ chọn chữ → chuyển cử chỉ sang JS hoặc cho long-press
+  xuyên qua (xem docs/07 Mốc 3). Nhân tiện **đọc thử EPUB bằng KOReader** chốt ngưỡng heuristic.
 - **Việc riêng đang mở**: **iOS shell** (SPIKE-2 phần iOS) — chưa build iOS lần nào, chưa có `.xcodeproj` (chưa cài Xcode) → **[issue #3](https://github.com/trinhvandat/sepia/issues/3)**, xem `iosApp/README.md`. Xem [07-roadmap.md](./docs/07-roadmap.md).

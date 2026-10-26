@@ -1,0 +1,21 @@
+foliate-js — vendored (SPIKE-1, docs/05 ADR-001, docs/06 R-01)
+================================================================
+
+Nguồn:   https://github.com/johnfactotum/foliate-js
+Commit:  78914aef4466eb960965702401634c2cb348e9b1   (nhánh main, pin cứng — KHÔNG auto-update)
+Tải lúc: 2026-10-26
+License: MIT (xem ./LICENSE)
+
+Dependency CODE duy nhất đã BỎ (ảnh hưởng runtime): **vendor/pdfjs/** (~13MB cmaps/standard_fonts).
+- pdf.js chỉ được import ĐỘNG khi mở PDF → đường EPUB KHÔNG chạm tới pdfjs. Sepia chỉ đọc EPUB.
+- GIỮ cả vendor/fflate.js (MOBI) và **vendor/zip.js** (giải nén EPUB — view.js makeZipLoader dùng cho
+  MỌI EPUB; từng thiếu ở bản đầu → sách không mở). Nếu sau này cần đọc PDF: tải lại vendor/pdfjs/.
+- Ngoài ra bỏ các file KHÔNG phải runtime: tests/, .github/, rollup/, package*.json, eslint.config.js,
+  rollup.config.js, reader.js (ta tự viết reader.html/bridge.js, không dùng reader.js/ui mặc định).
+
+Kiểm tra đủ file: `python3 scripts/check_reader_imports.py` (quét mọi import tĩnh/động trong
+assets/reader/, báo file thiếu; bỏ qua ref vendor/pdfjs cố ý). Chạy trước khi đổi pin.
+
+Cách dùng: reader.html nạp ./foliate/view.js tạo <foliate-view>; bridge.js bắc cầu JS ↔ Kotlin.
+
+Cập nhật pin: đổi commit ở trên + tải lại subset tương ứng; ghi lại ngày.

@@ -27,6 +27,14 @@
   - **Làm trên Android trước.** Phần iOS **time-box tối đa ~6 giờ** và **không chặn** việc dùng app hằng ngày trên Android.
   - **Checklist iOS riêng**: xác nhận **lớp phủ Compose vẽ đè WKWebView** (qua interop) hiển thị đúng (độ ấm/độ sáng), **và** thao tác **chạm xuyên qua lớp phủ** để lật trang/chọn chữ trong WKWebView vẫn hoạt động (đây là điểm iOS dễ khác Android).
   - **Cửa quyết định ADR-001**: dựa trên **kết quả Android** + kết quả iOS trong khung giờ. Nếu Android ổn nhưng iOS bế tắc trong 6h → vẫn tiến trên Android, ghi nợ iOS, cân nhắc Readium cho iOS sau.
+- **Trạng thái (2026-10-26, Mốc 2): ĐÓNG — cửa quyết định ADR-001 giữ foliate-js.** Đã **kiểm thực tế trên
+  emulator Android (API 36)**: nhập EPUB qua SAF, foliate-js **render EPUB tiếng Việt trên nền sepia**, **lật
+  trang** (chạm phải), **nhớ vị trí** (thoát/mở lại đúng trang, bền qua cài lại APK). compose-webview-multiplatform
+  2.0.3 (build Kotlin 2.1.20/CMP 1.8.0) chạy OK trên dự án 2.4.20/CMP 1.12.2. Đã sửa: thiếu `vendor/zip.js`
+  (EPUB không mở), race `bridgeReady` (chờ kmpJsBridge + ping). **Còn một cảnh báo JS `appendChild` benign**
+  từ lớp inject bridge của thư viện (không chặn chức năng). **iOS vẫn mở** (WKURLSchemeHandler chưa làm — issue #3).
+  **Chọn chữ/highlight** là nợ Mốc 3 (lớp chạm Compose chặn nhấn-giữ). Re-anchor **xuyên-build** chưa kiểm (chưa
+  có mẫu EPUB build-lại khác cấu trúc).
 
 ## R-02 — Build iOS lần đầu (bạn chưa từng làm)
 

@@ -66,18 +66,36 @@ graph TD
 ## Mốc 2 — App mở sách + Sepia + nhớ trang (re-anchor + bookUid) · ~29h (~3 tuần) · [App]
 
 > **Bản dùng được**: mở EPUB trong Sepia trên Android, đọc theme Sepia, nhớ đúng vị trí (kể cả sau khi build lại EPUB).
+>
+> **Trạng thái (2026-10-26): ĐẠT trên emulator Android (API 36).** `:androidApp:assembleDebug` + **19
+> unit test** xanh; đã **kiểm thực tế** trên `emulator-5554`: nhập `dongy_docling.epub` qua SAF → thư
+> viện hiện "Tự Học Đông Y - Bùi Huy"; mở sách → **foliate-js render EPUB tiếng Việt trên nền sepia**;
+> **chạm phải → sang trang** (mục lục 1–24 → 26–45); **thoát rồi mở lại → đúng trang cũ** (nhớ vị trí qua
+> SQLDelight, kể cả sau khi cài lại APK). → **Cửa quyết định ADR-001 ĐÓNG: giữ foliate-js.** iOS vẫn hoãn.
+> *(Lưu ý: còn một cảnh báo JS `appendChild` benign từ lớp inject bridge của compose-webview-multiplatform;
+> không chặn chức năng. Chọn chữ/highlight: nợ Mốc 3 — lớp chạm Compose chặn nhấn-giữ.)*
 
-- [ ] **SPIKE-1** — foliate-js trong WebView + **tự cấu hình asset loader local** (WebViewAssetLoader Android), mở 1 EPUB, lật trang, CFI, chọn đoạn → CFI+prefix/suffix, highlight proto, tải font, **re-anchor bằng `search` foliate-js** (ADR-008) (R-01). **Android: 8h**
-- [ ] SPIKE-1 (tiếp) — kiểm tra trên **iOS (WKURLSchemeHandler), time-box tối đa 6h**, không chặn Android; gồm **lớp phủ Compose đè WKWebView + chạm xuyên qua**. **6h**
-- [ ] `ReaderEngine` interface + bridge `kmpJsBridge` (loadBook, goTo, currentCfi, applyTheme, reAnchor). **4h**
-- [ ] Nhập EPUB vào app (SAF) + **đọc `dc:identifier`→bookUid, khử trùng/thay file theo bookUid** + lưu `Book` (bookUid, contentHash, pipelineVersion) — SQLDelight. **4h**
-- [ ] **Theme Sepia** qua CSS; chỉnh cỡ chữ cơ bản. **2h**
-- [ ] **Nhớ vị trí đọc** (Book.positionCfi + positionSnippet/prefix/suffix + progress) + **re-anchor trong JS** cho vị trí đọc **và** highlight (ADR-008, chạy khi nhập bản build lại). **5h** *(ước lại — re-anchor + dedup phức tạp hơn bản trước)*
-- **Thành quả**: dogfood trên Android; **nhập bản EPUB build lại vẫn giữ vị trí đọc + highlight** (re-anchor).
+- [x] **SPIKE-1** — foliate-js (vendor pin SHA 78914ae, MIT; bỏ vendor/pdfjs, GIỮ vendor/zip.js + fflate.js)
+  trong WebView + **tự cấu hình WebViewAssetLoader** (AssetsPathHandler `/assets/`, BookPathHandler
+  `/books/` qua https appassets — tránh CORS `file://`), reader.html + bridge.js (open/goTo/next/prev/
+  applyStyle/relocated/reAnchor; chờ kmpJsBridge + ping chống race). **ĐÃ chạy thật trên emulator.** **Android: 8h**
+- [ ] SPIKE-1 (tiếp) — kiểm tra trên **iOS (WKURLSchemeHandler), time-box tối đa 6h**, không chặn Android; gồm **lớp phủ Compose đè WKWebView + chạm xuyên qua**. **6h** *(chưa làm — iOS hoãn, issue #3)*
+- [x] `ReaderEngine` (ReaderController + ReaderEvent) + bridge `kmpJsBridge` (open, goTo, next/prev, applyStyle, reAnchor). Bọc foliate sau interface (ADR-001).
+- [x] Nhập EPUB vào app (SAF `ACTION_OPEN_DOCUMENT`) + **đọc `dc:identifier`→bookUid, khử trùng/thay file theo bookUid** + lưu `Book` (bookUid, contentHash, pipelineVersion) — SQLDelight + Koin.
+- [x] **Theme Sepia** qua CSS (foliate `renderer.setStyles`); chỉnh cỡ chữ cơ bản (A−/A+).
+- [x] **Nhớ vị trí đọc** (Book.positionCfi + positionSnippet/prefix/suffix + progress, debounce ~1s + lưu khi rời) + **re-anchor trong JS** cho vị trí đọc (ADR-008: foliate `search` → chọn CFI gần `progress`, không thấy → `goToFraction`). Nhớ vị trí **đã kiểm trên emulator** (thoát/mở lại đúng trang). Highlight re-anchor để Mốc 3. *(Re-anchor xuyên-build chưa kiểm vì chưa có bản EPUB build-lại khác cấu trúc để nhập — kiểm khi pipeline đổi; logic + unit test chọn vị trí đã có.)*
+- **Thành quả**: **dogfood được trên Android** (mở EPUB, đọc theme Sepia, lật trang, nhớ vị trí). Nhập bản EPUB build lại giữ vị trí đọc + re-anchor (logic sẵn, kiểm xuyên-build khi có mẫu).
 
 ## Mốc 3 — Highlight, ghi chú, xuất Markdown/DB · ~17h (~2 tuần) · [App]
 
 > **Bản dùng được**: vừa đọc vừa đánh dấu & ghi chú, sao lưu được, không sợ mất dữ liệu.
+>
+> ⚠️ **Nợ kỹ thuật từ Mốc 2 (phải xử lý trước khi làm highlight)**: màn đọc Mốc 2 phủ **lớp chạm
+> Compose** lên WebView để lật trang (trái/phải) + ẩn/hiện thanh (giữa). Lớp phủ này **nuốt** nhấn-giữ
+> nên **chọn chữ trong foliate-js sẽ không hoạt động**. Mốc 3 phải: chuyển cử chỉ sang **JS trong foliate**
+> (tap vùng để lật, long-press để chọn) **hoặc** cho long-press/selection **xuyên qua** lớp phủ (chỉ bắt
+> tap đơn ở hai mép, chừa vùng giữa cho selection). Xem `reader/ReaderScreen.kt` (TapZone) + bridge
+> `selectionRange` (thêm mới). Liên quan docs/02 §8, docs/06 R-01.
 
 - [ ] Chọn văn bản → **highlight** (1–2 màu) với CFI range + lưu prefix/suffix/textSnippet/contentHash. **5h**
 - [ ] **Ghi chú gõ phím** gắn highlight (trường `note` gộp trong Highlight). **3h**

@@ -1,0 +1,78 @@
+-- Bảng Book — metadata + vị trí đọc hiện tại (docs/04 §2). Không nhúng nội dung EPUB.
+-- Mốc 2: CHƯA tạo bảng Highlight (Mốc 3). progress & float lưu REAL (Double trong Kotlin, map Float ở domain).
+
+CREATE TABLE Book (
+    id                TEXT    NOT NULL PRIMARY KEY,
+    bookUid           TEXT    NOT NULL UNIQUE,         -- dc:identifier ổn định (sepia:<sha256 PDF gốc>)
+    title             TEXT    NOT NULL,
+    author            TEXT    NOT NULL,
+    filePath          TEXT    NOT NULL,                -- .epub đã copy vào filesDir
+    coverPath         TEXT,
+    contentHash       TEXT    NOT NULL,                -- SHA-256 của file EPUB (đổi mỗi lần build lại)
+    pipelineVersion   INTEGER NOT NULL,                -- Long trong DB; map Int ở domain (tránh adapter)
+    sourcePdfName     TEXT,
+    addedAt           INTEGER NOT NULL,                -- epoch ms
+    sortIndex         INTEGER NOT NULL,                -- Long trong DB; map Int ở domain
+    positionCfi       TEXT,
+    positionSnippet   TEXT,
+    positionPrefix    TEXT,
+    positionSuffix    TEXT,
+    progress          REAL    NOT NULL DEFAULT 0.0,
+    positionUpdatedAt INTEGER NOT NULL
+);
+
+CREATE INDEX Book_sort ON Book(sortIndex, addedAt);
+
+selectAll:
+SELECT * FROM Book ORDER BY sortIndex ASC, addedAt DESC;
+
+selectById:
+SELECT * FROM Book WHERE id = :id;
+
+selectByUid:
+SELECT * FROM Book WHERE bookUid = :bookUid;
+
+maxSortIndex:
+SELECT coalesce(max(sortIndex), -1) FROM Book;
+
+insert:
+INSERT INTO Book(
+    id, bookUid, title, author, filePath, coverPath, contentHash, pipelineVersion,
+    sourcePdfName, addedAt, sortIndex, positionCfi, positionSnippet, positionPrefix,
+    positionSuffix, progress, positionUpdatedAt
+) VALUES (
+    :id, :bookUid, :title, :author, :filePath, :coverPath, :contentHash, :pipelineVersion,
+    :sourcePdfName, :addedAt, :sortIndex, :positionCfi, :positionSnippet, :positionPrefix,
+    :positionSuffix, :progress, :positionUpdatedAt
+);
+
+-- Nhập lại bản EPUB build lại (cùng bookUid): thay file + cập nhật metadata/hash/version.
+-- GIỮ nguyên vị trí đọc + neo (positionSnippet/prefix/suffix/progress) để re-anchor sau.
+replaceFileAndMeta:
+UPDATE Book SET
+    title = :title,
+    author = :author,
+    filePath = :filePath,
+    coverPath = :coverPath,
+    contentHash = :contentHash,
+    pipelineVersion = :pipelineVersion,
+    sourcePdfName = :sourcePdfName
+WHERE bookUid = :bookUid;
+
+-- Lưu vị trí đọc (gọi khi relocated / app vào nền).
+updatePosition:
+UPDATE Book SET
+    positionCfi = :positionCfi,
+    positionSnippet = :positionSnippet,
+    positionPrefix = :positionPrefix,
+    positionSuffix = :positionSuffix,
+    progress = :progress,
+    positionUpdatedAt = :positionUpdatedAt
+WHERE id = :id;
+
+-- Sau re-anchor vị trí đọc: cập nhật CFI mới + contentHash mới.
+updatePositionCfi:
+UPDATE Book SET positionCfi = :positionCfi, positionUpdatedAt = :positionUpdatedAt WHERE id = :id;
+
+delete:
+DELETE FROM Book WHERE id = :id;

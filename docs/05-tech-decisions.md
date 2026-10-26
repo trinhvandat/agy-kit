@@ -17,11 +17,12 @@
 | androidx.activity-compose | **1.13.0** | *Thêm ở Mốc 0* — entry Activity Android (ổn định 3/2026). |
 | SQLDelight | **2.3.2** | KMP first-class, SQL type-safe compile-time |
 | Room (androidx.room) | **2.8.5** | KMP stable (thay thế); Room 3.0 còn **alpha** |
-| Koin | **4.2.1** | KMP + compile-safe (Koin Compiler) |
+| Koin | **4.2.2** | KMP + compile-safe (Koin Compiler). *(Kiểm 2026-10-26 khi thêm ở Mốc 2 → patch mới nhất 4.2.2; bảng trước ghi 4.2.1.)* |
 | kotlinx.coroutines | **1.11.0** | |
 | kotlinx.serialization | **1.9.0** | cần Kotlin 2.2+ |
 | kotlinx-datetime | **0.8.0** | vẫn pre-1.0; có thể pin 0.7.1 nếu cần chắc |
-| compose-webview-multiplatform | **2.0.3** | Android + iOS (WKWebView) + Desktop; có JS bridge + raw WebView access |
+| compose-webview-multiplatform | **2.0.3** | Android + iOS (WKWebView) + Desktop; có JS bridge + raw WebView access. *(Mốc 2: build với Kotlin 2.1.20/CMP 1.8.0 — dự án dùng 2.4.20/1.12.2; resolve + compile OK cho android/iosArm64/iosSimulatorArm64, runtime CHƯA kiểm thiết bị — xem ADR-001 trạng thái, R-01.)* |
+| androidx.webkit | **1.12.1** | *Thêm ở Mốc 2* — `WebViewAssetLoader` phục vụ EPUB + foliate qua `https://appassets.androidplatform.net` (tránh CORS `file://`). `AccompanistWebViewClient` của thư viện có sẵn field `assetLoader` + override `shouldInterceptRequest`. |
 | foliate-js | *không semver* | **vendor theo git submodule, pin SHA**; MIT |
 | foliate-kmp-core | **0.1.0-beta01** | **CHỈ tham khảo cách bắc cầu — KHÔNG dùng làm dependency** |
 | Readium kotlin-toolkit | **3.4.0** | (phương án dự phòng) |
