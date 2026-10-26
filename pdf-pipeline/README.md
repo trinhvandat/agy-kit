@@ -3,14 +3,16 @@
 Pipeline **PDF → EPUB sạch** cho [Sepia](../README.md), chạy bằng **Python trên máy tính**
 (không chạy trên điện thoại). Đây là phần tách rời khỏi app KMP.
 
-> **Mốc 0** (hiện tại): chỉ có bước **`detect`** — phân loại PDF theo trang và theo span
-> (có chữ Unicode / font cũ TCVN3–VNI / scan / trắng). Các bước
-> `extract` / `legacy_encoding` / `reflow` / `toc` / `build_epub` / `quality` thuộc **Mốc 1**
-> (xem [docs/07-roadmap.md](../docs/07-roadmap.md), [docs/03-pdf-pipeline.md](../docs/03-pdf-pipeline.md)).
+> Hai lệnh:
+> - **`detect`** (Mốc 0) — phân loại PDF theo trang/span (Unicode / font cũ TCVN3–VNI / scan / trắng).
+> - **`convert`** (Mốc 1) — PDF → EPUB sạch (trích theo span → chuyển mã legacy → reflow bỏ
+>   header/footer + ghép đoạn → heading/TOC → dựng EPUB tất định → kiểm chất lượng nhẹ + epubcheck).
+>
+> Xem [docs/07-roadmap.md](../docs/07-roadmap.md), [docs/03-pdf-pipeline.md](../docs/03-pdf-pipeline.md).
 
 ## License & ranh giới AGPL (QUAN TRỌNG)
 
-PyMuPDF (và sau này ebooklib) là **AGPL-3.0**. Pipeline này chạy **tách rời** app, chỉ xuất
+PyMuPDF **và** ebooklib là **AGPL-3.0**. Pipeline này chạy **tách rời** app, chỉ xuất
 `.epub`/báo cáo ra file; **app KMP không link** mã AGPL. Giữ ranh giới này để sau có thể thương
 mại hóa biến thể mà không vướng AGPL (xem [ADR-004](../docs/05-tech-decisions.md),
 [R-08](../docs/06-risks.md)).
@@ -26,7 +28,7 @@ mại hóa biến thể mà không vướng AGPL (xem [ADR-004](../docs/05-tech-
 
 ```bash
 cd pdf-pipeline
-uv sync                 # tạo .venv và cài PyMuPDF + dev deps (pytest, ruff)
+uv sync                 # tạo .venv và cài PyMuPDF + ebooklib + dev deps (pytest, ruff, epubcheck)
 ```
 
 ### Không có uv — venv + pip
@@ -101,6 +103,52 @@ Xem docstring trong [`sepia_pipeline/detect.py`](./sepia_pipeline/detect.py). M�
 > "nhẹ" vẫn có thể lọt. Chạy `detect` trên sách thật rồi **chỉnh `legacy_char_ratio_threshold`**;
 > nhãn cuốn luôn kèm phân bố theo trang để kiểm tra bằng mắt.
 
+## Chạy lệnh `convert` (PDF → EPUB)
+
+```bash
+# Ra pdf-pipeline/out/<tên>.epub, CSS mặc định font-family: serif
+uv run python -m sepia_pipeline convert "samples/Sách.pdf"
+
+# Chỉ định file ra + font profile để đọc thử bằng app ngoài (KOReader…)
+uv run python -m sepia_pipeline convert "samples/Sách.pdf" -o out/sach.epub --font-profile dongy
+
+uv run python -m sepia_pipeline convert "samples/Sách.pdf" --no-check   # bỏ qua epubcheck (nhanh hơn)
+uv run python -m sepia_pipeline convert "samples/Sách.pdf" --json       # báo cáo JSON
+```
+
+Báo cáo in: đường dẫn EPUB, **`bookUid`** (= `sepia:` + SHA-256 PDF gốc, ổn định giữa các lần
+build — docs/04 §6), số trang/trang ảnh, số chương/ảnh nhúng, đoạn/heading, **tỷ lệ ký tự rác**,
+kết quả **epubcheck**, và **cảnh báo** (nhiều cột, đoạn ngắn bất thường…).
+
+### Cờ
+
+| Cờ | Ý nghĩa |
+|----|---------|
+| `-o, --output` | File `.epub` ra (mặc định `pdf-pipeline/out/<tên>.epub`) |
+| `--font-profile <tên>` | Ghi `font-family` cụ thể vào CSS, đọc từ [`font_profiles.toml`](./font_profiles.toml) (vd `dongy`, `serif`). **Không nhúng file font.** Bỏ cờ → CSS chỉ `serif` (app Sepia tự quyết font) |
+| `--no-check` | Bỏ qua epubcheck |
+| `--json` | In báo cáo JSON |
+
+### Điều đã làm / bỏ qua & giới hạn đã biết (Mốc 1)
+
+- **Trích theo span** (`get_text("dict", sort=True)`), giữ bbox/font/cỡ/đậm-nghiêng; chuyển mã
+  **TCVN3** theo từng span (sau khi trích). **VNI chưa có bảng** (chưa có sách VNI mẫu để xác thực
+  — SPIKE-3) → span VNI/other **giữ nguyên + cảnh báo**, không đoán bừa.
+- **Bỏ header/footer/số trang**: dòng trong dải mép lặp ≥ 30% số trang (bỏ chữ số khi so khớp) +
+  dòng dạng số trang. **Ghép đoạn** nối dòng tới khi gặp dấu kết câu / thụt dòng / cách dòng bất
+  thường; **đoạn vắt qua trang vẫn nối**. **KHÔNG** de-hyphenation (tiếng Việt viết rời âm tiết).
+- **Heading → TOC**: theo cỡ chữ (lớn hơn thân bài) + độ đậm; loại dòng mục lục (chấm dẫn), số
+  trang trần, mảnh rác nhiều ký hiệu. Chia **chương theo heading cấp 1**.
+- **Trang ảnh** (US-A6): trang ảnh phủ kín + rất ít chữ → render nguyên trang PNG (150 dpi) chèn
+  vào dòng chảy. Ảnh nhỏ trong trang chữ: **bỏ qua** giai đoạn này.
+- **EPUB tất định**: cùng PDF + cùng `PIPELINE_VERSION` → EPUB **giống hệt từng byte** (cố định
+  `dcterms:modified`, ngày trong zip, thứ tự file, tên ảnh, mức nén).
+- **Giới hạn**: (1) **nhiều cột / sidebar** chỉ *phát hiện + cảnh báo*, thứ tự đọc có thể lẫn;
+  (2) phân **cấp heading** còn thô với sách có quá nhiều cỡ chữ → đôi khi ít chương cấp 1; (3) lỗi
+  **chất lượng text nguồn** (một số trang PDF thiếu chữ ở mép, glyph trang trí) không sửa được ở
+  pipeline; (4) ngưỡng trong `ReflowConfig`/`TocConfig` còn hiệu chỉnh tiếp sau khi đọc KOReader
+  (SPIKE-4).
+
 ## Test & lint
 
 ```bash
@@ -114,18 +162,23 @@ uv run ruff check    # lint
 pdf-pipeline/
 ├── pyproject.toml
 ├── README.md
+├── font_profiles.toml       # hồ sơ font cho --font-profile (dongy, serif…)
+├── out/                      # EPUB sinh ra (gitignore)
 ├── sepia_pipeline/
 │   ├── __init__.py          # PIPELINE_VERSION
-│   ├── __main__.py          # CLI mỏng (argparse) — python -m sepia_pipeline
-│   └── detect.py            # logic phân loại (hàm thuần + adapter PyMuPDF)
-└── tests/
-    ├── conftest.py          # fixtures PDF sinh bằng PyMuPDF
-    ├── test_detect_fonts.py
-    ├── test_detect_heuristic.py
-    ├── test_detect_page.py
-    └── test_detect_pdf.py
+│   ├── __main__.py          # CLI mỏng (argparse) — detect + convert
+│   ├── detect.py            # phân loại trang/span
+│   ├── model.py             # mô hình trung gian bất biến (TextSpan/Line/Page/Document/Block)
+│   ├── extract.py           # trích theo span (PyMuPDF) → model
+│   ├── legacy_encoding.py   # TCVN3 → Unicode theo span (bảng libiconv)
+│   ├── reflow.py            # bỏ header/footer, ghép đoạn, trang ảnh, phát hiện nhiều cột
+│   ├── toc.py               # nhận diện heading theo cỡ chữ → cấp TOC
+│   ├── build_epub.py        # dựng EPUB tất định (ebooklib) + font profile
+│   ├── quality.py           # kiểm chất lượng nhẹ + epubcheck
+│   └── convert.py           # điều phối extract→reflow→build→quality
+└── tests/                   # fixtures PDF sinh bằng code; test từng module + tích hợp convert
 ```
 
-Thiết kế để **dễ bọc thành service** sau này: mỗi bước là **hàm thuần** (nhận đường dẫn/dữ liệu,
-trả kết quả có cấu trúc — `PageResult`/`BookResult`); CLI chỉ là lớp mỏng; **không dùng cấu hình
-toàn cục** (mọi ngưỡng đi qua `DetectConfig`).
+Thiết kế để **dễ bọc thành service** sau này: mỗi bước là **hàm thuần** trên mô hình bất biến
+(test được không cần PyMuPDF); các adapter PyMuPDF là lớp mỏng; CLI mỏng; **không dùng cấu hình
+toàn cục** (mọi ngưỡng đi qua `DetectConfig` / `ReflowConfig` / `TocConfig` / `QualityConfig`).

@@ -1,16 +1,25 @@
 [project]
 name = "sepia-pipeline"
 version = "0.1.0"
-description = "Sepia PDF → EPUB pipeline (chạy trên máy tính, tách rời app KMP). Mốc 0: detect."
+description = "Sepia PDF → EPUB pipeline (chạy trên máy tính, tách rời app KMP). Mốc 0: detect; Mốc 1: convert."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "AGPL-3.0-or-later" }
-# PyMuPDF là AGPL-3.0 → pipeline chạy TÁCH RỜI app KMP, app không link AGPL (ADR-004, R-08).
+# PyMuPDF + ebooklib đều AGPL-3.0 → pipeline chạy TÁCH RỜI app KMP, app KHÔNG link AGPL
+# (ADR-004, R-08). Pipeline chỉ xuất .epub; app chỉ đọc file đó.
 dependencies = [
     # 1.27.x là bản được kiểm chứng trong docs/03-pdf-pipeline.md (mới nhất 1.27.x = 1.27.2.3, 2026-10).
     # Giữ trong dải 1.27.x để khớp tài liệu thiết kế; nâng 1.28/2.0 là quyết định riêng.
     "pymupdf>=1.27.2,<1.28",
+    # Dựng EPUB từ HTML sạch (ADR-004). 0.20 là bản mới nhất trên PyPI (kiểm 2026-10-26), AGPL-3.0.
+    "ebooklib>=0.20,<0.21",
 ]
+
+[project.optional-dependencies]
+# Docling chỉ dùng cho SPIKE-4 (so sánh thử nghiệm, CHƯA thay pipeline) — không cài mặc định vì
+# kéo theo torch/transformers rất nặng. Cài khi cần: `uv sync --extra docling`.
+# 2.142.1 là bản mới nhất trên PyPI (kiểm 2026-10-26); MIT.
+docling = ["docling>=2.142,<3"]
 
 [project.scripts]
 sepia-pipeline = "sepia_pipeline.__main__:main"
@@ -19,6 +28,9 @@ sepia-pipeline = "sepia_pipeline.__main__:main"
 dev = [
     "pytest>=8.0",
     "ruff>=0.6",
+    # epubcheck đóng gói sẵn jar (cần Java) — dùng để kiểm EPUB đầu ra. 5.3.0 = bản mới nhất
+    # (kiểm 2026-10-26). Nếu không có Java, quality.py chỉ ghi "chưa kiểm epubcheck".
+    "epubcheck>=5.3.0",
 ]
 
 [build-system]

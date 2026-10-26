@@ -61,6 +61,12 @@ class DetectConfig:
     scan_min_chars: int = 30
     scan_image_coverage: float = 0.70
     scan_ocr_hidden_min: float = 0.5
+    # Mức CUỐN: ≥ scan_ocr_book_image_fraction trang có ảnh phủ kín VÀ ≥ scan_ocr_book_text_fraction
+    # trang đủ chữ → nhãn cuốn scan_ocr (sách scan có lớp OCR **hiển thị**, vd ABBYY FineReader;
+    # lúc này không có chữ ẩn nên quy tắc mức trang không bắt được).
+    scan_ocr_book_image_fraction: float = 0.80
+    scan_ocr_book_text_fraction: float = 0.50
+    scan_ocr_book_min_pages: int = 3  # dưới mức này không đủ bằng chứng để kết luận "cuốn scan"
     legacy_char_ratio_threshold: float = 0.15
     legacy_min_chars: int = 6
     legacy_long_text_chars: int = 40
@@ -384,6 +390,9 @@ class BookResult:
     empty_pages: int = 0
     pages: tuple[PageResult, ...] = ()
     error: str | None = None
+    # Gợi ý nguồn (không dùng làm điều kiện duy nhất): phần mềm tạo PDF.
+    producer: str | None = None
+    creator: str | None = None
 
 
 # --- Adapter PyMuPDF (lớp mỏng) ------------------------------------------------
@@ -483,7 +492,41 @@ _BOOK_LABEL_PRIORITY = {
 }
 
 
-def _aggregate(path: str, pages: list[PageResult]) -> BookResult:
+def scan_ocr_book_signal(
+    n_pages: int, full_image_pages: int, texty_pages: int, config: DetectConfig | None = None
+) -> bool:
+    """Tín hiệu "cuốn scan có lớp OCR hiển thị" từ các con số đếm (hàm thuần, dùng chung).
+
+    ≥ ngưỡng trang ảnh phủ kín VÀ ≥ ngưỡng trang đủ chữ (và đủ số trang) → True. Bắt trường hợp
+    ABBYY/Foxit: mỗi trang là ảnh scan + chữ OCR vẽ **hiển thị** (render mode 0) — quy tắc mức
+    trang (dựa chữ ẩn) không bắt được.
+    """
+    config = config or DetectConfig()
+    if n_pages < config.scan_ocr_book_min_pages:
+        return False
+    return (
+        full_image_pages / n_pages >= config.scan_ocr_book_image_fraction
+        and texty_pages / n_pages >= config.scan_ocr_book_text_fraction
+    )
+
+
+def _is_scan_ocr_book(pages: list[PageResult], config: DetectConfig) -> bool:
+    return scan_ocr_book_signal(
+        len(pages),
+        sum(1 for p in pages if p.has_full_page_image),
+        sum(1 for p in pages if p.char_count >= config.scan_min_chars),
+        config,
+    )
+
+
+def _aggregate(
+    path: str,
+    pages: list[PageResult],
+    config: DetectConfig | None = None,
+    producer: str | None = None,
+    creator: str | None = None,
+) -> BookResult:
+    config = config or DetectConfig()
     distribution = dict(Counter(p.label for p in pages))
     # Nhãn cuốn = loại chiếm đa số; hòa số trang → chọn nhãn ưu tiên cao hơn (ổn định, có chủ đích).
     book_label = (
@@ -494,6 +537,9 @@ def _aggregate(path: str, pages: list[PageResult]) -> BookResult:
         if distribution
         else None
     )
+    # Ghi đè mức cuốn: sách scan có lớp OCR hiển thị → scan_ocr (dù trang lẻ bị gán text_unicode).
+    if _is_scan_ocr_book(pages, config):
+        book_label = SCAN_OCR
     legacy_fonts = tuple(sorted({f for p in pages for f in p.legacy_fonts}))
     return BookResult(
         path=path,
@@ -504,6 +550,8 @@ def _aggregate(path: str, pages: list[PageResult]) -> BookResult:
         scan_pages=distribution.get(SCAN, 0),
         empty_pages=distribution.get(EMPTY, 0),
         pages=tuple(pages),
+        producer=producer,
+        creator=creator,
     )
 
 
@@ -524,7 +572,10 @@ def detect_pdf(path: str | Path, config: DetectConfig | None = None) -> BookResu
                 path=path_str, label=None, n_pages=0, error="PDF có mật khẩu (password-protected)"
             )
         pages = [detect_page(page, config) for page in doc]
-        return _aggregate(path_str, pages)
+        meta = doc.metadata or {}
+        producer = (meta.get("producer") or "").strip() or None
+        creator = (meta.get("creator") or "").strip() or None
+        return _aggregate(path_str, pages, config, producer, creator)
     except Exception as exc:  # PDF hỏng / không mở được
         err = f"{type(exc).__name__}: {exc}"
         return BookResult(path=path_str, label=None, n_pages=0, error=err)
