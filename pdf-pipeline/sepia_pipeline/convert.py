@@ -18,7 +18,13 @@ from .detect import DetectConfig, scan_ocr_book_signal
 from .extract import extract_document, render_page_png
 from .model import Document, Page
 from .quality import QualityReport, check_blocks, run_epubcheck
-from .reflow import ReflowConfig, build_blocks, collect_warnings, is_image_page
+from .reflow import (
+    ReflowConfig,
+    build_blocks,
+    collect_warnings,
+    drop_printed_toc,
+    is_image_page,
+)
 
 DEFAULT_OUT_DIR = Path(__file__).resolve().parent.parent / "out"
 
@@ -98,6 +104,7 @@ def convert_pdf(
         )
 
     blocks = build_blocks(doc_model, config.reflow)
+    blocks, toc_removed = drop_printed_toc(blocks, config.reflow)
     epub_report = build_epub(
         doc_model,
         blocks,
@@ -106,7 +113,7 @@ def convert_pdf(
         pipeline_version=PIPELINE_VERSION,
     )
 
-    quality = check_blocks(blocks, is_scan_ocr=is_scan_ocr)
+    quality = check_blocks(blocks, is_scan_ocr=is_scan_ocr, printed_toc_removed=toc_removed)
     if run_check:
         quality = dataclasses.replace(quality, epubcheck=run_epubcheck(str(out_path)))
 

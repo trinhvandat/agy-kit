@@ -19,7 +19,7 @@ from collections import Counter
 from dataclasses import dataclass
 
 from . import toc
-from .model import Block, Document, Heading, ImageBlock, Line, Paragraph
+from .model import Block, Document, Heading, ImageBlock, Line, Paragraph, Table
 
 
 @dataclass(frozen=True)
@@ -42,6 +42,7 @@ class ReflowConfig:
     para_gap_factor: float = 1.6
     indent_tolerance: float = 14.0
     multicolumn_min_lines: int = 4
+    toc_run_min: int = 3  # ≥ bấy nhiêu mục-lục-in-sẵn liên tiếp mới bỏ (tránh bỏ nhầm dòng lẻ)
     # Tiêu đề thật ngắn: ≤ bấy nhiêu dòng liên tiếp cùng cấp. Nhiều hơn (vd lời giới thiệu in chữ
     # to nhiều dòng) → coi là ĐOẠN VĂN, không phải chuỗi heading.
     max_heading_lines: int = 2
@@ -268,6 +269,59 @@ def build_blocks(doc: Document, config: ReflowConfig | None = None) -> list[Bloc
     flush_para()
     flush_head_run()
     return blocks
+
+
+# --- Bỏ trang/khối mục lục in sẵn (áp cho cả hai engine) ----------------------
+
+# Dòng mục lục: có dãy chấm dẫn (hoặc …) VÀ kết thúc bằng số trang.
+_TOC_ENTRY_RE = re.compile(r"(\.\s*){4,}|…")
+_TRAILING_NUM_RE = re.compile(r"\d+\s*$")
+
+
+def _is_toc_entry_text(text: str) -> bool:
+    return bool(_TOC_ENTRY_RE.search(text) and _TRAILING_NUM_RE.search(text))
+
+
+def _block_is_toc(block: Block) -> tuple[bool, int]:
+    """(có phải mục lục in sẵn, số dòng mục lục) cho một khối."""
+    if isinstance(block, Paragraph):
+        return (_is_toc_entry_text(block.text), 1)
+    if isinstance(block, Table):
+        rows = [" ".join(r) for r in block.rows]
+        toc_rows = sum(1 for r in rows if _is_toc_entry_text(r))
+        return (bool(rows) and toc_rows / len(rows) >= 0.5, len(block.rows))
+    return (False, 0)
+
+
+def drop_printed_toc(
+    blocks: list[Block], config: ReflowConfig | None = None
+) -> tuple[list[Block], int]:
+    """Bỏ **mục lục in sẵn** (khối/đoạn nhiều dòng chấm-dẫn + số trang) khỏi nội dung.
+
+    Chỉ bỏ khi là **chuỗi ≥ ``toc_run_min`` khối mục lục liên tiếp** (một bảng mục lục cũng tính)
+    để không xóa nhầm dòng lẻ. Trả ``(blocks_còn_lại, số_dòng_mục_lục_đã_bỏ)``.
+    """
+    config = config or ReflowConfig()
+    flags = [_block_is_toc(b) for b in blocks]
+    drop = [False] * len(blocks)
+    i = 0
+    removed = 0
+    while i < len(blocks):
+        if flags[i][0]:
+            j = i
+            while j < len(blocks) and flags[j][0]:
+                j += 1
+            run = j - i
+            # Bảng mục lục (một khối gộp cả trang) cũng đủ điều kiện dù chỉ 1 khối.
+            if run >= config.toc_run_min or any(isinstance(blocks[k], Table) for k in range(i, j)):
+                for k in range(i, j):
+                    drop[k] = True
+                    removed += flags[k][1]
+            i = j
+        else:
+            i += 1
+    kept = [b for b, d in zip(blocks, drop, strict=True) if not d]
+    return kept, removed
 
 
 def collect_warnings(doc: Document, config: ReflowConfig | None = None) -> list[str]:

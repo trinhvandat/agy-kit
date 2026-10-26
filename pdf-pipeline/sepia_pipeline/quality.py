@@ -38,6 +38,7 @@ class QualityReport:
     pct_short40: float
     nfc_ok: bool
     is_scan_ocr: bool = False
+    printed_toc_removed: int = 0
     warnings: tuple[str, ...] = field(default_factory=tuple)
     epubcheck: str | None = None
 
@@ -47,7 +48,11 @@ def _non_space_len(text: str) -> int:
 
 
 def check_blocks(
-    blocks: list[Block], config: QualityConfig | None = None, *, is_scan_ocr: bool = False
+    blocks: list[Block],
+    config: QualityConfig | None = None,
+    *,
+    is_scan_ocr: bool = False,
+    printed_toc_removed: int = 0,
 ) -> QualityReport:
     """Chạy các kiểm tra nhẹ trên danh sách khối đã reflow."""
     config = config or QualityConfig()
@@ -105,6 +110,7 @@ def check_blocks(
         pct_short40=pct_short40,
         nfc_ok=nfc_ok,
         is_scan_ocr=is_scan_ocr,
+        printed_toc_removed=printed_toc_removed,
         warnings=tuple(warnings),
     )
 
