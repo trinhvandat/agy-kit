@@ -70,9 +70,7 @@ def test_threshold_is_configurable() -> None:
 
 
 # Mis-decode "thực tế" hơn: nhiều ký tự rơi vào 0xC0–0xFF (không phải vùng 0x80–0xBF).
-VI_REALISTIC_GARBAGE = (
-    "Trong y häc cæ truyÒn, huyÖt vÞ lµ nh÷ng ®iÓm ®Æc biÖt trªn c¬ thÓ con ng­êi"
-)
+VI_REALISTIC_GARBAGE = "Trong y häc cæ truyÒn, huyÖt vÞ lµ nh÷ng ®iÓm ®Æc biÖt trªn c¬ thÓ con ng­êi"
 # Chữ Việt Unicode hợp lệ có đủ nguyên âm Latin-1 precomposed + Đ/đ — KHÔNG được gắn cờ.
 VI_UNICODE_FULL = "Đàn bà sầu riêng ở phủ Tây Hồ, ông ấy mê mẩn cà phê đá à é ô õ ú ý"
 

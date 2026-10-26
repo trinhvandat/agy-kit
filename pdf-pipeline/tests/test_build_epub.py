@@ -179,6 +179,7 @@ def test_font_profile_written_to_css(tmp_path: Path) -> None:
 def _photo_png(w: int = 1600, h: int = 400) -> bytes:
     # Ảnh nhiều màu (gradient) → bị coi là ảnh chụp → JPEG + resize.
     import pymupdf as fitz
+
     pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, w, h))
     for x in range(w):
         for y in range(0, h, 50):
@@ -196,12 +197,14 @@ def test_large_photo_becomes_jpeg_and_resized(tmp_path: Path) -> None:
         import io
 
         from PIL import Image
+
         im = Image.open(io.BytesIO(z.read(imgs[0])))
         assert max(im.size) <= 1200  # đã đổi cỡ
 
 
 def test_tiny_image_dropped(tmp_path: Path) -> None:
     import pymupdf as fitz
+
     tiny = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 20, 20))
     tiny.set_rect(tiny.irect, (10, 10, 10))
     blocks = [Heading(text="C", level=1, page=1), ImageBlock(png=tiny.tobytes("png"), page=1)]
@@ -213,6 +216,7 @@ def test_tiny_image_dropped(tmp_path: Path) -> None:
 
 def test_tiny_image_with_caption_becomes_paragraph(tmp_path: Path) -> None:
     import pymupdf as fitz
+
     tiny = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 20, 20))
     tiny.set_rect(tiny.irect, (10, 10, 10))
     blocks = [
@@ -230,6 +234,7 @@ def test_tiny_image_with_caption_becomes_paragraph(tmp_path: Path) -> None:
 
 def test_caption_with_quotes_escaped(tmp_path: Path) -> None:
     import shutil
+
     blocks = [
         Heading(text="C", level=1, page=1),
         ImageBlock(png=PNG, page=1, caption='Huyệt "Hợp cốc" & <đồ hình>'),
@@ -241,4 +246,5 @@ def test_caption_with_quotes_escaped(tmp_path: Path) -> None:
     assert 'alt="Huyệt &quot;Hợp cốc&quot; &amp; &lt;đồ hình&gt;"' in body
     if shutil.which("java"):
         from sepia_pipeline.quality import run_epubcheck
+
         assert run_epubcheck(str(out)).startswith("epubcheck: HỢP LỆ")

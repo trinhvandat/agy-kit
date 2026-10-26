@@ -125,9 +125,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="auto",
         help="Engine trích: auto (docling cho scan_ocr) | heuristic | docling. Mặc định auto.",
     )
-    p_convert.add_argument(
-        "--no-check", action="store_true", help="Bỏ qua epubcheck (nhanh hơn)"
-    )
+    p_convert.add_argument("--no-check", action="store_true", help="Bỏ qua epubcheck (nhanh hơn)")
     p_convert.add_argument("--json", action="store_true", help="In kết quả dạng JSON")
     p_convert.set_defaults(func=_cmd_convert)
     return parser

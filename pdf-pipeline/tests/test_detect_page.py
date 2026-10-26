@@ -22,6 +22,7 @@ def _page(label: str) -> PageResult:
         page_number=1, label=label, char_count=50, image_coverage=0.0, legacy_ratio=0.0
     )
 
+
 CFG = DetectConfig()
 VI = "Tôi yêu tiếng Việt và học thuốc Đông y mỗi ngày thật chăm chỉ"  # >30 ký tự, có ệ/đ
 GARBAGE = "T«i yªu ti·ng ViÖt vµ häc thuèc §«ng y mçi ngµy th·t ch¨m"
@@ -67,7 +68,9 @@ def test_grid_matches_exact_within_2pct() -> None:
     boxes = [(10, 10, 50, 40), (60, 20, 90, 80), (5, 60, 40, 95)]
     exact = image_coverage(boxes, page_area=100 * 100, page_size=(100, 100))
     grid = image_coverage(
-        boxes, page_area=100 * 100, page_size=(100, 100),
+        boxes,
+        page_area=100 * 100,
+        page_size=(100, 100),
         config=DetectConfig(image_grid_threshold=0),  # ép dùng lưới
     )
     assert abs(grid - exact) < 0.02
@@ -112,9 +115,7 @@ def test_coverage_detail_grid_complete_not_lower_bound() -> None:
 def test_grid_early_stop_reaches_threshold() -> None:
     # 400 ảnh 5×5 lát kín trang; early_stop_at=0.7 → trả về ≥ 0.7 (đủ để kết luận scan).
     boxes = [(i % 20 * 5, i // 20 * 5, i % 20 * 5 + 5, i // 20 * 5 + 5) for i in range(400)]
-    cov = image_coverage(
-        boxes, page_area=100 * 100, page_size=(100, 100), early_stop_at=0.7
-    )
+    cov = image_coverage(boxes, page_area=100 * 100, page_size=(100, 100), early_stop_at=0.7)
     assert cov >= 0.7
 
 
