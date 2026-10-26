@@ -72,11 +72,23 @@ Chạy **sau khi trích** (không chạy trước). Với mỗi span được g�
 - Xử lý **dấu kết hợp**, rồi NFC.
 - **🔬 SPIKE-3** (xem [06-risks.md](./06-risks.md)): chuyển 1 trang TCVN3 + 1 trang VNI từ sách thật, **so dấu bằng mắt** trước khi tin cả pipeline.
 
-## 5. Bước 3 — Ràng buộc chọn công cụ trích (ADR-004)
+## 5. Bước 3 — Định tuyến công cụ trích theo nhãn `detect` (ADR-004, cập nhật sau SPIKE-4)
 
-- **Sách/trang có font cũ → BẮT BUỘC PyMuPDF** `get_text("dict")`, vì nó trả **tên font theo từng span** (cần cho bước 2). **Docling KHÔNG giữ font theo span** nên **không dùng được** cho loại này.
-- **Sách Unicode phức tạp** (nhiều cột, nhiều bảng) → có thể dùng **Docling** để dựng reading order/heading/bảng tốt hơn.
-- Mặc định PyMuPDF; Docling chỉ cho sách Unicode nhiều cột/bảng. (Chi tiết [05-tech-decisions.md](./05-tech-decisions.md) ADR-004.)
+Lệnh `convert` **tự chọn engine theo nhãn cuốn** của `detect` (cờ `--engine auto|heuristic|docling`,
+mặc định `auto`):
+
+- **`text_unicode` / `legacy_*` (born-digital) → heuristic PyMuPDF** `get_text("dict")`. **Bắt buộc
+  cho font cũ** vì trả **tên font theo span** (cần cho chuyển mã TCVN3/VNI — bước 2). **Docling KHÔNG
+  giữ font theo span** nên không dùng được cho loại này.
+- **`scan_ocr` (scan có lớp OCR, vd ABBYY) → Docling**, dùng **lớp chữ có sẵn trong PDF** (không bật
+  OCR lại). SPIKE-4 cho thấy Docling cho reading-order nhiều cột, heading và **cắt hình** tốt hơn hẳn
+  heuristic trên loại này (xem [spikes/spike-4-docling.md](./spikes/spike-4-docling.md)). Chất lượng
+  chữ vẫn **bị chặn bởi OCR gốc**; OCR kém thì cân nhắc OCR lại `vie` (US-A7) — giai đoạn sau.
+- **Docling là optional extra** (`uv sync --extra docling`, rất nặng: torch/transformers). Nếu nhãn
+  là `scan_ocr` mà **chưa cài Docling** → `convert` **lùi về heuristic + cảnh báo** cách cài; ép
+  `--engine docling` khi thiếu extra thì **báo lỗi rõ**.
+- Cả hai engine đổ về **cùng một mô hình trung gian** (Heading/Paragraph/Table/ImageBlock) → **một
+  đường dựng EPUB duy nhất** (`build_epub`). (Chi tiết [05-tech-decisions.md](./05-tech-decisions.md) ADR-004.)
 
 ## 6. Bước 4 — Reflow (`reflow.py`) — US-A4 (đã đơn giản hóa)
 

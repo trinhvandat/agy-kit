@@ -97,6 +97,18 @@ Lý do: tối đa hóa chia sẻ code và né viết Swift/tích hợp 2 toolkit
 - **Dựng EPUB bằng ebooklib** từ HTML sạch; **không** Calibre `ebook-convert` trực tiếp.
 **Ràng buộc license (R-08)**: PyMuPDF + ebooklib là **AGPL**. Pipeline **tách rời app**, chỉ xuất `.epub`, app KMP **không link** AGPL. Nếu sau muốn pipeline thành dịch vụ phân phối → mua commercial PyMuPDF hoặc chuyển Docling (MIT).
 
+**Cập nhật sau SPIKE-4 (Mốc 1b) — định tuyến engine theo nhãn `detect`**: thực tế mẫu dogfood là
+**sách scan có lớp OCR hiển thị** (ABBYY FineReader), reflow heuristic cho chất lượng chưa đạt
+(trộn cột, mất hình). Quyết định bổ sung:
+- **`text_unicode` / `legacy_*` → heuristic PyMuPDF** (như trên; **bắt buộc cho font cũ** vì giữ
+  font theo span).
+- **`scan_ocr` → Docling** (optional extra `--extra docling`, MIT), **dùng lớp chữ sẵn có, không OCR
+  lại**; Docling cho reading order/heading/cắt hình tốt hơn trên loại này (bằng chứng:
+  [spikes/spike-4-docling.md](./spikes/spike-4-docling.md)). Thiếu extra → lùi về heuristic + cảnh báo.
+- Cả hai đổ về **một mô hình trung gian** → **một** đường `build_epub` (không có đường dựng EPUB thứ hai).
+- Docling **không** thay PyMuPDF cho font cũ (không giữ font theo span) — ranh giới này giữ nguyên.
+- `convert` có cờ `--engine auto|heuristic|docling` (mặc định `auto`) để ép engine khi so sánh.
+
 ---
 
 ## ADR-005 — Chuyển font cũ TCVN3/VNI: **port bảng chuyển, theo span, sau khi trích**
