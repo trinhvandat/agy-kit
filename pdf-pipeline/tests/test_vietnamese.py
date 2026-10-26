@@ -2,8 +2,13 @@
 
 import unicodedata
 
-from sepia_pipeline.vietnamese import is_vietnamese_syllable, vietnamese_score
+import pytest
 
+from sepia_pipeline.vietnamese import (
+    is_vietnamese_syllable,
+    looks_vietnamese,
+    vietnamese_score,
+)
 
 # --- is_vietnamese_syllable: âm tiết thật (phải HỢP LỆ) -----------------------
 
@@ -108,3 +113,60 @@ def test_score_no_word_tokens_is_one() -> None:
     # Không có token chữ nào (chỉ số/dấu) → không coi là rác.
     assert vietnamese_score("123 456 — .") == 1.0
     assert vietnamese_score("") == 1.0
+
+
+# --- vietnamese_score: token TRUNG TÍNH (không kéo điểm) ----------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Liều: 10–15 g",  # số + đơn vị
+        "Vitamin B12",  # từ ngoại + mã
+        "Bảng 3.2",  # số thập phân
+        "Hợp Cốc (LI4)",  # tên huyệt + mã huyệt
+        "DNA",  # viết tắt in hoa
+        "TCM",
+        "II.",  # số La Mã
+        "Chương XII",
+        "Email: info@huyhoangbook.vn",  # colophon email
+        "www.huyhoangbook.com.vn",  # colophon website
+        "Ma Hoàng (Ephedra sinica)",  # tên vị thuốc + tên khoa học
+    ],
+)
+def test_score_neutral_tokens_not_penalized(text: str) -> None:
+    # Mã/số, email/URL, từ viết tắt, số La Mã, từ ngoại → TRUNG TÍNH → khối vẫn ≥ 0.5 (được GIỮ).
+    assert vietnamese_score(text) >= 0.5, f"{text!r} không được bị bỏ oan"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "?>?H$ 4 í im Àub1$ *íhA",  # rác OCR chữ trang trí
+        "= = ^ s -",
+        "<*x>o-c*x>o<xx><>o<><xx<x>c^>c<xxx^^",
+        "<D",  # một chữ cái đơn kèm ký hiệu
+        "Q",  # một chữ cái đơn
+    ],
+)
+def test_score_garbage_still_dropped(text: str) -> None:
+    # Chữ cái đơn VẪN tính điểm + token có dấu-mojibake không trung tính → rác vẫn < 0.5 (bị BỎ).
+    assert vietnamese_score(text) < 0.5, f"{text!r} phải bị coi là rác"
+
+
+# --- looks_vietnamese: cổng bật/tắt lọc rác ----------------------------------
+
+
+def test_looks_vietnamese_true_for_vietnamese() -> None:
+    assert looks_vietnamese("Mùa thu khí trời hanh khô, cần dưỡng phế và giữ ẩm cơ thể con người.")
+
+
+def test_looks_vietnamese_false_for_french_and_english() -> None:
+    # Tiếng Pháp (é à â ô Latin-1) / tiếng Anh → KHÔNG có chữ Việt Unicode "thật" → False.
+    assert not looks_vietnamese("La médecine générale est à la française, très développée.")
+    assert not looks_vietnamese("A general introduction to the theory of medicine and health.")
+
+
+def test_looks_vietnamese_false_for_too_few_real_chars() -> None:
+    # Vài ký tự lạc lõng (OCR nhầm) trong văn bản không phải tiếng Việt → chưa đủ ngưỡng → False.
+    assert not looks_vietnamese("Mostly english text with one stray ạ character here.")

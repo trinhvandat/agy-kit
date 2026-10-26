@@ -16,9 +16,10 @@ from . import PIPELINE_VERSION
 from .build_epub import EpubReport, build_epub, load_font_family
 from .detect import DetectConfig, scan_ocr_book_signal
 from .extract import extract_document, render_page_png
-from .model import Document, ImageBlock, Page
+from .model import Document, Heading, ImageBlock, Page, Paragraph
 from .quality import QualityReport, check_blocks, run_epubcheck
 from .reflow import (
+    GarbageFilterResult,
     ReflowConfig,
     build_blocks,
     collect_warnings,
@@ -27,6 +28,7 @@ from .reflow import (
     drop_running_headers,
     is_image_page,
 )
+from .vietnamese import looks_vietnamese
 
 DEFAULT_OUT_DIR = Path(__file__).resolve().parent.parent / "out"
 
@@ -152,9 +154,17 @@ def convert_pdf(
         running_headers_removed = header_result.removed
         running_header_examples = header_result.examples
 
-    # Lọc dòng rác theo âm tiết Việt — áp cho CẢ hai engine.
-    garbage = drop_garbage_blocks(blocks, config.reflow)
-    blocks = garbage.kept
+    # Lọc dòng rác theo âm tiết Việt — CHỈ bật khi (a) nguồn là OCR (cuốn scan_ocr hoặc đường
+    # Docling) VÀ (b) sách là tiếng Việt. Sách born-digital (text_unicode, legacy sau chuyển mã)
+    # và sách không phải tiếng Việt KHÔNG lọc — để không bỏ oan nội dung thật (vd heading tiếng Anh
+    # chấm 0 điểm âm tiết Việt). Xem docs/03 §8.
+    is_ocr_source = is_scan_ocr or engine_used == "docling"
+    book_text = " ".join(b.text for b in blocks if isinstance(b, Heading | Paragraph))
+    if is_ocr_source and looks_vietnamese(book_text):
+        garbage = drop_garbage_blocks(blocks, config.reflow)
+        blocks = garbage.kept
+    else:
+        garbage = GarbageFilterResult(kept=blocks, removed=(), long_low_score=())
 
     blocks, toc_removed = drop_printed_toc(blocks, config.reflow)
     n_image_pages = sum(1 for b in blocks if isinstance(b, ImageBlock))
