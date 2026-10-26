@@ -141,9 +141,7 @@ def is_image_page(page, config: ReflowConfig) -> bool:
     return page.has_full_page_image and page.char_count < config.image_page_max_chars
 
 
-def strip_running_heads(
-    page, repeating: set[str], config: ReflowConfig
-) -> list[Line]:
+def strip_running_heads(page, repeating: set[str], config: ReflowConfig) -> list[Line]:
     """Bỏ dòng header/footer lặp + dòng số trang trong dải mép. Giữ nguyên thứ tự còn lại."""
     kept: list[Line] = []
     for ln in page.lines:
@@ -232,10 +230,7 @@ def build_blocks(doc: Document, config: ReflowConfig | None = None) -> list[Bloc
             return
         text = normalize_text(" ".join(ln.text for ln in head_run))
         non_space = sum(1 for ch in text if not ch.isspace())
-        if (
-            len(head_run) <= config.max_heading_lines
-            and non_space <= toc_config.heading_max_chars
-        ):
+        if len(head_run) <= config.max_heading_lines and non_space <= toc_config.heading_max_chars:
             blocks.append(Heading(text=text, level=head_level, page=head_run[0].page))
         elif re.search(r"\w", text):
             # Quá nhiều dòng / quá dài để là tiêu đề → đoạn văn chữ to (lời giới thiệu…).
@@ -369,8 +364,7 @@ def drop_garbage_blocks(
             kept.append(b)
             continue
         is_short = (
-            isinstance(b, Heading)
-            or _non_space_len(b.text) <= config.garbage_short_max_chars
+            isinstance(b, Heading) or _non_space_len(b.text) <= config.garbage_short_max_chars
         )
         if is_short:
             removed.append(b.text)
@@ -383,15 +377,37 @@ def drop_garbage_blocks(
 # --- Bỏ header chạy đầu trang (đường Docling) --------------------------------
 
 
+def _running_head_key(text: str) -> str:
+    """Khoá so khớp **tiêu đề chạy đầu trang** (đường Docling): gộp khoảng trắng + hạ thường, **GIỮ
+    chữ số**.
+
+    Khác :func:`_band_key` (heuristic bỏ chữ số vì header + số trang nằm chung một dòng): Docling
+    **tách số trang thành khối riêng**, nên tiêu đề chạy thật (vd "ĐÔNG Y VÀ BÍ QUYẾT DƯỠNG SINH BỐN
+    MÙA") không chứa số. Giữ chữ số để "Chương 1", "Chương 2"… (heading **chương thật**, khác nhau)
+    KHÔNG bị gộp cùng khoá rồi xoá nhầm — lỗi cũ khi dùng ``_band_key`` ở đây.
+    """
+    return collapse_ws(text).lower()
+
+
+@dataclass(frozen=True)
+class RunningHeaderResult:
+    """Kết quả bỏ tiêu đề chạy đầu trang: khối giữ lại, số khối bỏ, danh sách header (duy nhất)."""
+
+    kept: list[Block]
+    removed: int
+    examples: tuple[str, ...]  # "text (×số trang)" cho mỗi header lặp đã bỏ (giữ 1, bỏ phần dư)
+
+
 def drop_running_headers(
     blocks: list[Block], config: ReflowConfig | None = None
-) -> tuple[list[Block], int]:
+) -> RunningHeaderResult:
     """Bỏ **tiêu đề chạy đầu trang** lặp lại (đường Docling — khối không có toạ độ).
 
     "Đầu trang" = khối **mở đầu** mỗi trang theo thứ tự đọc, nếu là ``Heading`` hoặc khối ngắn.
-    Tái dùng :func:`_band_key` (bỏ chữ số + hạ thường) làm khoá so khớp như heuristic. Khoá xuất
-    hiện ở đầu trang trên ≥ ``running_header_min_pages`` trang khác nhau → **giữ lần đầu, bỏ các lần
-    sau**. Trả ``(blocks_còn_lại, số_khối_đã_bỏ)``.
+    Dùng :func:`_running_head_key` (**giữ chữ số** + hạ thường) làm khoá so khớp. Khoá xuất hiện ở
+    đầu trang trên ≥ ``running_header_min_pages`` trang khác nhau → **giữ lần đầu, bỏ các lần sau**.
+    Trả :class:`RunningHeaderResult` — ``examples`` liệt kê header duy nhất đã bỏ + số trang (giống
+    ``garbage_examples``) để người duyệt thấy đã bỏ gì.
     """
     config = config or ReflowConfig()
 
@@ -400,8 +416,9 @@ def drop_running_headers(
             isinstance(b, Paragraph) and _non_space_len(b.text) <= config.garbage_short_max_chars
         )
 
-    # Khối mở đầu mỗi trang (theo thứ tự đọc) + khoá band của nó.
-    leading_key: dict[int, str] = {}  # index khối → khoá band
+    # Khối mở đầu mỗi trang (theo thứ tự đọc) + khoá của nó.
+    leading_key: dict[int, str] = {}  # index khối → khoá header
+    leading_text: dict[str, str] = {}  # khoá → text hiển thị (lần đầu thấy)
     seen_page: set[int] = set()
     for i, b in enumerate(blocks):
         page = getattr(b, "page", 0)
@@ -409,9 +426,11 @@ def drop_running_headers(
             continue
         seen_page.add(page)
         if is_head_candidate(b):
-            key = _band_key(getattr(b, "text", ""))
+            text = getattr(b, "text", "")
+            key = _running_head_key(text)
             if key:
                 leading_key[i] = key
+                leading_text.setdefault(key, text)
 
     counts: Counter[str] = Counter(leading_key.values())
     repeating = {k for k, n in counts.items() if n >= config.running_header_min_pages}
@@ -427,7 +446,9 @@ def drop_running_headers(
                 continue
             first_kept.add(key)
         kept.append(b)
-    return kept, removed
+
+    examples = tuple(f"{collapse_ws(leading_text[k])} (×{counts[k]})" for k in sorted(repeating))
+    return RunningHeaderResult(kept=kept, removed=removed, examples=examples)
 
 
 def collect_warnings(doc: Document, config: ReflowConfig | None = None) -> list[str]:

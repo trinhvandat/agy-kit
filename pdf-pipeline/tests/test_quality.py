@@ -80,6 +80,18 @@ def test_garbage_blocks_removed_recorded() -> None:
     assert any("rác" in w and "bỏ" in w for w in r.warnings)
 
 
+def test_running_headers_removed_recorded() -> None:
+    blocks = [Paragraph(text="Một đoạn văn tiếng Việt sạch và đủ dài để không vụn.", page=1)]
+    r = check_blocks(
+        blocks,
+        running_headers_removed=4,
+        running_header_examples=("ĐÔNG Y VÀ BÍ QUYẾT DƯỠNG SINH BỐN MÙA (×5)",),
+    )
+    assert r.running_headers_removed == 4
+    assert r.running_header_examples == ("ĐÔNG Y VÀ BÍ QUYẾT DƯỠNG SINH BỐN MÙA (×5)",)
+    assert any("tiêu đề chạy đầu trang" in w and "ĐÔNG Y" in w for w in r.warnings)
+
+
 def test_garbage_long_low_score_warns() -> None:
     blocks = [Paragraph(text="Một đoạn văn tiếng Việt sạch và đủ dài để không vụn.", page=1)]
     r = check_blocks(blocks, garbage_long_low=2)

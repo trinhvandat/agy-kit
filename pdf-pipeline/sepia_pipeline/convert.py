@@ -144,10 +144,13 @@ def convert_pdf(
         blocks = build_blocks(doc_model, config.reflow)
 
     # Đường Docling: bỏ tiêu đề chạy đầu trang lặp (khối không có toạ độ như heuristic).
+    running_headers_removed = 0
+    running_header_examples: tuple[str, ...] = ()
     if engine_used == "docling":
-        blocks, header_removed = drop_running_headers(blocks, config.reflow)
-        if header_removed:
-            warnings += (f"đã bỏ {header_removed} tiêu đề chạy đầu trang lặp (Docling)",)
+        header_result = drop_running_headers(blocks, config.reflow)
+        blocks = header_result.kept
+        running_headers_removed = header_result.removed
+        running_header_examples = header_result.examples
 
     # Lọc dòng rác theo âm tiết Việt — áp cho CẢ hai engine.
     garbage = drop_garbage_blocks(blocks, config.reflow)
@@ -170,6 +173,8 @@ def convert_pdf(
         garbage_blocks_removed=len(garbage.removed),
         garbage_examples=garbage.removed,
         garbage_long_low=len(garbage.long_low_score),
+        running_headers_removed=running_headers_removed,
+        running_header_examples=running_header_examples,
     )
     if run_check:
         quality = dataclasses.replace(quality, epubcheck=run_epubcheck(str(out_path)))
