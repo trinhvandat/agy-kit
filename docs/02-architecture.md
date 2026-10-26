@@ -86,27 +86,37 @@ sepia/
 │   │   └── quality.py            # kiểm tra nhẹ (ký tự rác, số đoạn…)
 │   └── tests/
 │
-├── composeApp/                   # app KMP
+├── composeApp/                   # thư viện KMP (AGP 9: com.android.kotlin.multiplatform.library)
 │   └── src/
 │       ├── commonMain/           # ★ phần lớn code ở đây
-│       │   └── kotlin/.../sepia/
+│       │   └── kotlin/io/github/trinhvandat/sepia/
 │       │       ├── domain/       # models, use cases (thuần Kotlin)
 │       │       ├── data/         # repositories, DB, file access (interface)
 │       │       ├── reader/       # reader-engine: bridge WebView↔foliate-js, CFI, re-anchor
 │       │       ├── theme/        # theme-engine: 5 theme màu → CSS
 │       │       ├── overlay/      # warmth/brightness: lớp phủ Compose
 │       │       ├── annotation/   # highlight(+note), export Markdown
-│       │       └── feature/      # UI Compose: reader, library, notes
-│       ├── androidMain/          # WebView actual + WebViewAssetLoader, SAF, entry Activity
-│       ├── iosMain/              # WKWebView actual + WKURLSchemeHandler, UIDocumentPicker, entry
+│       │       ├── feature/      # UI Compose: reader, library, notes
+│       │       ├── variant/      # VariantConfig (Lớp 3) — ADR-007
+│       │       └── App.kt        # màn hình mở đầu (Compose UI chung)
+│       ├── androidMain/          # actual Android: WebView + WebViewAssetLoader, SAF (KHÔNG chứa launcher)
+│       ├── iosMain/              # actual iOS: WKWebView + WKURLSchemeHandler, UIDocumentPicker; MainViewController
 │       └── commonMain/composeResources/
 │           └── foliate/          # foliate-js (vendored, pin SHA) + reader.html + bridge.js + CSS theme
 │
+├── androidApp/                   # launcher Android mỏng (com.android.application) — MainActivity + manifest
+│   └── src/main/{kotlin,res,AndroidManifest.xml}
+│
+├── iosApp/                       # vỏ iOS SwiftUI nhúng framework ComposeApp (.xcodeproj tạo khi có Xcode)
+│   └── iosApp/{iOSApp.swift,ContentView.swift,Info.plist}
+│
 ├── CLAUDE.md                     # hướng dẫn cho AI/người làm
+├── settings.gradle.kts           # include :composeApp, :androidApp
 └── gradle/ (libs.versions.toml)  # version catalog tập trung
 ```
 
-> Giai đoạn đầu gộp tất cả trong `composeApp` (ranh giới bằng **package**), chưa cần tách Gradle module. Khi lõi ổn định và nhân bản app, mới tách `:core`, `:variant-*`.
+> **Ranh giới 3 lớp vẫn bằng package** trong `:composeApp`; chưa tách `:core`/`:variant-*` (hoãn tới app thứ hai).
+> **AGP 9 buộc tách module launcher**: `com.android.application` không còn ở chung module với plugin KMP, nên có thêm `:androidApp` mỏng. Đây là ràng buộc công cụ, không phải tách lõi/biến thể — xem [05 ADR-007](./05-tech-decisions.md#adr-007--tổ-chức-module--biến-thể-package--object-variantconfig-chưa-dùng-flavortarget).
 
 ## 5. Luồng dữ liệu: PDF → EPUB → màn hình đọc
 

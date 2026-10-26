@@ -34,6 +34,7 @@
 - **Vì sao**: cần macOS + Xcode, signing, chạy simulator/thiết bị; expect/actual cho WKWebView, scheme handler, UIDocumentPicker, file paths.
 - **Giảm thiểu**: Android trước (dogfood ngay); iOS chạy **song song ở mức "hello world + mở 1 sách"** sớm để lộ vấn đề toolchain; dùng KMP template chuẩn JetBrains. **Mọi việc iOS cộng thêm thời gian trong roadmap**.
 - **🔬 SPIKE-2 (Mốc 0–1)**: dựng app KMP rỗng từ template, chạy được trên iOS simulator trước khi thêm tính năng.
+- **Trạng thái (2026-10-26)**: **còn mở** — **chưa build iOS lần nào**. `iosApp/` mới có **vỏ SwiftUI** (`iOSApp.swift`, `ContentView.swift`, `Info.plist`) + `iosMain`, **chưa có `.xcodeproj`** (máy chưa cài Xcode). Android đã xong & chạy trên emulator. Theo dõi ở **[issue #3](https://github.com/trinhvandat/sepia/issues/3)**.
 
 ## R-03 — Chuyển TCVN3/VNI → Unicode sai dấu
 

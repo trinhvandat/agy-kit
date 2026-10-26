@@ -29,8 +29,11 @@ sepia/
 ├── docs/              # 01..07: requirements, architecture, pipeline, data-model, ADRs, risks, roadmap
 │   └── variants/      # biến thể theo lĩnh vực (dongy.md…) — nơi chứa mọi thứ đặc thù
 ├── pdf-pipeline/      # Python CLI (PDF → EPUB) — KHÔNG thuộc app KMP, license AGPL tách biệt
-├── composeApp/        # app KMP: commonMain (domain/data/reader/theme/overlay/annotation/feature)
-│                      #          androidMain / iosMain (actual tối thiểu)
+├── composeApp/        # thư viện KMP: commonMain (domain/data/reader/theme/overlay/annotation/feature/variant)
+│                      #               androidMain / iosMain (actual tối thiểu) — AGP 9: library, KHÔNG phải app
+├── androidApp/        # launcher Android mỏng (com.android.application) — MainActivity + manifest
+├── iosApp/            # vỏ iOS SwiftUI nhúng framework ComposeApp (.xcodeproj tạo khi có Xcode)
+├── gradle/            # libs.versions.toml (version catalog)
 ├── CLAUDE.md          # file này
 └── README.md
 ```
@@ -56,5 +59,6 @@ sepia/
 
 ## Mốc hiện tại & việc kế tiếp
 
-- **Hiện tại**: đang làm **Mốc 0**. Đã dựng khung `pdf-pipeline/` (uv + PyMuPDF 1.27.x) với bước **`detect`** (phân loại PDF theo trang/span) + test.
-- **Việc kế tiếp (Mốc 0)**: SPIKE-0 = chạy `detect` trên **vài sách mẫu** (`samples/`) → quyết định OCR; SPIKE-2 (template KMP chạy Android + iOS). Xem [07-roadmap.md](./docs/07-roadmap.md).
+- **Hiện tại**: **Mốc 0 xong phần nền tảng** — `pdf-pipeline/` (uv + PyMuPDF 1.27.x, bước `detect` + test) và **app Android** (khung KMP + Compose MP, build xanh, đã chạy trên emulator: màn hình mở đầu "Sepia"). *(IDE cần Android Studio 2026 ≥ Rabbit để sync AGP 9.)*
+- **Việc kế tiếp**: sang **Mốc 1** (pipeline ra EPUB sạch, đọc bằng KOReader). Còn **SPIKE-0** (chạy `detect` trên `samples/` → quyết định OCR) trong Mốc 0.
+- **Việc riêng đang mở**: **iOS shell** (SPIKE-2 phần iOS) — chưa build iOS lần nào, chưa có `.xcodeproj` (chưa cài Xcode) → **[issue #3](https://github.com/trinhvandat/sepia/issues/3)**, xem `iosApp/README.md`. Xem [07-roadmap.md](./docs/07-roadmap.md).

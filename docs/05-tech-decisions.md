@@ -10,6 +10,11 @@
 |------------|-----------|---------|
 | Kotlin | **2.4.20** | 2.x hiện hành; language release 2.4.0 (6/2026) |
 | Compose Multiplatform | **1.12.2** | iOS **Stable** (từ 1.8.0, 5/2025); không cần tự align Kotlin |
+| Android Gradle Plugin (AGP) | **9.4.1** | *Thêm ở Mốc 0/SPIKE-2* — mới nhất ổn định (9/2026). CMP 1.12 cần AGP ≥ 9.2; **AGP ≥ 9.0 buộc tách module app/library KMP** (xem ADR-007, ghi chú SPIKE-2). |
+| Gradle | **9.8.2** | *Thêm ở Mốc 0* — AGP 9.4 cần Gradle ≥ 9.6.0. |
+| compileSdk / targetSdk | **37** | *Thêm ở Mốc 0* — AGP 9.4 hỗ trợ tới API 37; CMP 1.12 (Jetpack Compose 1.12.1) cần compileSdk 37. |
+| minSdk | **26** | *Thêm ở Mốc 0* — mốc khởi đầu; chỉnh sau nếu cần. |
+| androidx.activity-compose | **1.13.0** | *Thêm ở Mốc 0* — entry Activity Android (ổn định 3/2026). |
 | SQLDelight | **2.3.2** | KMP first-class, SQL type-safe compile-time |
 | Room (androidx.room) | **2.8.5** | KMP stable (thay thế); Room 3.0 còn **alpha** |
 | Koin | **4.2.1** | KMP + compile-safe (Koin Compiler) |
@@ -114,6 +119,14 @@ Lý do: tối đa hóa chia sẻ code và né viết Swift/tích hợp 2 toolkit
 **Quyết định**:
 - Phân lớp bằng **package** trong `composeApp`; chỉ tách Gradle module (`:core`, `:variant-*`) khi lõi ổn định và thực sự nhân bản app thứ hai.
 - Cấu hình biến thể/feature flags giai đoạn đầu **chỉ là một object `VariantConfig`** (tên app, **màu thương hiệu**, map flags, trỏ tới content pack). **Chưa** dùng **Gradle flavors / Xcode targets** — chỉ thêm khi làm app thứ hai.
+
+**Cập nhật Mốc 0 (SPIKE-2) — AGP 9 buộc tách module launcher**: từ **AGP 9.0**, plugin `com.android.application` **không còn tương thích** với plugin KMP trong **cùng một module**. Do dùng AGP 9.4.1 + compileSdk 37, khung app phải tách tối thiểu:
+- **`:composeApp`** — thư viện KMP (`com.android.kotlin.multiplatform.library`, DSL `kotlin { android { … } }`) chứa toàn bộ code lõi + `actual` Android/iOS + framework iOS.
+- **`:androidApp`** — module launcher `com.android.application` **mỏng** (chỉ `MainActivity` + manifest), phụ thuộc `:composeApp`.
+
+Đây là **ràng buộc công cụ**, **không phải** việc tách lõi/biến thể (`:core`, `:variant-*`) mà ADR-007 muốn hoãn — ranh giới 3 lớp vẫn ở mức **package** trong `:composeApp`. Việc tách `:core`/`:variant-*` vẫn hoãn tới khi làm app thứ hai.
+
+**Định danh app (chốt Mốc 0)**: `applicationId` Android = bundle ID iOS = package Kotlin gốc = **`io.github.trinhvandat.sepia`** (namespace `:composeApp` = `io.github.trinhvandat.sepia.shared`). **ID này không đổi được sau khi phát hành** (đổi = coi như app mới, mất cập nhật/dữ liệu người dùng) → chốt sớm từ bây giờ.
 
 ---
 

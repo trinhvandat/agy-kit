@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Theme nền tảng NoActionBar; Compose vẽ toàn bộ UI nên không cần AppCompat/Material XML. -->
+    <style name="Theme.Sepia" parent="@android:style/Theme.Material.Light.NoActionBar" />
+</resources>
