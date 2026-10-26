@@ -240,9 +240,7 @@ def _coverage_grid(
     grid = bytearray(cells * cells)
     covered_cells = 0
     cell_area = cw * ch
-    stop_cells = (
-        None if early_stop_at is None else int(early_stop_at * page_area / cell_area)
-    )
+    stop_cells = None if early_stop_at is None else int(early_stop_at * page_area / cell_area)
     for x0, y0, x1, y1 in rects:
         i0, i1 = max(0, int(x0 / cw)), min(cells - 1, int((x1 - 1e-9) / cw))
         j0, j1 = max(0, int(y0 / ch)), min(cells - 1, int((y1 - 1e-9) / ch))
@@ -350,9 +348,7 @@ def classify_page(
         return TEXT_UNICODE
 
     total = sum(counts.values())
-    significant = {
-        label for label, n in counts.items() if n / total >= config.mixed_min_fraction
-    }
+    significant = {label for label, n in counts.items() if n / total >= config.mixed_min_fraction}
     if len(significant) >= 2:
         return MIXED
     # Một loại chiếm ưu thế → trả loại có nhiều ký tự nhất.
@@ -582,6 +578,7 @@ def detect_pdf(path: str | Path, config: DetectConfig | None = None) -> BookResu
     finally:
         if doc is not None:
             doc.close()
+
 
 # Tiền tố subset của PDF: đúng 6 chữ IN HOA + "+", vd "ABCDEF+".
 _SUBSET = r"(?:[A-Z]{6}\+)?"

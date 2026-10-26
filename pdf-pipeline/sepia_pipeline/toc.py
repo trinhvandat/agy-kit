@@ -95,9 +95,7 @@ def heading_size_levels(
         if is_heading_candidate(ln, body, config)
     }
     ordered = sorted(sizes, reverse=True)
-    return {
-        size: min(i + 1, config.max_levels) for i, size in enumerate(ordered)
-    }
+    return {size: min(i + 1, config.max_levels) for i, size in enumerate(ordered)}
 
 
 def heading_level(

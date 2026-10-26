@@ -1,6 +1,6 @@
 """Đo độ phủ chữ (Mốc 1b, bước 1): lớp chữ PDF vs khối sẽ dựng EPUB, theo trang & theo engine.
 
-    uv run python spikes/text_coverage.py "../samples/<tên>.pdf" <heuristic|docling>
+uv run python spikes/text_coverage.py "../samples/<tên>.pdf" <heuristic|docling>
 """
 
 from __future__ import annotations
@@ -38,8 +38,10 @@ def main() -> int:
     dt = time.time() - t0
     rep = text_coverage_by_page(pdf, blocks)
     print(f"engine={engine}  thời gian trích={dt:.1f}s")
-    print(f"tổng ký tự PDF={rep.total_pdf_chars}  khối={rep.total_block_chars}  "
-          f"độ phủ={rep.coverage:.3f}")
+    print(
+        f"tổng ký tự PDF={rep.total_pdf_chars}  khối={rep.total_block_chars}  "
+        f"độ phủ={rep.coverage:.3f}"
+    )
     print(f"số trang={rep.n_pages}  trang lớn nhất có khối={rep.max_block_page}")
     print(f"trang phủ <70%: {len(rep.low_pages)} | trang rỗng (có chữ PDF): {len(rep.empty_pages)}")
     print("  10 trang mất nhiều nhất:", sorted(rep.low_pages, key=lambda r: r[3])[:10])

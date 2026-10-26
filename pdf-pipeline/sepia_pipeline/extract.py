@@ -40,9 +40,7 @@ def _is_italic(font: str, flags: int) -> bool:
     return bool(flags & _FLAG_ITALIC) or "italic" in name or "oblique" in name
 
 
-def _extract_line(
-    line_dict: dict, page_number: int, config: DetectConfig
-) -> Line | None:
+def _extract_line(line_dict: dict, page_number: int, config: DetectConfig) -> Line | None:
     """Dựng một :class:`Line` từ dict của PyMuPDF; chuyển mã legacy theo từng span.
 
     Trả ``None`` nếu dòng rỗng (không có span chứa chữ).
