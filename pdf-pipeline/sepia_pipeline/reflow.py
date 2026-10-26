@@ -228,7 +228,7 @@ def build_blocks(doc: Document, config: ReflowConfig | None = None) -> list[Bloc
     def flush() -> None:
         if para_lines:
             text = normalize_text(" ".join(ln.text for ln in para_lines))
-            if text:
+            if text and re.search(r"\w", text):  # bỏ đoạn chỉ gồm ký hiệu/khoảng trắng
                 blocks.append(Paragraph(text=text, page=para_lines[0].page))
             para_lines.clear()
 
@@ -246,6 +246,9 @@ def build_blocks(doc: Document, config: ReflowConfig | None = None) -> list[Bloc
             if lvl is not None:
                 flush()
                 blocks.append(Heading(text=normalize_text(ln.text), level=lvl, page=page.number))
+                continue
+            # Bỏ dòng chỉ gồm ký hiệu (vd "•", "»") — trang trí, không phải thân bài.
+            if not re.search(r"\w", ln.text):
                 continue
             if para_lines:
                 para_left = min(x.x0 for x in para_lines)

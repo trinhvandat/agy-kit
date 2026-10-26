@@ -9,10 +9,14 @@ Hàm thuần trên :class:`model.Line`. Ý tưởng (docs/03 §7):
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 from dataclasses import dataclass
 
 from .model import Line
+
+# Dòng mục lục có dãy dấu chấm dẫn ("......"), KHÔNG phải tiêu đề.
+_TOC_LEADER_RE = re.compile(r"\.{4,}|…{2,}")
 
 
 @dataclass(frozen=True)
@@ -24,6 +28,8 @@ class TocConfig:
     - ``heading_max_chars``: tiêu đề phải ngắn (dài hơn → coi là thân bài dù cỡ lớn).
     - ``max_levels``: số cấp heading tối đa (các cỡ nhỏ hơn dồn vào cấp cuối).
     - ``size_round``: làm tròn cỡ chữ về bội số này khi gom cấp (tránh lệch 0.1pt).
+    - ``min_letters`` + ``min_letter_ratio``: tiêu đề phải có đủ chữ cái và phần lớn là chữ (loại
+      số trang trần "66", mảnh rác "@ iu iđ n { Ị 1", dòng ký hiệu).
     """
 
     heading_size_factor: float = 1.18
@@ -31,6 +37,8 @@ class TocConfig:
     heading_max_chars: int = 120
     max_levels: int = 3
     size_round: float = 0.5
+    min_letters: int = 2
+    min_letter_ratio: float = 0.6
 
 
 def _round_size(size: float, step: float) -> float:
@@ -55,6 +63,13 @@ def is_heading_candidate(line: Line, body: float, config: TocConfig | None = Non
     config = config or TocConfig()
     c = line.char_count
     if c == 0 or c > config.heading_max_chars:
+        return False
+    text = line.text
+    letters = sum(1 for ch in text if ch.isalpha())
+    # Loại dòng mục lục (chấm dẫn), số trang trần, mảnh rác nhiều ký hiệu.
+    if letters < config.min_letters or letters / c < config.min_letter_ratio:
+        return False
+    if _TOC_LEADER_RE.search(text):
         return False
     size = line.dominant_size
     if body <= 0:

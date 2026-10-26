@@ -139,6 +139,24 @@ def test_build_blocks_strips_heads_joins_paragraphs_and_image() -> None:
     assert blocks[-1].page == 6
 
 
+def test_pure_symbol_paragraphs_dropped() -> None:
+    cfg = ReflowConfig()
+    page = Page(
+        number=1,
+        width=W,
+        height=H,
+        lines=(
+            ln(1, 100, "•"),  # rác trang trí → bỏ
+            ln(1, 140, "Đoạn văn thật sự có nội dung."),
+            ln(1, 180, "»"),  # rác → bỏ
+        ),
+    )
+    doc = Document(pages=(page,), source_pdf_name="x.pdf", pdf_sha256="h")
+    paras = [b for b in build_blocks(doc, cfg) if isinstance(b, Paragraph)]
+    assert len(paras) == 1
+    assert paras[0].text == "Đoạn văn thật sự có nội dung."
+
+
 def test_paragraph_break_on_indent() -> None:
     cfg = ReflowConfig()
     page = Page(
