@@ -8,7 +8,7 @@ import pytest
 from ebooklib import epub
 
 from sepia_pipeline import PIPELINE_VERSION
-from sepia_pipeline.build_epub import build_epub, load_font_family
+from sepia_pipeline.build_epub import _blocks_to_chapters, build_epub, load_font_family
 from sepia_pipeline.model import Document, Heading, ImageBlock, Paragraph
 
 
@@ -47,7 +47,8 @@ def test_identifier_and_structure(tmp_path: Path) -> None:
     out = tmp_path / "book.epub"
     report = build_epub(_doc(), _blocks(), out)
     assert report.book_uid == "sepia:" + "a" * 64
-    assert report.n_chapters == 3  # front matter + 2 chương cấp 1
+    # 2 h1 (< ngưỡng 3) → chia thêm theo h2: front(ảnh) + CHƯƠNG MỘT + Mục nhỏ + CHƯƠNG HAI.
+    assert report.n_chapters == 4
     assert report.n_images == 1
 
     book = epub.read_epub(str(out))
@@ -79,16 +80,40 @@ def test_mimetype_first_and_stored(tmp_path: Path) -> None:
         assert all(i.date_time == (1980, 1, 1, 0, 0, 0) for i in infos)
 
 
-def test_chapters_split_by_h1(tmp_path: Path) -> None:
-    out = tmp_path / "book.epub"
-    build_epub(_doc(), _blocks(), out)
-    book = epub.read_epub(str(out))
-    htmls = [
-        it
-        for it in book.get_items()
-        if isinstance(it, epub.EpubHtml) and it.file_name.startswith("chap_")
+def test_split_h1_only_when_enough_h1() -> None:
+    # ≥ 3 h1 → chia theo h1, KHÔNG đụng h2.
+    blocks = []
+    for i in range(3):
+        blocks.append(Heading(text=f"CHƯƠNG {i}", level=1, page=i + 1))
+        blocks.append(Heading(text="Mục con", level=2, page=i + 1))
+        blocks.append(Paragraph(text="nội dung.", page=i + 1))
+    chapters, _ = _blocks_to_chapters(_doc(), blocks)
+    assert len(chapters) == 3  # chỉ cắt ở 3 h1
+
+
+def test_split_h2_fallback_when_few_h1() -> None:
+    # 1 h1 (< 3) → chia thêm theo h2.
+    blocks = [
+        Heading(text="CHƯƠNG MỘT", level=1, page=1),
+        Paragraph(text="a.", page=1),
+        Heading(text="Mục A", level=2, page=1),
+        Paragraph(text="b.", page=1),
+        Heading(text="Mục B", level=2, page=1),
+        Paragraph(text="c.", page=1),
     ]
-    assert len(htmls) == 3
+    chapters, _ = _blocks_to_chapters(_doc(), blocks)
+    assert len(chapters) == 3  # CHƯƠNG MỘT + Mục A + Mục B
+
+
+def test_size_cap_splits_large_chapter() -> None:
+    # Một h1 + nhiều đoạn lớn → cắt thành nhiều file khi vượt max_file_bytes.
+    big = "x" * 5000
+    blocks = [Heading(text="CHƯƠNG MỘT", level=1, page=1)]
+    blocks += [Paragraph(text=big, page=1) for _ in range(10)]
+    chapters, _ = _blocks_to_chapters(_doc(), blocks, max_file_bytes=10_000)
+    assert len(chapters) >= 4  # 10×5KB ≈ 50KB chia theo ngưỡng 10KB
+    assert chapters[0].title == "CHƯƠNG MỘT"
+    assert all("(tiếp)" in c.title for c in chapters[1:])
 
 
 def test_image_embedded(tmp_path: Path) -> None:

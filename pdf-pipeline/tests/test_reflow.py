@@ -157,6 +157,45 @@ def test_pure_symbol_paragraphs_dropped() -> None:
     assert paras[0].text == "Đoạn văn thật sự có nội dung."
 
 
+def test_two_line_heading_merged() -> None:
+    cfg = ReflowConfig()
+    body = tuple(
+        ln(1, 140 + i * 16, f"Dòng thân bài bình thường số {i} cho đủ nhiều.") for i in range(8)
+    )
+    page = Page(
+        number=1,
+        width=W,
+        height=H,
+        lines=(
+            ln(1, 60, "TÌM HIỂU", size=24),
+            ln(1, 92, "VỀ CÁC VỊ THUỐC ĐÔNG Y", size=24),
+            *body,
+        ),
+    )
+    doc = Document(pages=(page,), source_pdf_name="x.pdf", pdf_sha256="h")
+    blocks = build_blocks(doc, cfg)
+    headings = [b for b in blocks if isinstance(b, Heading)]
+    assert len(headings) == 1
+    assert headings[0].text == "TÌM HIỂU VỀ CÁC VỊ THUỐC ĐÔNG Y"
+
+
+def test_big_font_intro_run_becomes_paragraph() -> None:
+    # Nhiều dòng cỡ lớn liên tiếp (lời giới thiệu in to) → ĐOẠN VĂN, không phải chuỗi heading.
+    cfg = ReflowConfig()
+    big_lines = tuple(
+        ln(1, 60 + i * 30, f"Dòng giới thiệu in chữ to số {i} khá dài cho đủ.", size=18)
+        for i in range(5)
+    )
+    # Thân bài cỡ 10 để cỡ 18 là "lớn hơn thân bài" (ứng viên heading) rồi bị hạ vì >2 dòng.
+    body = tuple(ln(1, 260 + i * 16, f"Thân bài số {i} đầy đủ nội dung.") for i in range(10))
+    page = Page(number=1, width=W, height=H, lines=(*big_lines, *body))
+    doc = Document(pages=(page,), source_pdf_name="x.pdf", pdf_sha256="h")
+    blocks = build_blocks(doc, cfg)
+    # Khối chữ-to 5 dòng > max_heading_lines(2) → gộp thành MỘT đoạn văn, không có heading.
+    assert not any(isinstance(b, Heading) for b in blocks)
+    assert any(isinstance(b, Paragraph) and "giới thiệu in chữ to" in b.text for b in blocks)
+
+
 def test_paragraph_break_on_indent() -> None:
     cfg = ReflowConfig()
     page = Page(

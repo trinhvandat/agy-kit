@@ -42,6 +42,9 @@ class ReflowConfig:
     para_gap_factor: float = 1.6
     indent_tolerance: float = 14.0
     multicolumn_min_lines: int = 4
+    # Tiêu đề thật ngắn: ≤ bấy nhiêu dòng liên tiếp cùng cấp. Nhiều hơn (vd lời giới thiệu in chữ
+    # to nhiều dòng) → coi là ĐOẠN VĂN, không phải chuỗi heading.
+    max_heading_lines: int = 2
 
 
 # Dấu kết câu (docs/03 §6). Các ký tự đóng (ngoặc/nháy) được "trong suốt": bỏ ở cuối rồi mới xét.
@@ -183,35 +186,15 @@ def _should_break(
     return False
 
 
-def _merge_adjacent_headings(blocks: list[Block]) -> list[Block]:
-    """Gộp các Heading liên tiếp **cùng cấp, cùng trang** thành một (tiêu đề bị tách 2 dòng)."""
-    out: list[Block] = []
-    for b in blocks:
-        if (
-            isinstance(b, Heading)
-            and out
-            and isinstance(out[-1], Heading)
-            and out[-1].level == b.level
-            and out[-1].page == b.page
-        ):
-            prev = out[-1]
-            out[-1] = Heading(
-                text=normalize_text(prev.text + " " + b.text),
-                level=prev.level,
-                page=prev.page,
-            )
-        else:
-            out.append(b)
-    return out
-
-
 def build_blocks(doc: Document, config: ReflowConfig | None = None) -> list[Block]:
     """Dựng danh sách khối ngữ nghĩa (Heading/Paragraph/ImageBlock) theo thứ tự đọc.
 
     Đoạn văn **vắt qua trang** được nối (chỉ xét dấu câu + thụt dòng khi đổi trang). Trang ảnh chèn
-    đúng vị trí trong dòng chảy.
+    đúng vị trí trong dòng chảy. Dòng cỡ lớn liên tiếp cùng cấp được gom: ≤ ``max_heading_lines``
+    dòng và đủ ngắn → một Heading; nhiều/dài hơn (lời giới thiệu in chữ to) → một Paragraph.
     """
     config = config or ReflowConfig()
+    toc_config = toc.TocConfig()
     repeating = find_repeating_bands(doc, config)
 
     # Cỡ thân bài + cấp heading tính trên toàn bộ dòng chữ (đã bỏ header/footer).
@@ -219,22 +202,42 @@ def build_blocks(doc: Document, config: ReflowConfig | None = None) -> list[Bloc
     for page in doc.pages:
         if not is_image_page(page, config):
             all_text_lines.extend(strip_running_heads(page, repeating, config))
-    body = toc.body_size(all_text_lines)
-    levels = toc.heading_size_levels(all_text_lines, body)
+    body = toc.body_size(all_text_lines, toc_config)
+    levels = toc.heading_size_levels(all_text_lines, body, toc_config)
 
     blocks: list[Block] = []
     para_lines: list[Line] = []
+    head_run: list[Line] = []
+    head_level = 0
 
-    def flush() -> None:
+    def flush_para() -> None:
         if para_lines:
             text = normalize_text(" ".join(ln.text for ln in para_lines))
             if text and re.search(r"\w", text):  # bỏ đoạn chỉ gồm ký hiệu/khoảng trắng
                 blocks.append(Paragraph(text=text, page=para_lines[0].page))
             para_lines.clear()
 
+    def flush_head_run() -> None:
+        nonlocal head_level
+        if not head_run:
+            return
+        text = normalize_text(" ".join(ln.text for ln in head_run))
+        non_space = sum(1 for ch in text if not ch.isspace())
+        if (
+            len(head_run) <= config.max_heading_lines
+            and non_space <= toc_config.heading_max_chars
+        ):
+            blocks.append(Heading(text=text, level=head_level, page=head_run[0].page))
+        elif re.search(r"\w", text):
+            # Quá nhiều dòng / quá dài để là tiêu đề → đoạn văn chữ to (lời giới thiệu…).
+            blocks.append(Paragraph(text=text, page=head_run[0].page))
+        head_run.clear()
+        head_level = 0
+
     for page in doc.pages:
         if is_image_page(page, config):
-            flush()
+            flush_para()
+            flush_head_run()
             if page.image_png is not None:
                 blocks.append(ImageBlock(png=page.image_png, page=page.number))
             continue
@@ -242,22 +245,29 @@ def build_blocks(doc: Document, config: ReflowConfig | None = None) -> list[Bloc
         kept = strip_running_heads(page, repeating, config)
         gap = _median_line_gap(kept)
         for ln in kept:
-            lvl = toc.heading_level(ln, body, levels)
+            lvl = toc.heading_level(ln, body, levels, toc_config)
             if lvl is not None:
-                flush()
-                blocks.append(Heading(text=normalize_text(ln.text), level=lvl, page=page.number))
+                flush_para()
+                if head_run and lvl == head_level:
+                    head_run.append(ln)
+                else:
+                    flush_head_run()
+                    head_run.append(ln)
+                    head_level = lvl
                 continue
+            flush_head_run()
             # Bỏ dòng chỉ gồm ký hiệu (vd "•", "»") — trang trí, không phải thân bài.
             if not re.search(r"\w", ln.text):
                 continue
             if para_lines:
                 para_left = min(x.x0 for x in para_lines)
                 if _should_break(para_lines[-1], ln, para_left, gap, config):
-                    flush()
+                    flush_para()
             para_lines.append(ln)
-    flush()
 
-    return _merge_adjacent_headings(blocks)
+    flush_para()
+    flush_head_run()
+    return blocks
 
 
 def collect_warnings(doc: Document, config: ReflowConfig | None = None) -> list[str]:

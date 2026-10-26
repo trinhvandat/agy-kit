@@ -57,12 +57,16 @@ def _css(font_family: str) -> str:
     )
 
 
+# Chia chương: nếu quá ít heading cấp 1 thì chia theo cấp 2; luôn cắt file khi quá lớn.
+_MIN_H1_FOR_SPLIT = 3
+_MAX_FILE_BYTES = 100_000
+
+
 @dataclass(frozen=True)
 class _Chapter:
     title: str
     file_name: str
     html_body: str
-    toc_subs: tuple[tuple[str, str], ...]  # (anchor, title) cho heading cấp 2
 
 
 @dataclass(frozen=True)
@@ -77,41 +81,54 @@ def _esc(text: str) -> str:
     return html.escape(text, quote=False)
 
 
+def _block_html(b: Block, images: list[tuple[str, bytes]]) -> str:
+    if isinstance(b, Heading):
+        lvl = min(max(b.level, 1), 3)
+        return f"<h{lvl}>{_esc(b.text)}</h{lvl}>"
+    if isinstance(b, Paragraph):
+        return f"<p>{_esc(b.text)}</p>"
+    name = f"images/p{b.page:04d}.png"
+    images.append((name, b.png))
+    return f'<figure><img src="{name}" alt="Trang {b.page}"/></figure>'
+
+
 def _blocks_to_chapters(
-    doc: Document, blocks: list[Block]
+    doc: Document,
+    blocks: list[Block],
+    *,
+    max_file_bytes: int = _MAX_FILE_BYTES,
+    min_h1_for_split: int = _MIN_H1_FOR_SPLIT,
 ) -> tuple[list[_Chapter], list[tuple[str, bytes]]]:
-    """Gom blocks thành chương (chia theo heading cấp 1). Trả (chapters, images)."""
+    """Gom blocks thành chương. Chia file khi gặp heading mốc (cấp ≤ split_level) HOẶC khi file
+    vượt ``max_file_bytes`` (cắt tại ranh giới đoạn/ảnh). Trả (chapters, images)."""
+    n_h1 = sum(1 for b in blocks if isinstance(b, Heading) and b.level == 1)
+    split_level = 1 if n_h1 >= min_h1_for_split else 2
+
     chapters: list[dict] = []
     images: list[tuple[str, bytes]] = []
-    anchor_seq = 0
 
     def start_chapter(title: str) -> dict:
-        ch = {"title": title, "frags": [], "subs": []}
+        ch: dict = {"title": title, "frags": [], "bytes": 0}
         chapters.append(ch)
         return ch
 
     cur: dict | None = None
     for b in blocks:
-        if isinstance(b, Heading) and b.level == 1:
+        is_break_heading = isinstance(b, Heading) and b.level <= split_level
+        if is_break_heading:
             cur = start_chapter(b.text)
-            cur["frags"].append(f"<h1>{_esc(b.text)}</h1>")
-            continue
-        if cur is None:
+        elif cur is None:
             cur = start_chapter(doc.title or "Mở đầu")
-        if isinstance(b, Heading):
-            anchor_seq += 1
-            anchor = f"h{anchor_seq}"
-            cur["frags"].append(f'<h{b.level} id="{anchor}">{_esc(b.text)}</h{b.level}>')
-            if b.level == 2:
-                cur["subs"].append((anchor, b.text))
-        elif isinstance(b, Paragraph):
-            cur["frags"].append(f"<p>{_esc(b.text)}</p>")
-        elif isinstance(b, ImageBlock):
-            name = f"images/p{b.page:04d}.png"
-            images.append((name, b.png))
-            cur["frags"].append(
-                f'<figure><img src="{name}" alt="Trang {b.page}"/></figure>'
-            )
+        elif (
+            cur["bytes"] > 0
+            and cur["bytes"] > max_file_bytes
+            and isinstance(b, Paragraph | ImageBlock)
+        ):
+            # Cắt file quá lớn tại ranh giới đoạn/ảnh (chương dài không dồn vào một XHTML).
+            cur = start_chapter(f"{cur['title']} (tiếp)")
+        frag = _block_html(b, images)
+        cur["frags"].append(frag)
+        cur["bytes"] += len(frag.encode("utf-8"))
 
     out: list[_Chapter] = []
     for i, ch in enumerate(chapters, start=1):
@@ -120,7 +137,6 @@ def _blocks_to_chapters(
                 title=ch["title"],
                 file_name=f"chap_{i:04d}.xhtml",
                 html_body="\n".join(ch["frags"]) or "<p></p>",
-                toc_subs=tuple(ch["subs"]),
             )
         )
     return out, images
@@ -197,14 +213,7 @@ def build_epub(
         item.add_item(style)
         book.add_item(item)
         epub_chapters.append(item)
-        if ch.toc_subs:
-            subs = [
-                epub.Link(f"{ch.file_name}#{a}", t, f"{ch.file_name}_{a}")
-                for a, t in ch.toc_subs
-            ]
-            toc.append((epub.Link(ch.file_name, ch.title, ch.file_name), subs))
-        else:
-            toc.append(epub.Link(ch.file_name, ch.title, ch.file_name))
+        toc.append(epub.Link(ch.file_name, ch.title, ch.file_name))
 
     book.toc = toc
     book.add_item(epub.EpubNcx())
