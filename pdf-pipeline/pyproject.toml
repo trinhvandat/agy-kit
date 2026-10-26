@@ -15,6 +15,12 @@ dependencies = [
     "ebooklib>=0.20,<0.21",
 ]
 
+[project.optional-dependencies]
+# Docling chỉ dùng cho SPIKE-4 (so sánh thử nghiệm, CHƯA thay pipeline) — không cài mặc định vì
+# kéo theo torch/transformers rất nặng. Cài khi cần: `uv sync --extra docling`.
+# 2.142.1 là bản mới nhất trên PyPI (kiểm 2026-10-26); MIT.
+docling = ["docling>=2.142,<3"]
+
 [project.scripts]
 sepia-pipeline = "sepia_pipeline.__main__:main"
 
