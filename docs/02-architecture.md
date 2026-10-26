@@ -89,7 +89,7 @@ sepia/
 ├── composeApp/                   # thư viện KMP (AGP 9: com.android.kotlin.multiplatform.library)
 │   └── src/
 │       ├── commonMain/           # ★ phần lớn code ở đây
-│       │   └── kotlin/com/sepia/
+│       │   └── kotlin/io/github/trinhvandat/sepia/
 │       │       ├── domain/       # models, use cases (thuần Kotlin)
 │       │       ├── data/         # repositories, DB, file access (interface)
 │       │       ├── reader/       # reader-engine: bridge WebView↔foliate-js, CFI, re-anchor

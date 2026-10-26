@@ -39,7 +39,7 @@ graph TD
 - [x] Quy ước `samples/` + `.gitignore` (samples/ không commit; giữ `tests/fixtures/`). **0.5h**
 - [ ] **SPIKE-0** — chạy `detect` trên **vài sách mẫu** (`samples/`), xem phân bố loại (R-11). **~0.5h**
 - [ ] **Cửa quyết định OCR**: sách mẫu nhiều scan? → nâng US-A7 lên giai đoạn đầu. **0.5h**
-- [x] **SPIKE-2** — app KMP + Compose MP (scaffold tay), build **Android** xanh (APK `com.sepia`, màn hình mở đầu). **2h** — Kotlin 2.4.20 / CMP 1.12.2 / AGP 9.4.1 / Gradle 9.8.2; AGP 9 buộc tách `:androidApp` + `:composeApp` (xem [05 ADR-007](./05-tech-decisions.md#adr-007)).
+- [x] **SPIKE-2** — app KMP + Compose MP (scaffold tay), build **Android** xanh (APK `io.github.trinhvandat.sepia`, màn hình mở đầu). **2h** — Kotlin 2.4.20 / CMP 1.12.2 / AGP 9.4.1 / Gradle 9.8.2; AGP 9 buộc tách `:androidApp` + `:composeApp` (xem [05 ADR-007](./05-tech-decisions.md#adr-007)).
 - [ ] SPIKE-2 (tiếp) — chạy **iOS simulator** (lần đầu build iOS → cộng giờ). **5h** — ⏳ **còn tồn đọng: chưa cài Xcode** trên máy; nguồn Swift + `iosMain` đã có, thiếu `.xcodeproj` (xem `iosApp/README.md`).
 - **Thành quả**: khung pipeline + `detect` chạy được, biết cơ cấu sách mẫu + OCR có phải làm sớm không, app rỗng chạy cả 2 OS.
 
