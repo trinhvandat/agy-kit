@@ -63,6 +63,7 @@ def format_convert(report: ConvertReport) -> str:
         f"  trang       : {report.n_pages} (ảnh: {report.n_image_pages})"
         f"{'  [scan_ocr]' if report.is_scan_ocr else ''}",
         f"  chương/ảnh  : {report.epub.n_chapters} chương, {report.epub.n_images} ảnh nhúng",
+        f"  cache OCR    : {report.ocr_cache_status}",
         f"  đoạn/heading: {q.n_paragraphs} đoạn, {q.n_headings} heading"
         f" ({q.pct_short40:.0%} đoạn < 40 ký tự)",
         f"  ký tự rác   : {q.garbage_chars} ({q.garbage_ratio:.4f})",
@@ -88,6 +89,33 @@ def _cmd_convert(args: argparse.Namespace) -> int:
         print(json.dumps(dataclasses.asdict(report), ensure_ascii=False, indent=2))
     else:
         print(format_convert(report))
+    return 0
+
+
+def _cmd_ocr(args: argparse.Namespace) -> int:
+    from .ocr_cache import DEFAULT_CACHE_DIR, write_cache
+    from .ocr_vision import INSTALL_HINT, ocr_available, ocr_pdf
+
+    if not ocr_available():
+        print(INSTALL_HINT, file=sys.stderr)
+        return 2
+    cache = ocr_pdf(args.input, dpi=args.dpi, pages=args.pages)
+    cache_dir = args.cache_dir if args.cache_dir is not None else DEFAULT_CACHE_DIR
+    path = write_cache(cache, cache_dir)
+    if args.json:
+        print(json.dumps({**cache.to_dict(), "cache_path": str(path)}, ensure_ascii=False))
+    else:
+        print(
+            f"{args.input}\n"
+            f"  → {path}\n"
+            f"  bookUid     : {cache.book_uid}\n"
+            f"  engine      : {cache.engine['name']} (dpi={cache.render['dpi']}, "
+            f"{cache.engine['recognition']}, {','.join(cache.engine['lang'])})\n"
+            f"  phiên bản   : macOS {cache.engine_version.get('macos_ver')} "
+            f"({cache.engine_version.get('macos_build')}), "
+            f"ocrmac {cache.engine_version.get('ocrmac')}\n"
+            f"  trang/dòng  : {len(cache.pages)} trang, {cache.n_lines} dòng"
+        )
     return 0
 
 
@@ -128,6 +156,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_convert.add_argument("--no-check", action="store_true", help="Bỏ qua epubcheck (nhanh hơn)")
     p_convert.add_argument("--json", action="store_true", help="In kết quả dạng JSON")
     p_convert.set_defaults(func=_cmd_convert)
+
+    p_ocr = sub.add_parser(
+        "ocr",
+        help="OCR lại sách scan bằng Apple Vision → cache đĩa (CHỈ macOS, extra ocr-mac).",
+    )
+    p_ocr.add_argument("input", help="File .pdf đầu vào")
+    p_ocr.add_argument(
+        "--cache-dir", default=None, help="Thư mục cache (mặc định: pdf-pipeline/.ocr_cache)"
+    )
+    p_ocr.add_argument("--dpi", type=int, default=300, help="DPI render trước OCR (mặc định 300)")
+    p_ocr.add_argument(
+        "--pages", type=int, nargs="*", default=None, help="Chỉ số trang 0-based (mặc định cả cuốn)"
+    )
+    p_ocr.add_argument("--json", action="store_true", help="In cache dạng JSON")
+    p_ocr.set_defaults(func=_cmd_ocr)
     return parser
 
 

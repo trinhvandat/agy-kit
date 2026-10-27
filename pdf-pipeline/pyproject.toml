@@ -26,6 +26,10 @@ dependencies = [
 # kéo theo torch/transformers rất nặng. Cài khi cần: `uv sync --extra docling`.
 # 2.142.1 là bản mới nhất trên PyPI (kiểm 2026-10-26); MIT.
 docling = ["docling>=2.142,<3"]
+# OCR lại sách scan bằng Apple Vision (bước ingest, ADR-009). ocrmac bọc Vision qua pyobjc —
+# CHỈ macOS → gắn marker sys_platform=='darwin' để lock/sync trên Linux/CI bỏ qua (CI không OCR,
+# chỉ đọc cache fixture). Cài trên Mac: `uv sync --extra ocr-mac`. MIT.
+ocr-mac = ["ocrmac>=1.0,<2 ; sys_platform == 'darwin'"]
 
 [project.scripts]
 sepia-pipeline = "sepia_pipeline.__main__:main"

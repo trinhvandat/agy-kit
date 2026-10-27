@@ -155,6 +155,22 @@ Lý do: tối đa hóa chia sẻ code và né viết Swift/tích hợp 2 toolkit
 
 ---
 
+## ADR-009 — OCR lại sách scan bằng **Apple Vision** lúc ingest, **cache theo sách**; build EPUB chỉ đọc cache
+
+**Bối cảnh**: sách `scan_ocr` (ABBYY FineReader) có lớp chữ ẩn **lỗi dấu hệ thống**. SPIKE-5 (đo trên ground truth, [spikes/spike-5-reocr-vision.md](./spikes/spike-5-reocr-vision.md)): OCR **lại từ ảnh** bằng Apple Vision hạ **WER 15.3% → 3.9%** (CER 4.5% → 1.8%). Nhưng Vision **chỉ chạy macOS** và kết quả **có thể đổi theo phiên bản macOS** → nếu OCR mỗi lần build thì **phá tính tất định** (NFR) và **không chạy được CI Ubuntu**.
+**Phương án**:
+- **A. Docling + `OcrMacOptions`** (một bước): gọn, nhưng SPIKE-5 cho chữ **tệ ~10×** (WER p101 20% vs 2%) — lỗi trong khâu OCR nội bộ Docling (không phải Vision/ocrmac/renderer/DPI). **Loại.**
+- **B. OCR = bước ingest riêng, cache theo sách; build đọc cache** (route hybrid: bố cục Docling + chữ Vision từ cache). **Chọn.**
+**Quyết định**:
+- **Lệnh `sepia-pipeline ocr <pdf>`** (chỉ macOS, extra `ocr-mac` = `ocrmac` qua pyobjc): render trang 300 DPI → Apple Vision (`vi-VT`, `accurate`) → ghi **cache đĩa** (`sepia_pipeline/ocr_cache.py`). Mỗi dòng: **text (NFC) + bbox chuẩn hoá (trên-trái) + độ tin**. Chọn `ocrmac` thay vì Swift helper: không cần biên dịch, cùng chất lượng (SPIKE-5), trả sẵn bbox + độ tin.
+- **Khoá cache** = **SHA-256 PDF gốc** (= `bookUid`) + **engine** (name/recognition/lang/framework) + **engine_version** (macOS build + SHA danh sách ngôn ngữ Vision + phiên bản ocrmac). Khác phiên bản/engine → *mismatch* (không âm thầm dùng OCR khác).
+- **`convert` chỉ ĐỌC cache**, **không OCR trong build** → EPUB **tất định** trên mọi máy (kể cả CI Ubuntu không-Vision, dùng cache fixture). Cache **miss** → **giữ nguyên hành vi v4** (lớp chữ ẩn) + cảnh báo rõ "chạy `ocr` trên Mac".
+- **Tiêu thụ cache** (bố cục Docling + chữ Vision theo toạ độ) ở **PIPELINE_VERSION 5** (PR `scan-ocr-hybrid`); PR `ocr-ingest-cache` mới chỉ dựng cache + phát hiện.
+**Ràng buộc license**: `ocrmac` **MIT**, `pyobjc` **MIT**, Apple Vision là **framework hệ thống** (không phân phối) → **không thêm ràng buộc AGPL**; ranh giới "pipeline tách rời app" (ADR-004, R-08) **giữ nguyên**. Dựng EPUB vẫn ebooklib (AGPL).
+**Dự phòng (máy không phải Mac)**: không có Vision → **giữ lớp chữ ẩn (v4)**, hoặc fallback **Tesseract `vie`** / PaddleOCR/Surya (R-11), chậm hơn, cần cài — không ưu tiên.
+
+---
+
 ## Nguồn (kiểm tra 2026-10-25)
 - Kotlin / Compose MP: kotlinlang.org/docs/releases.html; kotlinlang.org/docs/multiplatform/compose-compatibility-and-versioning.html
 - Room KMP: developer.android.com/jetpack/androidx/releases/room; developer.android.com/kotlin/multiplatform/room

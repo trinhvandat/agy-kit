@@ -105,7 +105,7 @@
 - **Khả năng**: Chưa rõ (phụ thuộc SPIKE-0) · **Tác động**: Cao nếu xảy ra
 - **Vì sao**: nếu phần lớn kho là scan, pipeline "text layer" gần như vô dụng → **OCR (US-A7) phải lên giai đoạn đầu**, làm phình phạm vi.
 - **Giảm thiểu**: **SPIKE-0 chạy đầu tiên** — chạy lệnh `detect` trên **vài sách mẫu** (`samples/`) để ước lượng tỷ lệ scan. Nếu mẫu nhiều scan → nâng US-A7 lên đầu (OCRmyPDF + Tesseract `vie`, hoặc Surya/PaddleOCR cho scan mờ/font cũ), cập nhật [01-requirements.md](./01-requirements.md) §3, [03-pdf-pipeline.md](./03-pdf-pipeline.md), [07-roadmap.md](./07-roadmap.md). *(Mẫu ít → tín hiệu định hướng; nghi ngờ thì thêm mẫu rồi chạy lại.)*
-- **Cập nhật (SPIKE-5, 2026-10-27)**: với scan **đã có lớp OCR nhưng lỗi dấu** (ABBYY FineReader — như mẫu Đông y), **OCR lại từ ảnh bằng Apple Vision** (`vi-VT`, native macOS, 0 cài đặt, ~1s/trang offline) hạ token-có-dấu hỏng **2.03%→0.11%** (~18×). → đã có engine OCR-lại **khả thi**; đánh đổi còn lại là **thứ tự đọc/layout** và **tính tất định** (cache theo `bookUid`). Xem [docs/spikes/spike-5-reocr-vision.md](./spikes/spike-5-reocr-vision.md).
+- **Cập nhật (SPIKE-5, 2026-10-27)**: với scan **đã có lớp OCR nhưng lỗi dấu** (ABBYY FineReader — như mẫu Đông y), **OCR lại từ ảnh bằng Apple Vision** (`vi-VT`, native macOS, ~1s/trang offline) hạ **WER 15.3%→3.9%** (CER 4.5%→1.8%; đo trên ground truth — con số "18×" theo thước đo âm tiết là **ảo**). → đã có engine OCR-lại **khả thi**; chốt hướng tích hợp = **bố cục Docling + chữ Vision theo toạ độ** + **cache OCR tất định** ([ADR-009](./05-tech-decisions.md#adr-009--ocr-lại-sách-scan-bằng-apple-vision-lúc-ingest-cache-theo-sách-build-epub-chỉ-đọc-cache)). Xem [docs/spikes/spike-5-reocr-vision.md](./spikes/spike-5-reocr-vision.md).
 
 ---
 

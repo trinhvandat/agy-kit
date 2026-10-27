@@ -60,3 +60,6 @@ Pods/
 
 # === macOS ===
 .DS_Store
+
+# Cache OCR Vision (ingest một lần) — không commit kho thật (lớn); fixture test nằm trong tests/
+pdf-pipeline/.ocr_cache/

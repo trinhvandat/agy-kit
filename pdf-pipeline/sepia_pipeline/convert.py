@@ -17,6 +17,7 @@ from .build_epub import EpubReport, build_epub, load_font_family
 from .detect import DetectConfig, scan_ocr_book_signal
 from .extract import extract_document, render_page_png
 from .model import Document, Heading, ImageBlock, Page, Paragraph
+from .ocr_cache import DEFAULT_CACHE_DIR, OCR_ENGINE, OCR_SCHEMA, read_cache
 from .quality import QualityReport, check_blocks, run_epubcheck
 from .reflow import (
     GarbageFilterResult,
@@ -51,9 +52,35 @@ class ConvertReport:
     quality: QualityReport
     warnings: tuple[str, ...]
     pipeline_version: int
+    ocr_cache_status: str = "n/a"  # "n/a" | "present" | "miss" | "mismatch" (xem _ocr_cache_status)
 
 
 ENGINES = ("auto", "heuristic", "docling")
+
+
+def _ocr_cache_status(pdf_sha256: str, cache_dir: str | Path) -> tuple[str, tuple[str, ...]]:
+    """Tra cache OCR Vision cho cuốn scan_ocr — chỉ **phát hiện + cảnh báo** (KHÔNG OCR, không đổi
+    EPUB; route hybrid sẽ tiêu thụ cache ở PIPELINE_VERSION 5). Chỉ đọc đĩa (không cần Vision/Mac).
+
+    - không có cache → ``miss`` + nhắc chạy ``sepia-pipeline ocr`` trên Mac.
+    - có nhưng khác schema/engine → ``mismatch`` + cảnh báo.
+    - có và hợp lệ → ``present`` (thông tin).
+    """
+    cache = read_cache(cache_dir, pdf_sha256)
+    if cache is None:
+        return "miss", (
+            "sách scan_ocr: chưa có cache OCR Vision → đang dùng lớp chữ ẩn (v4). "
+            "Chạy `sepia-pipeline ocr <pdf>` trên Mac để bật OCR-lại chất lượng cao (SPIKE-5).",
+        )
+    if cache.ocr_schema != OCR_SCHEMA or cache.engine.get("name") != OCR_ENGINE["name"]:
+        return "mismatch", (
+            f"cache OCR có nhưng khác schema/engine (schema {cache.ocr_schema}, "
+            f"engine {cache.engine.get('name')}) → bỏ qua, dùng v4. Cần OCR lại.",
+        )
+    return "present", (
+        f"cache OCR Vision có sẵn ({len(cache.pages)} trang, {cache.n_lines} dòng) — "
+        "route hybrid sẽ dùng ở PIPELINE_VERSION 5.",
+    )
 
 
 def _choose_engine(engine: str, is_scan_ocr: bool) -> tuple[str, list[str]]:
@@ -103,6 +130,7 @@ def convert_pdf(
     engine: str = "auto",
     config: ConvertConfig | None = None,
     run_check: bool = True,
+    ocr_cache_dir: str | Path | None = None,
 ) -> ConvertReport:
     """Chuyển một PDF thành EPUB sạch. Trả :class:`ConvertReport`.
 
@@ -130,6 +158,14 @@ def convert_pdf(
             doc_model = _render_image_pages(doc_model, fitz_doc, config)
     finally:
         fitz_doc.close()
+
+    # Phát hiện cache OCR Vision (chỉ sách scan_ocr). PR ocr-ingest-cache: CHỈ cảnh báo, chưa tiêu
+    # thụ (route hybrid dùng ở PIPELINE_VERSION 5) → EPUB không đổi so với v4.
+    ocr_cache_status = "n/a"
+    if is_scan_ocr:
+        cache_dir = ocr_cache_dir if ocr_cache_dir is not None else DEFAULT_CACHE_DIR
+        ocr_cache_status, cache_warnings = _ocr_cache_status(doc_model.pdf_sha256, cache_dir)
+        warnings += cache_warnings
 
     if engine_used == "docling":
         from .docling_adapter import extract_blocks_docling
@@ -200,4 +236,5 @@ def convert_pdf(
         quality=quality,
         warnings=(*warnings, *quality.warnings),
         pipeline_version=PIPELINE_VERSION,
+        ocr_cache_status=ocr_cache_status,
     )
