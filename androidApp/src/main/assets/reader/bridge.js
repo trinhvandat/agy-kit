@@ -5,7 +5,7 @@
 //              / setHighlights([{id,cfi,color}]) (thay toàn bộ tập) / removeHighlight(id)
 // JS → Kotlin (qua window.kmpJsBridge.callNative của compose-webview-multiplatform):
 //              ready{} · relocated{cfi,fraction,snippet,prefix,suffix} · error{where,message}
-//              · reanchorResult{token, cfis:[...]}
+//              · reanchorResult{token, candidates:[{cfi,progress,text,exact}]}
 //              · tap{zone:'left'|'center'|'right'}            (chạm đơn, không link/không đang chọn/không trúng highlight)
 //              · selection{cfi,text,prefix,suffix,fraction,rect:{x,y,w,h}} · selectionCleared{}
 //              · highlightTap{id, rect:{x,y,w,h}}             (chạm trúng một highlight)
@@ -344,27 +344,45 @@ function clearSelection() {
   } catch (e) { reportError('clearSelection', e) }
 }
 
-// Re-anchor (ADR-008): tìm chuỗi bằng foliate search. Trả danh sách CFI khớp để Kotlin chọn
-// (ReAnchorSelector). Thử fullQuery trước; nếu rỗng, thử snippetQuery (dự phòng R-01).
-async function reAnchor(token, fullQuery, snippetQuery, _targetFraction) {
-  const cfis = []
+// Re-anchor (ADR-008, docs/04 §3): tìm chuỗi bằng foliate search, trả **ứng viên** {cfi, progress,
+// text, exact} để Kotlin CHỌN (ReAnchorSelector.chooseBest) — gần `progress` cũ nhất, không phải cứ
+// lấy khớp ĐẦU TIÊN (foliate search bỏ dấu + bỏ hoa/thường → snippet ngắn khớp nhiều chỗ; lấy chỗ
+// đầu = nhảy về đầu sách — lỗi hồi quy Mốc 2).
+//
+// Hai lượt: (1) fullQuery = prefix+snippet+suffix (ngữ cảnh dài → tin cậy, đánh dấu exact); nếu rỗng
+// (2) snippetQuery (ngắn, hay khớp nhiều chỗ → KHÔNG exact; Kotlin lọc theo tương đồng bỏ-dấu).
+// `progress` mỗi ứng viên = tiến độ section chứa nó (foliate phát {progress} trước mỗi section).
+
+function matchText(excerpt) {
+  return (excerpt && excerpt.match) || ''
+}
+
+async function collectMatches(query, exact, targetFraction, out) {
+  let sectionProgress = typeof targetFraction === 'number' ? targetFraction : 0
+  for await (const res of view.search({ query })) {
+    if (res && typeof res.progress === 'number' && !res.subitems) {
+      sectionProgress = res.progress // tiến độ section sắp tới
+      continue
+    }
+    const subs = res && res.subitems ? res.subitems : (res && res.cfi ? [res] : [])
+    for (const s of subs) {
+      if (s && s.cfi) out.push({ cfi: s.cfi, progress: sectionProgress, text: matchText(s.excerpt), exact })
+    }
+  }
+  try { view.clearSearch() } catch (_) {}
+}
+
+async function reAnchor(token, fullQuery, snippetQuery, targetFraction) {
+  const candidates = []
   try {
     if (view) {
-      for (const q of [fullQuery, snippetQuery]) {
-        if (!q) continue
-        for await (const res of view.search({ query: q })) {
-          if (res && res.subitems) {
-            for (const s of res.subitems) if (s.cfi) cfis.push(s.cfi)
-          } else if (res && res.cfi) {
-            cfis.push(res.cfi)
-          }
-        }
-        try { view.clearSearch() } catch (_) {}
-        if (cfis.length) break // đã có kết quả ở fullQuery thì không cần snippetQuery
+      if (fullQuery) await collectMatches(fullQuery, true, targetFraction, candidates)
+      if (!candidates.length && snippetQuery) {
+        await collectMatches(snippetQuery, false, targetFraction, candidates)
       }
     }
   } catch (e) { reportError('reAnchor', e) }
-  post('reanchorResult', { token, cfis })
+  post('reanchorResult', { token, candidates })
 }
 
 // Báo bridgeReady NHƯNG chờ tới khi window.kmpJsBridge được chèn (compose-webview-multiplatform

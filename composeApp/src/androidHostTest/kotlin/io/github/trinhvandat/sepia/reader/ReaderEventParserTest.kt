@@ -91,12 +91,34 @@ class ReaderEventParserTest {
             ),
         )
         assertEquals(
-            ReaderEvent.ReanchorResult("pos", listOf("a", "b")),
-            ReaderEventParser.parse("reanchorResult", """{"token":"pos","cfis":["a","b"]}"""),
-        )
-        assertEquals(
             ReaderEvent.Failure("open", "boom"),
             ReaderEventParser.parse("error", """{"where":"open","message":"boom"}"""),
         )
+    }
+
+    @Test
+    fun parsesReanchorCandidatesWithProgressTextExact() {
+        val json = """
+            {"token":"pos","candidates":[
+              {"cfi":"a","progress":0.12,"text":"đỏ thì dừng","exact":true},
+              {"cfi":"b","progress":0.55,"text":"đo thi dưng","exact":false}
+            ]}
+        """.trimIndent()
+        val event = assertIs<ReaderEvent.ReanchorResult>(ReaderEventParser.parse("reanchorResult", json))
+        assertEquals("pos", event.token)
+        assertEquals(2, event.candidates.size)
+        assertEquals("a", event.candidates[0].cfi)
+        assertEquals(0.12f, event.candidates[0].progress)
+        assertEquals("đỏ thì dừng", event.candidates[0].text)
+        assertEquals(true, event.candidates[0].exact)
+        assertEquals(false, event.candidates[1].exact)
+    }
+
+    @Test
+    fun parsesEmptyReanchorCandidates() {
+        val event = assertIs<ReaderEvent.ReanchorResult>(
+            ReaderEventParser.parse("reanchorResult", """{"token":"pos","candidates":[]}"""),
+        )
+        assertEquals(0, event.candidates.size)
     }
 }
