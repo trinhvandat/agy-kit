@@ -221,11 +221,15 @@ kiểm **byte-identical**, **không gọi Vision**. `spikes/spike5_cer_wer.py` (
 
 ## Kết luận
 
-- **A = CÓ, rõ rệt.** OCR lại từ ảnh bằng Apple Vision cho chữ đúng hơn — đo trên ground truth:
+- **Câu hỏi A = CÓ, rõ rệt.** OCR lại từ ảnh bằng Apple Vision cho chữ đúng hơn — đo trên ground truth:
   **WER 15.3 %→3.9 % (~3.9×)**, **CER 4.5 %→1.8 % (~2.5×)** (con số "18×" theo thước đo âm tiết là
   **ảo**, xem mục "Soát lại"). **~1 giây/trang**, **offline, 0 cài đặt** trên Mac. **A đủ tốt và đủ nhanh.**
-- **B không cần làm** như đường chính: A vừa đúng hơn vừa nhanh. Bảng nhầm + từ điển chỉ nên giữ như
-  **bộ sửa phụ** cho ~0.11 % sót, hoặc cho máy **không phải Mac** (Vision không có) — không ưu tiên.
+- **Câu hỏi B (sửa chính tả lớp ẩn) không cần làm** như đường chính: OCR-lại vừa đúng hơn vừa nhanh.
+  Bảng nhầm + từ điển chỉ giữ như **bộ sửa phụ** cho phần sót (~3.9 % WER), hoặc cho máy **không phải
+  Mac** (Vision không có) — không ưu tiên.
+- **Tích hợp bố cục**: dùng **hướng B** (Docling layout + Vision theo toạ độ, `spike5_hybrid.py`) — giữ
+  reading-order/hình của Docling **và** chất lượng chữ Vision (WER ~4.5 %). Hướng gọn (Docling+OcrMac)
+  **chưa dùng được** (chữ tệ ~10×). Giữ **tất định** bằng **cache OCR** (ingest một lần, build không OCR).
 
 ## Đánh đổi / rủi ro cần cân trước khi đưa vào pipeline (CHƯA sửa ADR)
 
