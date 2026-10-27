@@ -111,24 +111,23 @@ def test_ensure_ocr_skips_plain_text_pdf(tmp_path):
     assert not cache_dir.exists()  # không viết cache cho sách không phải scan_ocr
 
 
-def test_pack_writes_ocr_cache_for_scan_ocr_classification(tmp_path, monkeypatch):
+def test_pack_writes_ocr_cache_for_scan_ocr_classification(
+    tmp_path, monkeypatch, scan_ocr_visible_book_pdf
+):
     """``pack`` OCR đúng sách mà ``convert`` phân loại là scan_ocr — không cần Vision/macOS thật.
 
-    Giả lập quyết định (``_is_scan_ocr`` → True, khớp tín hiệu ``scan_ocr_book_signal`` mà
-    ``convert.py:165`` dùng) và lớp Vision (``ocr_vision.ocr_available``/``ocr_pdf``), nên test
-    chạy được trên CI non-macOS mà vẫn phủ đúng logic quyết định của ``_ensure_ocr``.
+    Dùng fixture ``scan_ocr_visible_book_pdf`` (đã được ``test_ocr_integration.py`` xác nhận
+    ``convert``/``_is_scan_ocr`` thật trả về ``True``) để chạy thật ``pack._ensure_ocr`` /
+    ``pack._is_scan_ocr`` — KHÔNG giả lập quyết định phân loại. Chỉ giả lập lớp Vision
+    (``ocr_vision.ocr_available``/``engine_version``/``ocr_pdf``) để test tất định, chạy được
+    trên CI non-macOS.
     """
     import sepia_pipeline.ocr_vision as ocr_vision_mod
-    import sepia_pipeline.pack as packmod
 
-    pdf_dir = tmp_path / "src"
-    pdf_dir.mkdir()
-    pdf = pdf_dir / "book.pdf"
-    _make_text_pdf(pdf, "Book", "Nội dung bất kỳ — _is_scan_ocr bị giả lập True ở test này.")
     out = tmp_path / "p"
     cache_dir = tmp_path / "ocrcache"
+    pdf_dir = scan_ocr_visible_book_pdf.parent
 
-    monkeypatch.setattr(packmod, "_is_scan_ocr", lambda pdf_path, config: True)
     monkeypatch.setattr(ocr_vision_mod, "ocr_available", lambda: True)
     monkeypatch.setattr(ocr_vision_mod, "engine_version", lambda: {"fake_engine_version": "v1"})
 
