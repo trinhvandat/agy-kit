@@ -62,6 +62,25 @@ def _epub_title_author(epub_path: Path) -> tuple[str, str]:
     return title, author
 
 
+def _load_prior(out_dir: Path) -> dict[str, PackBook]:
+    mpath = out_dir / "manifest.json"
+    if not mpath.exists():
+        return {}
+    data = json.loads(mpath.read_text(encoding="utf-8"))
+    prior: dict[str, PackBook] = {}
+    for b in data.get("books", []):
+        prior[b["bookUid"]] = PackBook(
+            book_uid=b["bookUid"],
+            title=b["title"],
+            author=b["author"],
+            file=b["file"],
+            sha256=b["sha256"],
+            pipeline_version=b["pipelineVersion"],
+            source_pdf_name=b["sourcePdfName"],
+        )
+    return prior
+
+
 def pack_pdfs(
     pdf_dir: str | Path,
     out_dir: str | Path,
@@ -75,15 +94,21 @@ def pack_pdfs(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    prior = _load_prior(out_dir)
     books: list[PackBook] = []
     for pdf in sorted(pdf_dir.glob("*.pdf")):
         pdf_sha = sha256_file(pdf)
+        book_uid = f"sepia:{pdf_sha}"
         epub_path = out_dir / f"{pdf_sha}.epub"
+        cached = prior.get(book_uid)
+        if cached and cached.pipeline_version == PIPELINE_VERSION and epub_path.exists():
+            books.append(dataclasses.replace(cached, source_pdf_name=pdf.name))
+            continue
         convert_pdf(pdf, epub_path, font_profile=font_profile, engine=engine, run_check=run_check)
         title, author = _epub_title_author(epub_path)
         books.append(
             PackBook(
-                book_uid=f"sepia:{pdf_sha}",
+                book_uid=book_uid,
                 title=title,
                 author=author,
                 file=epub_path.name,

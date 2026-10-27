@@ -37,3 +37,48 @@ def test_pack_single_new_book(tmp_path):
     assert epub.exists()
     assert book.sha256 == sha256_file(epub)
     assert (out / "manifest.json").exists()
+
+
+def test_pack_is_deterministic(tmp_path):
+    pdf_dir = tmp_path / "src"
+    pdf_dir.mkdir()
+    _make_text_pdf(pdf_dir / "a.pdf", "A", "Đoạn văn tiếng Việt thứ nhất đủ dài.")
+    out1 = tmp_path / "p1"
+    out2 = tmp_path / "p2"
+    m1 = pack_pdfs(pdf_dir, out1, run_check=False)
+    pack_pdfs(pdf_dir, out2, run_check=False)
+    assert (out1 / "manifest.json").read_bytes() == (out2 / "manifest.json").read_bytes()
+    for b in m1.books:
+        assert (out1 / b.file).read_bytes() == (out2 / b.file).read_bytes()
+
+
+def test_pack_skips_unchanged(tmp_path, monkeypatch):
+    pdf_dir = tmp_path / "src"
+    pdf_dir.mkdir()
+    _make_text_pdf(pdf_dir / "a.pdf", "A", "Đoạn văn tiếng Việt thứ nhất đủ dài.")
+    out = tmp_path / "p"
+    pack_pdfs(pdf_dir, out, run_check=False)
+
+    import sepia_pipeline.pack as packmod
+
+    calls = {"n": 0}
+    real = packmod.convert_pdf
+
+    def spy(*a, **k):
+        calls["n"] += 1
+        return real(*a, **k)
+
+    monkeypatch.setattr(packmod, "convert_pdf", spy)
+    pack_pdfs(pdf_dir, out, run_check=False)
+    assert calls["n"] == 0  # unchanged → no reconvert
+
+
+def test_pack_books_sorted_by_uid(tmp_path):
+    pdf_dir = tmp_path / "src"
+    pdf_dir.mkdir()
+    _make_text_pdf(pdf_dir / "z.pdf", "Z", "Nội dung Z tiếng Việt đủ dài.")
+    _make_text_pdf(pdf_dir / "a.pdf", "A", "Nội dung A tiếng Việt đủ dài khác hẳn.")
+    out = tmp_path / "p"
+    m = pack_pdfs(pdf_dir, out, run_check=False)
+    uids = [b.book_uid for b in m.books]
+    assert uids == sorted(uids)
