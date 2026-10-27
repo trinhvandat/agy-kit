@@ -64,5 +64,7 @@ Pods/
 # Cache OCR Vision (ingest một lần) — không commit kho thật (lớn); fixture test nằm trong tests/
 pdf-pipeline/.ocr_cache/
 
-# Content pack (sách có bản quyền) — build-time only, không bao giờ vào git
-content/
+# Content pack (sách có bản quyền) — build-time only, không bao giờ vào git.
+# Anchored to repo root (/) nên CHỈ bỏ qua thư mục gói ở gốc, không đụng package
+# nguồn Kotlin tên "content" (…/sepia/content/).
+/content/
