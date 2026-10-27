@@ -66,6 +66,56 @@ def _count_tokens(text: str) -> dict[str, int]:
     return {tok: len(re.findall(re.escape(tok), low)) for tok in ABBYY_TOKENS}
 
 
+def _strip_diacritics(text: str) -> str:
+    """Bỏ dấu thanh + dấu phụ nguyên âm + đ→d (ABBYY 'nhiéu' và Vision 'nhiều' → cùng 'nhieu')."""
+    nfd = unicodedata.normalize("NFD", text)
+    no_marks = "".join(ch for ch in nfd if not unicodedata.combining(ch))
+    return no_marks.replace("đ", "d").replace("Đ", "D")
+
+
+def _block_text(b) -> str:
+    """Mọi chữ người-đọc-thấy: heading/para, ô bảng, caption ảnh (bất biến A — Việc 1)."""
+    if isinstance(b, Table):
+        return " ".join(c for row in b.rows for c in row)
+    if isinstance(b, ImageBlock):
+        return b.caption or ""
+    return getattr(b, "text", "") or ""
+
+
+def _dup_vision_abbyy_8grams(
+    page_tokens: dict[int, list[str]], cache_words: dict[int, set[str]]
+) -> tuple[int, list[str]]:
+    """Lỗi nhân đôi **Vision + ABBYY** = CÙNG MỘT TRANG CÓ CACHE có cụm 8 từ (bỏ dấu để so) xuất
+    hiện ≥2 lần với cách viết CÓ DẤU khác nhau, **và ít nhất một bản là ABBYY** (chứa từ KHÔNG có
+    trong cache Vision trang đó). Đây đúng là triệu chứng cũ: bản Vision "những vùng nhiều thịt" +
+    bản ABBYY "vùng nhiéu thịt" trên cùng trang.
+
+    Chỉ đếm khi có phía ABBYY → KHÔNG tính dao động chính tả Vision-vs-Vision (hai bản đều ⊆ cache,
+    vd tiêu đề chạy OCR hơi khác). Đo theo trang; bỏ trang fallback (không cache → không có Vision
+    để nhân đôi). Trả ``(số_cụm, ví_dụ)``."""
+    total = 0
+    examples: list[str] = []
+    for page0 in sorted(page_tokens):
+        cw = cache_words.get(page0)
+        if not cw:  # trang fallback (không cache) — không có lớp Vision để nhân đôi
+            continue
+        raw = page_tokens[page0]
+        stripped = [_strip_diacritics(t) for t in raw]
+        seen: dict[tuple[str, ...], set[tuple[str, ...]]] = {}
+        for i in range(len(raw) - 7):
+            key = tuple(stripped[i : i + 8])
+            seen.setdefault(key, set()).add(tuple(raw[i : i + 8]))
+        for v in seen.values():
+            if len(v) < 2:
+                continue
+            # có ít nhất một bản ABBYY = có từ KHÔNG thuộc cache Vision trang này?
+            if any(any(w not in cw for w in gram) for gram in v):
+                total += 1
+                if len(examples) < 10:
+                    examples.append(f"p{page0}: " + " / ".join(" ".join(s) for s in sorted(v)[:2]))
+    return total, examples
+
+
 def _post(blocks):
     """Hậu xử lý như convert (nguồn OCR + tiếng Việt): lọc rác âm tiết + bỏ mục lục in sẵn."""
     book_text = " ".join(b.text for b in blocks if isinstance(b, Heading | Paragraph))
@@ -167,29 +217,37 @@ def main() -> int:
     vision_lines = sum(len(v) for v in lines_by_page.values())
     blocks, garbage, toc = _post(list(blocks_raw))
 
-    # --- BẤT BIẾN ---
+    # --- BẤT BIẾN (đo trên TOÀN BỘ text EPUB: heading/para + ô bảng + caption ảnh) ---
     inv_b_ok = assigned + floating == vision_lines == cache.n_lines
-    outside = []  # (page, word, block_text[:60])
+    outside = []  # chữ khối trên trang CÓ cache mà KHÔNG có trong cache Vision trang đó
+    table_outside = 0  # phần 'outside' đến từ bảng (theo dõi riêng, vẫn tính vào outside tổng)
     for b in blocks:
-        if not isinstance(b, Heading | Paragraph):
-            continue
         p0 = getattr(b, "page", 0) - 1
         if p0 not in cache_words:
+            continue  # trang fallback (không cache) được phép giữ ABBYY
+        txt = _block_text(b)
+        if not txt:
             continue
-        for w in _toks(b.text):
-            if w not in cache_words[p0]:
-                outside.append({"page": p0, "word": w, "block": b.text[:60]})
-    inv_a_ok = len(outside) == 0
-    # Chữ ngoài nguồn từ bảng (ABBYY) — đo riêng (route hybrid chưa thay chữ bảng bằng Vision).
-    table_outside = 0
-    for b in blocks:
+        bad = [w for w in _toks(txt) if w not in cache_words[p0]]
+        for w in bad:
+            outside.append({"page": p0, "word": w, "block": txt[:60], "kind": type(b).__name__})
         if isinstance(b, Table):
-            p0 = getattr(b, "page", 0) - 1
-            txt = " ".join(c for row in b.rows for c in row)
-            table_outside += sum(1 for w in _toks(txt) if w not in cache_words.get(p0, set()))
+            table_outside += len(bad)
+    inv_a_ok = len(outside) == 0
 
-    final_nonspace = _nonspace(" ".join(b.text for b in blocks if hasattr(b, "text")))
-    final_token_counts = _count_tokens(" ".join(b.text for b in blocks if hasattr(b, "text")))
+    full_text = " ".join(_block_text(b) for b in blocks)
+    final_nonspace = _nonspace(full_text)
+    final_token_counts = _count_tokens(full_text)
+    # Số lần mỗi token lỗi ABBYY VƯỢT mức cache (phải ≈ 0 — không rò thêm so với nguồn Vision).
+    over_cache = {
+        tok: max(0, final_token_counts[tok] - cache_token_counts[tok]) for tok in ABBYY_TOKENS
+    }
+    # Cụm 8 từ nhân đôi (Vision + ABBYY) ĐO THEO TRANG → phải 0.
+    page_tokens: dict[int, list[str]] = {}
+    for b in blocks:
+        p0 = getattr(b, "page", 0) - 1
+        page_tokens.setdefault(p0, []).extend(_toks(_block_text(b)))
+    dup_count, dup_examples = _dup_vision_abbyy_8grams(page_tokens, cache_words)
 
     cer_wer = {}
     for p in GT_PAGES:
@@ -243,18 +301,25 @@ def main() -> int:
             "fallback_pages": len([p0 for p0 in range(len(cache.pages)) if p0 not in cached_pages]),
         },
         "invariants": {
+            "measure_scope": "TOÀN BỘ text EPUB (heading/para + ô bảng + caption ảnh)",
             "A_cached_words_subset_cache": inv_a_ok,
             "B_each_line_used_once": inv_b_ok,
             "outside_source_words": len(outside),
             "outside_source_examples": outside[:20],
-            "table_outside_source_words": table_outside,
+            "outside_from_tables": table_outside,
+            "vision_abbyy_dup_8grams": dup_count,
+            "vision_abbyy_dup_examples": dup_examples,
         },
         "chars": {
             "final_nonspace": final_nonspace,
             "cache_nonspace": cache_nonspace,
             "final_le_cache": final_nonspace <= cache_nonspace,
         },
-        "abbyy_tokens": {"final": final_token_counts, "cache": cache_token_counts},
+        "abbyy_tokens": {
+            "final": final_token_counts,
+            "cache": cache_token_counts,
+            "over_cache": over_cache,
+        },
         "cer_wer_gt": cer_wer,
         "floating_diag": diag,
     }
@@ -271,21 +336,32 @@ def main() -> int:
         f"floating={h['floating']} ({h['floating_pct']}%) dropped={h['dropped_empty_blocks']} "
         f"fallback_pages={h['fallback_pages']}"
     )
+    print("Phạm vi đo bất biến/token: TOÀN BỘ text EPUB (heading/para + ô bảng + caption ảnh)")
     print(
-        f"\nBẤT BIẾN A (từ khối ⊆ cache): {'ĐẠT' if inv_a_ok else 'HỎNG'} "
-        f"— chữ ngoài nguồn={len(outside)} (bảng ABBYY riêng={table_outside})"
+        f"\nBẤT BIẾN A (mọi từ khối trang-cache ⊆ cache): {'ĐẠT' if inv_a_ok else 'HỎNG'} "
+        f"— chữ ngoài nguồn={len(outside)} (trong đó từ bảng={table_outside})"
     )
     print(
         f"BẤT BIẾN B (mỗi dòng 1 lần): {'ĐẠT' if inv_b_ok else 'HỎNG'} "
         f"— assigned+floating={assigned + floating} vs cache={cache.n_lines}"
     )
     print(
+        f"Cụm 8 từ nhân đôi Vision+ABBYY: {dup_count} "
+        f"{'(ĐẠT: 0)' if dup_count == 0 else '(HỎNG)'}"
+    )
+    if dup_examples:
+        for ex in dup_examples[:5]:
+            print(f"    ↳ {ex}")
+    print(
         f"\nKý tự (không trắng): EPUB={final_nonspace} ≤ cache={cache_nonspace}? "
         f"{'ĐẠT' if final_nonspace <= cache_nonspace else 'HỎNG'}"
     )
-    print("\nToken lỗi ABBYY (EPUB vs cache):")
+    print("\nToken lỗi ABBYY (EPUB vs cache vs vượt-cache):")
     for tok in ABBYY_TOKENS:
-        print(f"  {tok:8}: EPUB={final_token_counts[tok]:>4}  cache={cache_token_counts[tok]:>4}")
+        print(
+            f"  {tok:8}: EPUB={final_token_counts[tok]:>4}  cache={cache_token_counts[tok]:>4}  "
+            f"vượt={over_cache[tok]:>4}"
+        )
     print("\nCER/WER 3 trang GT:")
     for p in GT_PAGES:
         r = cer_wer[p]

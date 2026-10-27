@@ -57,12 +57,14 @@ def _non_space_len(text: str) -> int:
     return sum(1 for ch in text if not ch.isspace())
 
 
-def _norm_bbox(item, page_w: float, page_h: float) -> BBox | None:
-    """Bbox khối Docling → chuẩn hoá trên-trái [x0,y0,x1,y1] ∈ [0,1]; ``None`` nếu thiếu toạ độ."""
-    prov = getattr(item, "prov", None)
-    if not prov or page_w <= 0 or page_h <= 0:
+def _norm_bbox_tl(bb, page_w: float, page_h: float) -> BBox | None:
+    """BoundingBox Docling → chuẩn hoá trên-trái [x0,y0,x1,y1] ∈ [0,1]; ``None`` nếu thiếu toạ độ.
+
+    Dùng chung cho bbox **khối** (``prov[0].bbox``) và bbox **ô bảng** (``TableCell.bbox``) — cùng
+    hệ toạ độ điểm, cùng cách quy về trên-trái (``to_top_left_origin``; dự phòng lật ``y``).
+    """
+    if bb is None or page_w <= 0 or page_h <= 0:
         return None
-    bb = prov[0].bbox
     try:
         tl = bb.to_top_left_origin(page_height=page_h)
         left, top, right, bot = tl.l, tl.t, tl.r, tl.b
@@ -71,6 +73,64 @@ def _norm_bbox(item, page_w: float, page_h: float) -> BBox | None:
     x0, x1 = sorted((left / page_w, right / page_w))
     y0, y1 = sorted((top / page_h, bot / page_h))
     return (x0, y0, x1, y1)
+
+
+def _norm_bbox(item, page_w: float, page_h: float) -> BBox | None:
+    """Bbox khối Docling (``prov[0].bbox``) → chuẩn hoá trên-trái [0,1]; ``None`` nếu thiếu toạ."""
+    prov = getattr(item, "prov", None)
+    if not prov:
+        return None
+    return _norm_bbox_tl(prov[0].bbox, page_w, page_h)
+
+
+def _norm_table_cells(
+    item, page_w: float, page_h: float
+) -> tuple[tuple[tuple[BBox, int, int], ...], int, int]:
+    """Ô bảng Docling (``item.data.table_cells``) → ``(cells, n_rows, n_cols)``.
+
+    ``cells`` = các ``(bbox_chuẩn_hoá, row_idx, col_idx)`` có đủ toạ độ (bỏ ô thiếu bbox). Dùng để
+    gán dòng Vision vào ô theo chồng lấn (:func:`_table_rows_from_lines`) → bảng mang chữ Vision.
+    """
+    data = getattr(item, "data", None)
+    cells_in = getattr(data, "table_cells", None) or []
+    n_rows = int(getattr(data, "num_rows", 0) or 0)
+    n_cols = int(getattr(data, "num_cols", 0) or 0)
+    out: list[tuple[BBox, int, int]] = []
+    for c in cells_in:
+        r = getattr(c, "start_row_offset_idx", None)
+        col = getattr(c, "start_col_offset_idx", None)
+        nb = _norm_bbox_tl(getattr(c, "bbox", None), page_w, page_h)
+        if nb is None or r is None or col is None:
+            continue
+        out.append((nb, int(r), int(col)))
+    return tuple(out), n_rows, n_cols
+
+
+def _table_rows_from_lines(t: _Target) -> tuple[tuple[str, ...], ...]:
+    """Dựng lưới bảng từ **dòng Vision** gán vào target: mỗi dòng → ô chồng lấn LỚN NHẤT (theo bbox
+    ô); hoà không ô nào chồng thì về ô gần tâm nhất (không mất dòng — dòng đã được coi là "trong
+    bảng" ở :func:`_assign_lines`). Chữ ô = nối dòng theo **thứ tự Vision** (nhất quán
+    :func:`_target_text`), chuẩn hoá NFC. Trả lưới ``n_rows × n_cols`` (ô rỗng = ``""``).
+    """
+    if not t.table_cells or t.n_rows <= 0 or t.n_cols <= 0:
+        return ()
+    cell_lines: dict[tuple[int, int], list[OcrLine]] = {}
+    for ln in t.lines:  # GIỮ thứ tự Vision
+        best_cell: tuple[int, int] | None = None
+        best_ov = 0.0
+        for cbb, r, c in t.table_cells:
+            ov = _overlap_frac(ln.bbox, cbb)
+            if ov > best_ov:
+                best_ov, best_cell = ov, (r, c)
+        if best_cell is None:  # không chồng ô nào → ô gần tâm nhất (giữ dòng, không mất)
+            nearest = min(t.table_cells, key=lambda cell: _center_dist2(ln.bbox, cell[0]))
+            best_cell = (nearest[1], nearest[2])
+        cell_lines.setdefault(best_cell, []).append(ln)
+    grid = [["" for _ in range(t.n_cols)] for _ in range(t.n_rows)]
+    for (r, c), lns in cell_lines.items():
+        if 0 <= r < t.n_rows and 0 <= c < t.n_cols:
+            grid[r][c] = normalize_text(" ".join(ln.text for ln in lns))
+    return tuple(tuple(row) for row in grid)
 
 
 def _overlap_frac(line: BBox, block: BBox) -> float:
@@ -102,6 +162,10 @@ class _Target:
     level: int
     item: object  # item Docling gốc (để lấy ảnh/caption nếu là picture)
     lines: list[OcrLine] = field(default_factory=list)
+    # Bảng: hình học ô (bbox chuẩn hoá + row/col) + kích thước lưới — để gán dòng Vision vào ô.
+    table_cells: tuple[tuple[BBox, int, int], ...] = ()
+    n_rows: int = 0
+    n_cols: int = 0
 
 
 def _assign_lines(
@@ -228,8 +292,10 @@ def _assemble_blocks(
 
     Trang **CÓ cache** (``page-1 ∈ cached_pages``): khối chữ chỉ lấy chữ Vision — khối không nhận
     dòng Vision nào → **BỎ** (đếm vào ``dropped``), KHÔNG lấy lớp chữ ABBYY; picture không có chữ
-    Vision → ảnh **không caption** (không lấy caption ABBYY). Trang **KHÔNG cache** (fallback): giữ
-    lớp chữ Docling/ABBYY (``item.text``) như v4. ``cached_pages`` theo **0-based** (khoá cache).
+    Vision → ảnh **không caption** (không lấy caption ABBYY); **bảng** lấy chữ Vision theo ô
+    (:func:`_table_rows_from_lines`) — không dòng Vision nào → **BỎ** (không lấy lưới ABBYY). Trang
+    **KHÔNG cache** (fallback): giữ lớp chữ Docling/ABBYY (``item.text`` / ``_table_rows``) như v4.
+    ``cached_pages`` theo **0-based** (khoá cache).
     """
     blocks: list[Block] = []
     dropped = 0
@@ -268,11 +334,20 @@ def _assemble_blocks(
                 caption = text if has_cache else (text or _caption_text(item, doc))
                 blocks.append(ImageBlock(png=png, page=page, caption=caption))
         elif label == "table":
-            from .docling_adapter import _table_rows
+            if has_cache:
+                # Trang CÓ cache: ô bảng lấy chữ Vision (gán theo bbox ô); không có dòng Vision nào
+                # → BỎ bảng (KHÔNG lấy lưới ABBYY) — bất biến A mở sang ô bảng (Việc 1).
+                rows = _table_rows_from_lines(t) if t is not None else ()
+                if any(cell for row in rows for cell in row):
+                    blocks.append(Table(rows=rows, page=page))
+                else:
+                    dropped += 1 if t is not None else 0
+            else:
+                from .docling_adapter import _table_rows
 
-            rows = _table_rows(item)
-            if rows:
-                blocks.append(Table(rows=rows, page=page))
+                rows = _table_rows(item)  # fallback: giữ lưới ABBYY như v4
+                if rows:
+                    blocks.append(Table(rows=rows, page=page))
         elif label == "caption":
             text, _conf = _target_text(t) if t else ("", None)
             if not text and not has_cache:
@@ -350,6 +425,16 @@ def _build_targets(doc) -> tuple[list[dict], list[_Target]]:
             entry["target"] = t
         elif label == "picture" and bbox is not None:
             t = _Target(len(targets), page, "picture", bbox, 0, item)
+            targets.append(t)
+            entry["target"] = t
+        elif label == "table" and bbox is not None:
+            # Bảng cũng là target → dòng Vision vùng bảng được GÁN vào bảng (không "trôi" thành
+            # đoạn nhân đôi), rồi phân vào ô theo bbox ô (Việc 1 — bất biến A mở sang ô bảng).
+            cells, n_rows, n_cols = _norm_table_cells(item, w, h)
+            t = _Target(len(targets), page, "table", bbox, 0, item)
+            t.table_cells = cells
+            t.n_rows = n_rows
+            t.n_cols = n_cols
             targets.append(t)
             entry["target"] = t
         order_items.append(entry)

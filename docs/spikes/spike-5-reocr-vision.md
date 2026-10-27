@@ -246,6 +246,45 @@ của nhánh và **đã đạt**.
 3. **Bảng (`Table`) vẫn lấy chữ ABBYY**: 2 101 từ trong bảng ∉ cache Vision (route hybrid chưa thay chữ
    bảng bằng Vision). Nằm ngoài "khối chữ" của bất biến A nhưng vẫn là **nguồn ABBYY còn lại**.
 
+### v5.1 → v7 (PIPELINE_VERSION 7) — **bảng mang chữ Vision, bất biến A mở sang ô bảng** (nhánh `fix-hybrid-tables-reanchor`)
+
+**Lỗi còn lại khi soát v6**: bất biến A v6 **chỉ đo heading/para/caption** → **chừa bảng**. Đo lại trên
+**TOÀN BỘ text EPUB** (kể cả `<td>`): **41 bảng, ~9.2k từ trong ô bảng là chữ ABBYY** (`nhiéu`×9, `điéu`×7,
+`vđi`×7, `Phưdng`×4, `xưong`×3…). Đồng thời dòng Vision vùng bảng **không** chồng khối Docling nào (bảng
+không là target) → **"trôi" thành đoạn riêng** → trang 87 có **cả** "những vùng nhiều thịt" (Vision ×2) lẫn
+"vùng nhiéu thịt…" (ABBYY trong bảng) ⇒ **nhân đôi**.
+
+**Cách đã chọn** — *gán dòng Vision vào ô theo bbox ô* (hướng ưu tiên của brief, **không** phải fallback
+"thay bảng bằng đoạn"): Docling `TableCell` **có `bbox`** + `start_row/col_offset_idx` (đã kiểm). Nên:
+bảng trở thành **target** (`_build_targets`) → dòng Vision vùng bảng được **gán vào bảng** (hết trôi nhân
+đôi), rồi `_table_rows_from_lines` phân mỗi dòng vào **ô chồng lấn lớn nhất** (dự phòng: ô gần tâm nhất để
+**không mất dòng**), chữ ô = nối dòng **theo thứ tự Vision**. Trang **CÓ cache**: ô bảng chỉ lấy chữ
+Vision; bảng không nhận dòng Vision nào → **BỎ** (không lấy lưới ABBYY). Trang **KHÔNG cache**: giữ lưới
+ABBYY (`_table_rows`) như v4. Bất biến A (và thước đo token/nhân-đôi) **mở sang mọi loại khối có chữ**
+(heading, para, caption, **ô bảng**).
+
+Đo lại **cả cuốn, trên TOÀN BỘ text EPUB** (`spikes/spike5_v51_measure.py`, PDF *Tự Học Đông Y*):
+
+| Chỉ số (cả cuốn, 292 trang — đo TOÀN BỘ text EPUB) | v6 (bảng ABBYY) | **v7 (bảng Vision)** |
+|---|---|---|
+| Bất biến A: **mọi** từ khối trang-cache ⊆ cache (kể cả ô bảng) | HỎNG (bảng ~9.2k từ ABBYY) | **ĐẠT — 0 từ ngoài nguồn (bảng = 0)** |
+| Bất biến B: mỗi dòng cache dùng 1 lần (assigned+floating = 11 889 = cache) | ĐẠT | **ĐẠT** |
+| Token lỗi ABBYY vượt mức cache (nhiéu/điéu/vđi/Phưdng/xưong) | > 0 (trong bảng) | **0 / 0 / 0 / 0 / 0** |
+| Token `cùa` (EPUB vs cache) | — | **2 = 2 (vượt 0)** |
+| Cụm 8 từ nhân đôi Vision+ABBYY (cùng trang, 1 bản ∉ cache) | > 0 | **0** |
+| Ký tự (không trắng): EPUB ≤ cache | — | **366 133 ≤ 366 321 ✓** |
+| Build 2 lần byte-identical · epubcheck | ✓ · HỢP LỆ | **✓ · HỢP LỆ** |
+| Khối (kể cả bảng) rỗng trên trang cache bị bỏ | — | **42** |
+| Dòng trôi | 20.4%¹ | **8.33%** (990/11 889) |
+
+¹ *v6 đo dòng trôi gồm cả dòng vùng bảng; v7 gán chúng vào bảng nên dòng trôi giảm còn 8.33% — phần còn lại
+chủ yếu nằm cạnh `section_header` (980/990 chồng 0% mọi khối) do Docling **phủ bố cục thưa trên trang scan**
+(mục CÒN MỞ #2) — việc riêng, đã mở GitHub issue, nằm ngoài phạm vi nhánh này.*
+
+→ **Nguồn ABBYY còn lại (bảng) đã hết**: bất biến A/B đạt trên toàn bộ text, token lỗi về mức cache, **0**
+cụm nhân đôi Vision+ABBYY. WER "tính chèn" 3 trang GT **y hệt v6** (do thứ tự đọc, không do bảng) — không
+đổi bởi nhánh này.
+
 ## Thiết kế tất định: OCR = **ingest một lần** + **cache** (ĐÃ hiện thực — ADR-009)
 
 **Vấn đề**: kết quả Vision **có thể đổi theo phiên bản macOS/Vision** → nếu OCR chạy **mỗi lần build**
