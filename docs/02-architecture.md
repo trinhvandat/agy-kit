@@ -172,6 +172,10 @@ sequenceDiagram
 
 > **Re-anchor chạy trong JS (ADR-008)**: việc định vị lại highlight/vị trí đọc khi EPUB build lại được làm **trong WebView** bằng `search` của foliate-js (gọi qua bridge), **không** viết parser EPUB phía Kotlin. Kotlin chỉ giữ neo (snippet/prefix/suffix) và điều phối. Chuẩn hóa **NFC + gộp khoảng trắng** trước khi so khớp. Xem [04-data-model.md](./04-data-model.md) §3.1.
 
+> **Bề mặt bridge (SPIKE-1 + Mốc 3a)** — giữ hẹp đúng R-01. **Kotlin→JS** (`window.sepia.*`): `open/goTo/goToFraction/next/prev/applyStyle/reAnchor/clearSelection`. **JS→Kotlin** (`kmpJsBridge.callNative`): `bridgeReady · ready · relocated · reanchorResult · error · tap{zone} · selection{cfi,text,prefix,suffix,rect} · selectionCleared`. Parse JS→Kotlin ở **commonMain** (`ReaderEventParser`, test được không cần WebView; payload hỏng → `Failure`, không văng).
+>
+> **Cử chỉ (Mốc 3a)**: **vuốt** lật trang do **paginator.js** (vendor) tự xử lý; **tap** đơn được bridge quy về khung nhìn **trang chủ** (iframe rộng hơn màn hình theo số cột → cộng `frameElement.getBoundingClientRect()`), báo `zone` 30/40/30, Kotlin quyết hành động (trái=prev, giữa=toggle thanh, phải=next). **Không còn lớp chạm Compose phủ WebView** (gỡ nợ Mốc 2 — nó nuốt nhấn-giữ chọn chữ). Vùng chọn: WebView/paginator theo dõi (tự cuộn khi chọn vắt trang); bridge đọc + báo CFI (`view.getCFI`) + neo cross-node. Menu chọn chữ hệ thống (ActionMode) bị **chặn** (WebView con override `startActionMode`), thay bằng thanh Compose.
+
 ## 7. Ranh giới "dễ nhân bản" cụ thể
 
 - **Reading Core không import** bất cứ khái niệm thuộc lĩnh vực cụ thể nào. Mọi thứ đặc thù lĩnh vực (gói sách, từ điển, bộ nhãn gợi ý, tính năng tra cứu) nằm **ngoài lõi**.

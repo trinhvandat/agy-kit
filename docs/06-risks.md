@@ -35,6 +35,12 @@
   từ lớp inject bridge của thư viện (không chặn chức năng). **iOS vẫn mở** (WKURLSchemeHandler chưa làm — issue #3).
   **Chọn chữ/highlight** là nợ Mốc 3 (lớp chạm Compose chặn nhấn-giữ). Re-anchor **xuyên-build** chưa kiểm (chưa
   có mẫu EPUB build-lại khác cấu trúc).
+- **Cập nhật (Mốc 3a):** nợ cử chỉ **đã gỡ** — bỏ lớp chạm Compose, chuyển tap/selection sang JS (bridge).
+  Đã kiểm emulator API 36: **nhấn-giữ chọn chữ hoạt động**, bridge báo `selection{cfi,…}`, `goTo(cfi)` từ
+  selection về đúng chỗ; tap 30/40/30 đúng cả trang ≥10 (quy toạ độ qua `frameElement`); menu chọn chữ hệ
+  thống bị chặn (override `startActionMode`), thay bằng thanh Compose. Bề mặt bridge vẫn hẹp (xem docs/02 §6).
+  Parse JS→Kotlin tách ra `ReaderEventParser` (commonMain) có unit test. Highlight/ghi chú + re-anchor
+  xuyên-build vẫn thuộc Mốc 3b+.
 
 ## R-02 — Build iOS lần đầu (bạn chưa từng làm)
 
