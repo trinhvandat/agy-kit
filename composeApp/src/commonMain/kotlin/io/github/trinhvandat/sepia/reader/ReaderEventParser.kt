@@ -13,7 +13,9 @@ import kotlinx.serialization.json.Json
  * An toàn: payload hỏng → [ReaderEvent.Failure] (không ném); method lạ → null (bỏ qua).
  */
 object ReaderEventParser {
-    private val json = Json { ignoreUnknownKeys = true }
+    // coerceInputValues: JSON `null` cho field không-null có mặc định → dùng mặc định (vd fraction=NaN
+    // → JSON.stringify ra null → về 0f) thay vì ném, tránh banner "Lỗi trình đọc" (Việc 2).
+    private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true }
 
     fun parse(method: String, params: String): ReaderEvent? = when (method) {
         "bridgeReady" -> ReaderEvent.BridgeReady
@@ -23,8 +25,18 @@ object ReaderEventParser {
         "relocated" -> decode<RelocatedDto>(method, params) {
             ReaderEvent.Relocated(it.cfi, it.fraction, it.snippet, it.prefix, it.suffix)
         }
-        "reanchorResult" -> decode<ReanchorDto>(method, params) {
-            ReaderEvent.ReanchorResult(it.token, it.cfis)
+        "reanchorResult" -> decode<ReanchorDto>(method, params) { dto ->
+            ReaderEvent.ReanchorResult(
+                dto.token,
+                dto.candidates.map {
+                    io.github.trinhvandat.sepia.domain.AnchorCandidate(
+                        cfi = it.cfi,
+                        progress = it.progress,
+                        text = it.text,
+                        exact = it.exact,
+                    )
+                },
+            )
         }
         "tap" -> decode<TapDto>(method, params) { parseZone(it.zone) }
         "selection" -> decode<SelectionDto>(method, params) {
@@ -73,7 +85,18 @@ object ReaderEventParser {
     )
 
     @Serializable
-    private data class ReanchorDto(val token: String = "", val cfis: List<String> = emptyList())
+    private data class ReanchorDto(
+        val token: String = "",
+        val candidates: List<CandidateDto> = emptyList(),
+    )
+
+    @Serializable
+    private data class CandidateDto(
+        val cfi: String = "",
+        val progress: Float = 0f,
+        val text: String = "",
+        val exact: Boolean = false,
+    )
 
     @Serializable
     private data class TapDto(val zone: String = "")

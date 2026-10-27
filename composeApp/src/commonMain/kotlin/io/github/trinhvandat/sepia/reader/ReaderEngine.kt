@@ -38,7 +38,10 @@ sealed interface ReaderEvent {
         val prefix: String,
         val suffix: String,
     ) : ReaderEvent
-    data class ReanchorResult(val token: String, val cfis: List<String>) : ReaderEvent
+    data class ReanchorResult(
+        val token: String,
+        val candidates: List<io.github.trinhvandat.sepia.domain.AnchorCandidate>,
+    ) : ReaderEvent
 
     /** Chạm đơn trong WebView (không phải link/không đang chọn chữ) — Kotlin quyết hành động UI. */
     data class Tap(val zone: TapZone) : ReaderEvent

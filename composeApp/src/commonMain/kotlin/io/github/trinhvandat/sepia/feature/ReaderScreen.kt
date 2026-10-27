@@ -44,6 +44,7 @@ import io.github.trinhvandat.sepia.domain.AnchorText
 import io.github.trinhvandat.sepia.domain.Book
 import io.github.trinhvandat.sepia.domain.Highlight
 import io.github.trinhvandat.sepia.domain.HighlightStatus
+import io.github.trinhvandat.sepia.domain.ReAnchorSelector
 import io.github.trinhvandat.sepia.reader.HighlightDraw
 import io.github.trinhvandat.sepia.reader.ReaderController
 import io.github.trinhvandat.sepia.reader.ReaderEvent
@@ -96,6 +97,9 @@ fun ReaderContent(
     var tappedHighlight by remember(book.id) { mutableStateOf<ReaderEvent.HighlightTap?>(null) }
     var opened by remember(book.id) { mutableStateOf(false) }
     var ready by remember(book.id) { mutableStateOf(false) }
+    // Khi cần re-anchor: mở ở ĐẦU sách trước (chưa có CFI hợp lệ) rồi mới định vị lại. Chặn LƯU vị trí
+    // tới khi định vị xong để KHÔNG ghi đè progress thật bằng fraction≈0 lúc mở (hồi quy Mốc 2).
+    var reanchorSettled by remember(book.id) { mutableStateOf(!needsReAnchor) }
     val relocations = remember(book.id) { MutableStateFlow<ReaderEvent.Relocated?>(null) }
 
     val clipboard = LocalClipboardManager.current
@@ -144,8 +148,16 @@ fun ReaderContent(
                 }
                 is ReaderEvent.Relocated -> relocations.value = event
                 is ReaderEvent.ReanchorResult -> {
-                    val cfi = event.cfis.firstOrNull()
-                    if (cfi != null) controller.goTo(cfi) else controller.goToFraction(book.progress)
+                    // Chọn ứng viên GẦN progress cũ nhất (docs/04 §3 bước 3) — KHÔNG lấy khớp đầu
+                    // tiên (foliate search bỏ dấu/hoa-thường → snippet khớp nhiều chỗ, chỗ đầu ≈ đầu
+                    // sách). Không ứng viên nào đạt → về đúng progress cũ (bước 4), KHÔNG về đầu sách.
+                    val chosen = ReAnchorSelector.chooseBest(
+                        candidates = event.candidates,
+                        target = book.progress,
+                        snippet = book.readingAnchor()?.textSnippet.orEmpty(),
+                    )
+                    if (chosen != null) controller.goTo(chosen.cfi) else controller.goToFraction(book.progress)
+                    reanchorSettled = true
                 }
                 is ReaderEvent.Tap -> when (event.zone) {
                     TapZone.LEFT -> controller.prev()
@@ -167,6 +179,8 @@ fun ReaderContent(
             if (!ready && failure == null) {
                 failure = "Quá hạn mở sách: foliate-js không phản hồi (xem logcat/chrome://inspect)"
             }
+            // An toàn: re-anchor không trả kết quả (bridge lỗi) → mở khoá lưu để không kẹt mãi không ghi vị trí.
+            if (!reanchorSettled) reanchorSettled = true
         }
     }
 
@@ -212,6 +226,8 @@ fun ReaderContent(
     // Lưu vị trí có debounce (docs/04 §2: positionCfi + snippet/prefix/suffix + progress).
     LaunchedEffect(book.id) {
         relocations.filterNotNull().debounce(1000).collect { r ->
+            // Chưa định vị lại xong → bỏ qua (tránh ghi đè progress thật bằng vị trí tạm lúc mở ở đầu).
+            if (!reanchorSettled) return@collect
             repo.savePosition(
                 id = book.id,
                 cfi = r.cfi.ifEmpty { null },
@@ -225,7 +241,8 @@ fun ReaderContent(
     }
 
     fun flushAndBack() {
-        relocations.value?.let { r ->
+        // Chưa định vị lại xong → đừng lưu (vị trí hiện là chỗ mở tạm ở đầu sách, chưa phải vị trí thật).
+        relocations.value?.takeIf { reanchorSettled }?.let { r ->
             // lưu ngay vị trí cuối trước khi rời (debounce có thể chưa kịp chạy); appScope sống lâu hơn màn hình
             appScope.launch {
                 repo.savePosition(

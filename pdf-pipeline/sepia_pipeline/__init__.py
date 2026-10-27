@@ -15,6 +15,11 @@ extract/reflow/build_epub thuộc Mốc 1 (xem docs/07-roadmap.md).
 #     BỎ (không lấy item.text ABBYY); picture không chữ Vision → ảnh không caption; dòng Vision
 #     "trôi" gom thành đoạn riêng chèn theo vị trí (không nhét vào khối khác cột). Trước đây v5 rò
 #     ~8.5k từ ABBYY vào EPUB (độ phủ 107%). → đầu ra trang scan có cache đổi (SPIKE-5 v5.1).
-PIPELINE_VERSION = 6
+# v7: bất biến A MỞ sang **ô bảng** — v6 còn chừa bảng: <td> giữ lớp chữ ABBYY (41 bảng, ~9.2k từ)
+#     và dòng Vision vùng bảng "trôi" thành đoạn nhân đôi. Nay bảng là target: dòng Vision gán vào
+#     ô theo bbox ô (TableCell.bbox) → ô mang chữ Vision; bảng trên trang CÓ cache không có dòng
+#     Vision nào → BỎ (không lấy lưới ABBYY). Trang KHÔNG cache vẫn giữ lưới ABBYY (fallback v4).
+#     → đầu ra trang scan có cache (có bảng) đổi (SPIKE-5 v5.1 đo trên TOÀN BỘ text EPUB).
+PIPELINE_VERSION = 7
 
 __all__ = ["PIPELINE_VERSION"]
