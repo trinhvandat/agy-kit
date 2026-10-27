@@ -150,6 +150,48 @@ Giai đoạn đầu **không** làm ground-truth + CER/NED (quá nặng cho mộ
 
 > **Nếu thương mại hóa về sau**: mới nâng lên đo **CER/NED**, **reading-order edit distance**, khung **OmniDocBench / olmOCR-bench**, và kiểm dấu tiếng Việt chuyên sâu.
 
+## 8.1 Đóng gói nhiều sách cho app (`pack`) — ADR-010
+
+Lệnh **`sepia-pipeline pack <thư-mục-PDF> --out <thư-mục-gói> [--font-profile X] [--engine auto|heuristic|docling] [--no-check] [--json]`**
+chạy trên máy tác giả (như `convert`/`ocr`), gói nhiều PDF thành một **content pack** để Gradle nhúng vào APK
+(xem [README](../README.md) §"Đóng gói sách vào app").
+
+- **Với mỗi `*.pdf`** trong thư mục đầu vào: tính `bookUid = sepia:<SHA-256 của PDF>` (giống `convert`,
+  §8); nếu sách là `scan_ocr` (phân loại **y hệt** `scan_ocr_book_signal` của `detect`/`convert`) và
+  **chưa có cache OCR hợp lệ** → tự chạy OCR Apple Vision trước (chỉ macOS; máy khác **cảnh báo và bỏ
+  qua**, `convert` sẽ lùi về v4 theo ADR-009); rồi `convert` ra `<sha>.epub` trong thư mục gói.
+- **Skip-unchanged**: nếu `manifest.json` cũ đã có cùng `bookUid` **và** cùng `pipelineVersion` **và**
+  file `.epub` vẫn còn → **dùng lại, không convert lại** (tăng tốc chạy lại khi thêm ít sách mới).
+- **`manifest.json`** (ghi ở gốc thư mục gói):
+  ```json
+  {
+    "packVersion": 1,
+    "books": [
+      {
+        "bookUid": "sepia:<sha-256-PDF>",
+        "title": "...",
+        "author": "...",
+        "file": "<sha-256-PDF>.epub",
+        "sha256": "<SHA-256 của file EPUB>",
+        "pipelineVersion": 8,
+        "sourcePdfName": "ten-file-goc.pdf"
+      }
+    ]
+  }
+  ```
+  `sha256` ở đây là hash **của file EPUB** (khác `bookUid` — hash PDF gốc) — app so sánh với
+  `Book.contentHash` để biết sách đã đổi hay chưa (có cần nhập lại/re-anchor không). `packVersion` là
+  phiên bản **định dạng manifest** (hiện = 1), chỉ mang tính thông tin cho app, không phải
+  `pipelineVersion` của từng sách.
+- **Tất định**: chạy lại trên cùng đầu vào → EPUB + manifest **giống byte-for-byte** (nhờ `convert`
+  tất định + sách **sắp theo `bookUid`** + JSON ghi `sort_keys=True` và kết thúc bằng dòng trống).
+- **Cảnh báo kích thước**: khi tổng dung lượng `.epub` trong gói **vượt 150 MB**, in cảnh báo ra
+  stderr (Play Store giới hạn APK/AAB tải trực tiếp **~200 MB**; vượt nhiều cần **Play Asset
+  Delivery** về sau — chưa làm ở giai đoạn này).
+- **Sách không vào git**: thư mục gói (`--out`) luôn nằm **ngoài repo hoặc `content/` ở gốc** (đã
+  gitignore, anchor `/content/`); CI có `scripts/check_no_bundled_books.py` chặn PR nếu có
+  `.epub`/`.pdf` lọt vào tracked files ngoài `pdf-pipeline/tests/fixtures/`.
+
 ## 9. Bảng công cụ & license (kiểm tra 2026-10)
 
 | Công cụ | Phiên bản | License | Vai trò | Ghi chú |
