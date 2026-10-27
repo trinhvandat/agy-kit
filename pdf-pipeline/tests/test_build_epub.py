@@ -47,8 +47,8 @@ def test_identifier_and_structure(tmp_path: Path) -> None:
     out = tmp_path / "book.epub"
     report = build_epub(_doc(), _blocks(), out)
     assert report.book_uid == "sepia:" + "a" * 64
-    # Tách ở h1 (2 mốc): front(ảnh) + CHƯƠNG MỘT (gồm h2 Mục nhỏ) + CHƯƠNG HAI.
-    assert report.n_chapters == 3
+    # Nội dung nhỏ (< ngưỡng) → gộp hết vào MỘT file (v8: chia theo ~10k ký tự).
+    assert report.n_chapters == 1
     assert report.n_images == 1
 
     book = epub.read_epub(str(out))
@@ -80,53 +80,102 @@ def test_mimetype_first_and_stored(tmp_path: Path) -> None:
         assert all(i.date_time == (1980, 1, 1, 0, 0, 0) for i in infos)
 
 
-def test_split_at_coarsest_heading() -> None:
-    # 3 h1 (ít) → tách ở h1; h2 KHÔNG tách file (thành mục con trong nav).
+def test_small_sections_pack_into_one_file() -> None:
+    # Nhiều mục nhỏ (tổng < target) → GỘP vào một file; mọi heading vẫn vào nav.
     blocks = []
     for i in range(3):
         blocks.append(Heading(text=f"CHƯƠNG {i}", level=1, page=i + 1))
         blocks.append(Heading(text="Mục con", level=2, page=i + 1))
         blocks.append(Paragraph(text="nội dung.", page=i + 1))
     chapters, _images, nav = _blocks_to_chapters(_doc(), blocks)
-    assert len(chapters) == 3  # chỉ cắt ở 3 h1
+    assert len(chapters) == 1  # tổng vài chục ký tự → một file
     assert len(nav) == 6  # cả h1 + h2 đều vào nav
 
 
-def test_one_h1_stays_one_file() -> None:
-    # 1 h1 + nhiều h2 → MỘT file (h2 là mục con nav), không tách theo h2.
-    blocks = [
-        Heading(text="CHƯƠNG MỘT", level=1, page=1),
-        Paragraph(text="a.", page=1),
-        Heading(text="Mục A", level=2, page=1),
-        Paragraph(text="b.", page=1),
-        Heading(text="Mục B", level=2, page=1),
-        Paragraph(text="c.", page=1),
-    ]
-    chapters, _images, nav = _blocks_to_chapters(_doc(), blocks)
-    assert len(chapters) == 1
-    assert [e.level for e in nav] == [1, 2, 2]
+def test_breaks_at_heading_once_over_target() -> None:
+    # Mỗi mục ~1000 ký tự, target=3000 → tách ở heading sau khi vượt target; file BẮT ĐẦU ở heading.
+    blocks = []
+    for i in range(9):
+        blocks.append(Heading(text=f"Mục {i}", level=1, page=i + 1))
+        blocks.append(Paragraph(text="x" * 1000, page=i + 1))
+    chapters, _images, nav = _blocks_to_chapters(_doc(), blocks, target_chars=3000, max_chars=4000)
+    # 9×~1000 ≈ 9000 ký tự, target 3000 → ~3 file (mỗi file gộp ~3 mục).
+    assert 2 <= len(chapters) <= 4
+    assert len(nav) == 9
+    # mỗi file (trừ file đầu nếu bắt đầu bằng nội dung) bắt đầu bằng một heading.
+    for c in chapters:
+        assert c.html_body.lstrip().startswith("<h")
 
 
-def test_many_headings_split_by_size_only() -> None:
-    # Giống Docling: hàng trăm heading cấp 1 → KHÔNG tách theo heading, chỉ theo kích thước.
+def test_coarsest_level_breaks_not_subheadings() -> None:
+    # Có h1 + h2: tách ưu tiên ở h1 (coarsest); h2 chỉ là mục con nav, KHÔNG tách sớm theo h2.
+    blocks = []
+    for i in range(4):
+        blocks.append(Heading(text=f"CHƯƠNG {i}", level=1, page=i + 1))
+        blocks.append(Paragraph(text="x" * 2000, page=i + 1))
+        blocks.append(Heading(text="Mục con", level=2, page=i + 1))
+        blocks.append(Paragraph(text="y" * 500, page=i + 1))
+    chapters, _images, nav = _blocks_to_chapters(_doc(), blocks, target_chars=3000, max_chars=9000)
+    # Tách ở h1 khi ≥3000; h2 (ngưỡng = max 9000) không gây tách giữa chương.
+    assert all(c.html_body.lstrip().startswith("<h1") for c in chapters)
+
+
+def test_many_sections_target_file_count() -> None:
+    # Giống Docling: hàng trăm heading cấp 1 → gộp theo ~target, không mỗi heading một file.
     blocks: list = []
     for i in range(200):
         blocks.append(Heading(text=f"Mục {i}", level=1, page=1))
         blocks.append(Paragraph(text="x" * 800, page=1))
-    chapters, _images, nav = _blocks_to_chapters(_doc(), blocks, max_file_bytes=20_000)
-    # 200×~800B ≈ 160KB+ → vài chục file, KHÔNG phải 200.
-    assert len(chapters) < 30
-    assert len(nav) == 200  # mọi heading vẫn vào nav
+    chapters, _images, nav = _blocks_to_chapters(_doc(), blocks, target_chars=7000, max_chars=10000)
+    # 200×~830 ≈ 166k ký tự / ~8k → ~20 file (KHÔNG 1, KHÔNG 200).
+    assert 15 <= len(chapters) <= 28
+    assert len(nav) == 200
 
 
-def test_size_cap_splits_large_chapter() -> None:
+def test_size_cap_splits_large_section() -> None:
     big = "x" * 5000
     blocks = [Heading(text="CHƯƠNG MỘT", level=1, page=1)]
     blocks += [Paragraph(text=big, page=1) for _ in range(10)]
-    chapters, _images, _nav = _blocks_to_chapters(_doc(), blocks, max_file_bytes=10_000)
+    chapters, _images, _nav = _blocks_to_chapters(
+        _doc(), blocks, target_chars=7000, max_chars=10000
+    )
+    # 50k ký tự / 10k → ~5–6 file; file đầu giữ heading, còn lại "(tiếp)".
     assert len(chapters) >= 4
     assert chapters[0].title == "CHƯƠNG MỘT"
     assert all("(tiếp)" in c.title for c in chapters[1:])
+
+
+def test_table_not_split_even_if_large() -> None:
+    from sepia_pipeline.model import Table
+
+    big_cell = "x" * 6000
+    blocks = [
+        Heading(text="CHƯƠNG MỘT", level=1, page=1),
+        Table(rows=((big_cell, big_cell), (big_cell, big_cell)), page=1),  # ~24k ký tự, > max
+    ]
+    chapters, _images, _nav = _blocks_to_chapters(
+        _doc(), blocks, target_chars=7000, max_chars=10000
+    )
+    # Bảng là khối NGUYÊN KHỐI → không bị cắt; nằm trọn trong một file.
+    table_files = [c for c in chapters if "<table>" in c.html_body]
+    assert len(table_files) == 1
+    assert chapters[0].html_body.count("<table>") == 1
+
+
+def test_heading_not_orphaned_before_huge_paragraph() -> None:
+    # heading + đoạn khổng lồ (> max): heading PHẢI ở cùng file với đoạn đó, không thành file rỗng.
+    blocks = [
+        Heading(text="CHƯƠNG MỘT", level=1, page=1),
+        Paragraph(text="x" * 12000, page=1),
+        Paragraph(text="y" * 500, page=1),
+    ]
+    chapters, _images, _nav = _blocks_to_chapters(
+        _doc(), blocks, target_chars=7000, max_chars=10000
+    )
+    assert chapters[0].title == "CHƯƠNG MỘT"
+    assert '<h1 id="h1">CHƯƠNG MỘT</h1>' in chapters[0].html_body
+    assert "x" * 12000 in chapters[0].html_body  # đoạn to ở CÙNG file với heading
+    assert len(chapters) == 2  # đoạn 500 sang file "(tiếp)"
 
 
 def test_image_embedded(tmp_path: Path) -> None:

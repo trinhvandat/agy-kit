@@ -20,6 +20,10 @@ extract/reflow/build_epub thuộc Mốc 1 (xem docs/07-roadmap.md).
 #     ô theo bbox ô (TableCell.bbox) → ô mang chữ Vision; bảng trên trang CÓ cache không có dòng
 #     Vision nào → BỎ (không lấy lưới ABBYY). Trang KHÔNG cache vẫn giữ lưới ABBYY (fallback v4).
 #     → đầu ra trang scan có cache (có bảng) đổi (SPIKE-5 v5.1 đo trên TOÀN BỘ text EPUB).
-PIPELINE_VERSION = 7
+# v8: CHIA NHỎ file XHTML cho nhẹ trên điện thoại — gộp các mục liên tiếp tới ~10k ký tự/file, tách
+#     ở ranh giới heading (coarsest, vd h1; cấp sâu hơn chỉ tách khi gần trần), không cắt đôi
+#     đoạn/bảng/ảnh. Trước đây chỉ ~7 file ~50k ký tự; nay ~40–80 file. Chỉ đổi ranh giới file XHTML
+#     (nội dung block/bất biến A/B không đổi) → đầu ra đổi (nhánh display-qa).
+PIPELINE_VERSION = 8
 
 __all__ = ["PIPELINE_VERSION"]
