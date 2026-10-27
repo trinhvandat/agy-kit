@@ -3,6 +3,7 @@ package io.github.trinhvandat.sepia
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -10,6 +11,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import io.github.trinhvandat.sepia.content.ContentPackSyncer
 import io.github.trinhvandat.sepia.data.BookRepository
 import io.github.trinhvandat.sepia.data.ImportBookUseCase
 import io.github.trinhvandat.sepia.domain.ImportOutcome
@@ -18,6 +20,7 @@ import io.github.trinhvandat.sepia.feature.ReaderContent
 import io.github.trinhvandat.sepia.feature.rememberEpubPicker
 import io.github.trinhvandat.sepia.theme.SepiaTheme
 import io.github.trinhvandat.sepia.variant.VariantConfig
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.koin.compose.KoinContext
 import org.koin.compose.koinInject
@@ -41,6 +44,10 @@ fun App(variant: VariantConfig = VariantConfig.Default) {
             val repo = koinInject<BookRepository>()
             val importer = koinInject<ImportBookUseCase>()
             val scope = rememberCoroutineScope()
+            val syncer = koinInject<ContentPackSyncer>()
+            val appScope = koinInject<CoroutineScope>()
+
+            LaunchedEffect(Unit) { appScope.launch { runCatching { syncer.sync() } } }
 
             val books by repo.observeBooks().collectAsState(initial = emptyList())
             var openId by remember { mutableStateOf<String?>(null) }

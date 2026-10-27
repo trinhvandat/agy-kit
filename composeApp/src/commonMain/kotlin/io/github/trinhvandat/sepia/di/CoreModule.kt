@@ -10,6 +10,10 @@ import io.github.trinhvandat.sepia.data.ImportBookUseCase
 import io.github.trinhvandat.sepia.data.SettingsRepository
 import io.github.trinhvandat.sepia.data.SettingsRepositoryImpl
 import io.github.trinhvandat.sepia.db.SepiaDatabase
+import io.github.trinhvandat.sepia.content.ContentPackSource
+import io.github.trinhvandat.sepia.content.ContentPackSyncer
+import io.github.trinhvandat.sepia.content.DeletedPackStore
+import io.github.trinhvandat.sepia.variant.VariantConfig
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,4 +35,11 @@ val coreModule: Module = module {
     single<SettingsRepository> { SettingsRepositoryImpl(get(), get()) }
     single { EpubMetadataReader() }
     single { ImportBookUseCase(get(), get(), get()) }
+    single { VariantConfig.Default }
+    single<DeletedPackStore> {
+        object : DeletedPackStore {
+            override suspend fun deletedUids(): Set<String> = get<BookRepository>().deletedPackUids()
+        }
+    }
+    single { ContentPackSyncer(getOrNull<ContentPackSource>(), get(), get(), get()) }
 }
