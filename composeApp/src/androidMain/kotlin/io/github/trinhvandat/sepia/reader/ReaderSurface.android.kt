@@ -107,7 +107,7 @@ private class NoSelectionMenuWebView(context: Context) : AndroidWebView(context)
 /** Tên method JS→Kotlin cần đăng ký handler; parse ở [ReaderEventParser]. */
 private val BRIDGE_METHODS = listOf(
     "bridgeReady", "ready", "relocated", "reanchorResult",
-    "tap", "selection", "selectionCleared", "error",
+    "tap", "selection", "selectionCleared", "highlightTap", "error",
 )
 
 private fun handler(name: String, onMsg: (String) -> Unit): IJsMessageHandler =

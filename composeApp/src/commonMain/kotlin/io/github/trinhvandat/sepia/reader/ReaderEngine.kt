@@ -43,20 +43,28 @@ sealed interface ReaderEvent {
     /** Chạm đơn trong WebView (không phải link/không đang chọn chữ) — Kotlin quyết hành động UI. */
     data class Tap(val zone: TapZone) : ReaderEvent
 
-    /** Vùng chọn chữ không rỗng — kèm CFI range + neo (prefix/suffix) để dựng Highlight ở Mốc 3b. */
+    /** Vùng chọn chữ không rỗng — kèm CFI range + neo (prefix/suffix) + fraction để dựng Highlight (3b). */
     data class Selection(
         val cfi: String,
         val text: String,
         val prefix: String,
         val suffix: String,
+        val fraction: Float,
         val rect: SelectionRect,
     ) : ReaderEvent
 
     /** Vùng chọn bị xoá (chạm ra ngoài, lật trang…). */
     data object SelectionCleared : ReaderEvent
 
+    /** Chạm trúng một highlight đã vẽ → mở thanh đổi màu / sao chép / xoá (Mốc 3b). */
+    data class HighlightTap(val id: String, val rect: SelectionRect) : ReaderEvent
+
     data class Failure(val where: String, val message: String) : ReaderEvent
 }
+
+/** Một highlight cần vẽ (Kotlin→JS). color = mã CSS (HighlightColor.cssColor). */
+@kotlinx.serialization.Serializable
+data class HighlightDraw(val id: String, val cfi: String, val color: String)
 
 /**
  * Bề mặt điều khiển reader (ADR-001: bọc foliate-js sau interface — UI không biết renderer).
@@ -80,6 +88,12 @@ class ReaderController {
     fun prev() = eval("window.sepia.prev()")
     fun applyStyle(css: String) = eval("window.sepia.applyStyle(${js(css)})")
     fun clearSelection() = eval("window.sepia.clearSelection()")
+
+    /** Thay toàn bộ tập highlight đang vẽ. */
+    fun setHighlights(items: List<HighlightDraw>) =
+        eval("window.sepia.setHighlights(${Json.encodeToString(items)})")
+
+    fun removeHighlight(id: String) = eval("window.sepia.removeHighlight(${js(id)})")
 
     fun reAnchor(token: String, fullQuery: String, snippetQuery: String, targetFraction: Float) =
         eval("window.sepia.reAnchor(${js(token)}, ${js(fullQuery)}, ${js(snippetQuery)}, $targetFraction)")

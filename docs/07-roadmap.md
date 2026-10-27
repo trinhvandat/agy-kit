@@ -106,7 +106,13 @@ graph TD
 > vùng chọn (Mốc 3a: Sao chép + Bỏ chọn; Mốc 3b thêm Highlight/ghi chú). Đã kiểm trên emulator: menu hệ
 > thống KHÔNG hiện, thanh Compose hiện đúng. → Ước lượng Mốc 3b–3d **giữ nguyên** (không phát sinh rủi ro menu).
 
-- [ ] Chọn văn bản → **highlight** (1–2 màu) với CFI range + lưu prefix/suffix/textSnippet/contentHash. **5h**
+- [x] **(3a)** Gỡ nợ cử chỉ + chọn chữ (tap/selection qua JS) + SPIKE chặn ActionMode. *(xem khối ✅/🔎 trên)*
+- [x] **(Bước 0)** Sửa lỗi review 3a: neo giữ space ranh giới (`anchor.js` + test hợp đồng JS↔Kotlin, CI `node --test`) + thêm `fraction`.
+- [x] **(3b)** Chọn văn bản → **highlight** nhiều màu (bảng màu lõi trung tính) với CFI range + lưu
+  prefix/suffix/textSnippet/contentHash/progress; vẽ qua foliate `Overlayer`; chạm highlight → đổi màu/Sao chép/Xoá;
+  chỉ vẽ cái `active` + đúng `contentHash`. DB: bảng `Highlight` + migration v2→v3 (FK CASCADE). **5h** →
+  **thực tế ~5h**. Đã kiểm emulator API 36 ca a–j (tạo/persist/đổi cỡ chữ bám chữ/vắt 2 trang/đổi màu/xoá/
+  2 chương/thanh sát đáy không tràn/không hồi quy 3a+Mốc 2/bản ghi DB có space ranh giới). Ghi chú + xuất = 3c–3d.
 - [ ] **Ghi chú gõ phím** gắn highlight (trường `note` gộp trong Highlight). **3h**
 - [ ] **Xuất Markdown** đúng định dạng ([04-data-model.md](./04-data-model.md) §4), gồm cả highlight orphan. **3h**
 - [ ] **Xuất file DB** để sao lưu qua share/SAF. **2h**

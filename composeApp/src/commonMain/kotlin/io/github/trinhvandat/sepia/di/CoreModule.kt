@@ -3,6 +3,8 @@ package io.github.trinhvandat.sepia.di
 import io.github.trinhvandat.sepia.data.BookRepository
 import io.github.trinhvandat.sepia.data.BookRepositoryImpl
 import io.github.trinhvandat.sepia.data.DatabaseDriverFactory
+import io.github.trinhvandat.sepia.data.HighlightRepository
+import io.github.trinhvandat.sepia.data.HighlightRepositoryImpl
 import io.github.trinhvandat.sepia.data.EpubMetadataReader
 import io.github.trinhvandat.sepia.data.ImportBookUseCase
 import io.github.trinhvandat.sepia.data.SettingsRepository
@@ -25,6 +27,7 @@ val coreModule: Module = module {
     single<CoroutineScope> { CoroutineScope(SupervisorJob() + get<CoroutineDispatcher>()) }
     single { SepiaDatabase(get<DatabaseDriverFactory>().createDriver()) }
     single<BookRepository> { BookRepositoryImpl(get(), get()) }
+    single<HighlightRepository> { HighlightRepositoryImpl(get(), get()) }
     single<SettingsRepository> { SettingsRepositoryImpl(get(), get()) }
     single { EpubMetadataReader() }
     single { ImportBookUseCase(get(), get(), get()) }
