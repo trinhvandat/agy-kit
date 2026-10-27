@@ -90,12 +90,21 @@ graph TD
 
 > **Bản dùng được**: vừa đọc vừa đánh dấu & ghi chú, sao lưu được, không sợ mất dữ liệu.
 >
-> ⚠️ **Nợ kỹ thuật từ Mốc 2 (phải xử lý trước khi làm highlight)**: màn đọc Mốc 2 phủ **lớp chạm
-> Compose** lên WebView để lật trang (trái/phải) + ẩn/hiện thanh (giữa). Lớp phủ này **nuốt** nhấn-giữ
-> nên **chọn chữ trong foliate-js sẽ không hoạt động**. Mốc 3 phải: chuyển cử chỉ sang **JS trong foliate**
-> (tap vùng để lật, long-press để chọn) **hoặc** cho long-press/selection **xuyên qua** lớp phủ (chỉ bắt
-> tap đơn ở hai mép, chừa vùng giữa cho selection). Xem `reader/ReaderScreen.kt` (TapZone) + bridge
-> `selectionRange` (thêm mới). Liên quan docs/02 §8, docs/06 R-01.
+> ✅ **Nợ kỹ thuật Mốc 2 đã gỡ (Mốc 3a)**: **bỏ hẳn lớp chạm Compose** (TapZone) phủ WebView — nó nuốt
+> nhấn-giữ nên không chọn được chữ. Nay **cử chỉ do JS trong foliate**: paginator tự **vuốt** lật trang;
+> bridge bắt **tap** đơn, quy về khung nhìn trang chủ (xử lý đúng cả trang ≥10 nhờ cộng
+> `frameElement.getBoundingClientRect()`), báo `zone` 30/40/30 → Kotlin lật trước/sau + toggle thanh.
+> **Nhấn-giữ chọn chữ hoạt động**; bridge báo `selection{cfi,text,prefix,suffix,rect}` (CFI dùng lại được
+> cho `goTo`). Đã kiểm emulator API 36 các ca a–i (tap đầu chương & trang ≥10, toggle, vuốt, chọn 1 từ +
+> kéo, chọn vắt trang foliate tự cuộn, đang chọn mà chạm → bỏ chọn không lật, sau A+ tap vẫn đúng,
+> thoát/mở lại đúng trang, `goTo(cfi)` từ selection về đúng chỗ). Xem `reader/ReaderScreen.kt`,
+> `reader/ReaderEventParser.kt`, `assets/reader/bridge.js`. Liên quan docs/02 §6/§8, docs/06 R-01.
+>
+> 🔎 **SPIKE menu chọn chữ hệ thống (kết luận: KHẢ THI)**: `compose-webview-multiplatform` 2.0.3 cho truyền
+> `factory` tạo WebView → dùng `WebView` con override `startActionMode(...)=null` để **chặn ActionMode**
+> (Sao chép/Chia sẻ… của hệ thống) mà **vẫn giữ tay cầm chọn chữ**. Thay bằng **thanh Compose** nổi cạnh
+> vùng chọn (Mốc 3a: Sao chép + Bỏ chọn; Mốc 3b thêm Highlight/ghi chú). Đã kiểm trên emulator: menu hệ
+> thống KHÔNG hiện, thanh Compose hiện đúng. → Ước lượng Mốc 3b–3d **giữ nguyên** (không phát sinh rủi ro menu).
 
 - [ ] Chọn văn bản → **highlight** (1–2 màu) với CFI range + lưu prefix/suffix/textSnippet/contentHash. **5h**
 - [ ] **Ghi chú gõ phím** gắn highlight (trường `note` gộp trong Highlight). **3h**

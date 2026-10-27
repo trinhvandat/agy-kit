@@ -1,6 +1,8 @@
 package io.github.trinhvandat.sepia.reader
 
+import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.view.ActionMode
 import android.webkit.WebResourceResponse
 import android.webkit.WebView as AndroidWebView
 import androidx.compose.runtime.Composable
@@ -21,11 +23,8 @@ import com.multiplatform.webview.web.WebView
 import com.multiplatform.webview.web.WebViewNavigator
 import com.multiplatform.webview.web.rememberWebViewNavigator
 import com.multiplatform.webview.web.rememberWebViewState
-import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileInputStream
-
-private val bridgeJson = Json { ignoreUnknownKeys = true }
 
 @Composable
 actual fun ReaderSurface(
@@ -67,25 +66,16 @@ actual fun ReaderSurface(
         }
     }
 
-    // Đăng ký handler JS→Kotlin (một lần cho mỗi bridge).
+    // Đăng ký handler JS→Kotlin (một lần cho mỗi bridge). Parse thuần ở commonMain
+    // ([ReaderEventParser]) để test được không cần WebView; payload hỏng → Failure, không văng.
     LaunchedEffect(jsBridge, controller) {
-        jsBridge.register(handler("bridgeReady") { controller.emit(ReaderEvent.BridgeReady) })
-        jsBridge.register(handler("ready") { p ->
-            controller.emit(ReaderEvent.Ready(decode<ReadyDto>(p)?.restoredCfi?.ifEmpty { null }))
-        })
-        jsBridge.register(handler("relocated") { p ->
-            decode<RelocatedDto>(p)?.let {
-                controller.emit(
-                    ReaderEvent.Relocated(it.cfi, it.fraction, it.snippet, it.prefix, it.suffix),
-                )
-            }
-        })
-        jsBridge.register(handler("reanchorResult") { p ->
-            decode<ReanchorDto>(p)?.let { controller.emit(ReaderEvent.ReanchorResult(it.token, it.cfis)) }
-        })
-        jsBridge.register(handler("error") { p ->
-            decode<ErrorDto>(p)?.let { controller.emit(ReaderEvent.Failure(it.where, it.message)) }
-        })
+        for (method in BRIDGE_METHODS) {
+            jsBridge.register(
+                handler(method) { params ->
+                    ReaderEventParser.parse(method, params)?.let { controller.emit(it) }
+                },
+            )
+        }
     }
 
     WebView(
@@ -100,11 +90,25 @@ actual fun ReaderSurface(
             if (debuggable) AndroidWebView.setWebContentsDebuggingEnabled(true)
         },
         platformWebViewParams = PlatformWebViewParams(client = client),
+        // Chặn ActionMode chọn chữ của hệ thống → thay bằng thanh Compose (Mốc 3a SPIKE).
+        factory = { param -> NoSelectionMenuWebView(param.context) },
     )
 }
 
-private inline fun <reified T> decode(params: String): T? =
-    runCatching { bridgeJson.decodeFromString<T>(params) }.getOrNull()
+/**
+ * WebView chặn **ActionMode chọn chữ của hệ thống** (Sao chép/Chia sẻ/Tìm…) để không đè thanh
+ * "Highlight" Compose của Mốc 3b. Vẫn GIỮ tay cầm chọn chữ — chỉ bỏ thanh công cụ nổi.
+ */
+private class NoSelectionMenuWebView(context: Context) : AndroidWebView(context) {
+    override fun startActionMode(callback: ActionMode.Callback?): ActionMode? = null
+    override fun startActionMode(callback: ActionMode.Callback?, type: Int): ActionMode? = null
+}
+
+/** Tên method JS→Kotlin cần đăng ký handler; parse ở [ReaderEventParser]. */
+private val BRIDGE_METHODS = listOf(
+    "bridgeReady", "ready", "relocated", "reanchorResult",
+    "tap", "selection", "selectionCleared", "error",
+)
 
 private fun handler(name: String, onMsg: (String) -> Unit): IJsMessageHandler =
     object : IJsMessageHandler {
@@ -133,20 +137,3 @@ private class BookPathHandler(private val provider: () -> String?) : WebViewAsse
     }
 }
 
-@kotlinx.serialization.Serializable
-private data class ReadyDto(val restoredCfi: String = "")
-
-@kotlinx.serialization.Serializable
-private data class RelocatedDto(
-    val cfi: String = "",
-    val fraction: Float = 0f,
-    val snippet: String = "",
-    val prefix: String = "",
-    val suffix: String = "",
-)
-
-@kotlinx.serialization.Serializable
-private data class ReanchorDto(val token: String = "", val cfis: List<String> = emptyList())
-
-@kotlinx.serialization.Serializable
-private data class ErrorDto(val where: String = "", val message: String = "")
