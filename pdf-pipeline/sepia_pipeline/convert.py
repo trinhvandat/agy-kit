@@ -17,7 +17,7 @@ from .build_epub import EpubReport, build_epub, load_font_family
 from .detect import DetectConfig, scan_ocr_book_signal
 from .extract import extract_document, render_page_png
 from .model import Document, Heading, ImageBlock, Page, Paragraph
-from .ocr_cache import DEFAULT_CACHE_DIR, OCR_ENGINE, OCR_SCHEMA, read_cache
+from .ocr_cache import DEFAULT_CACHE_DIR, OCR_ENGINE, OCR_SCHEMA, OcrCache, read_cache
 from .quality import QualityReport, check_blocks, run_epubcheck
 from .reflow import (
     GarbageFilterResult,
@@ -58,28 +58,38 @@ class ConvertReport:
 ENGINES = ("auto", "heuristic", "docling")
 
 
-def _ocr_cache_status(pdf_sha256: str, cache_dir: str | Path) -> tuple[str, tuple[str, ...]]:
-    """Tra cache OCR Vision cho cuốn scan_ocr — chỉ **phát hiện + cảnh báo** (KHÔNG OCR, không đổi
-    EPUB; route hybrid sẽ tiêu thụ cache ở PIPELINE_VERSION 5). Chỉ đọc đĩa (không cần Vision/Mac).
+def _ocr_cache_status(
+    pdf_sha256: str, cache_dir: str | Path
+) -> tuple[str, tuple[str, ...], OcrCache | None]:
+    """Tra cache OCR Vision cho cuốn scan_ocr. Trả ``(state, warnings, cache|None)``; chỉ đọc đĩa.
 
-    - không có cache → ``miss`` + nhắc chạy ``sepia-pipeline ocr`` trên Mac.
-    - có nhưng khác schema/engine → ``mismatch`` + cảnh báo.
-    - có và hợp lệ → ``present`` (thông tin).
+    - không có cache → ``miss`` (+ nhắc chạy ``sepia-pipeline ocr``), cache ``None``.
+    - khác schema/engine → ``mismatch`` (bỏ qua, dùng v4), cache ``None``.
+    - hợp lệ → ``present`` (route hybrid dùng), kèm ``cache``.
     """
     cache = read_cache(cache_dir, pdf_sha256)
     if cache is None:
-        return "miss", (
-            "sách scan_ocr: chưa có cache OCR Vision → đang dùng lớp chữ ẩn (v4). "
-            "Chạy `sepia-pipeline ocr <pdf>` trên Mac để bật OCR-lại chất lượng cao (SPIKE-5).",
+        return (
+            "miss",
+            (
+                "sách scan_ocr: chưa có cache OCR Vision → đang dùng lớp chữ ẩn (v4). "
+                "Chạy `sepia-pipeline ocr <pdf>` trên Mac để bật OCR-lại chất lượng cao (SPIKE-5).",
+            ),
+            None,
         )
     if cache.ocr_schema != OCR_SCHEMA or cache.engine.get("name") != OCR_ENGINE["name"]:
-        return "mismatch", (
-            f"cache OCR có nhưng khác schema/engine (schema {cache.ocr_schema}, "
-            f"engine {cache.engine.get('name')}) → bỏ qua, dùng v4. Cần OCR lại.",
+        return (
+            "mismatch",
+            (
+                f"cache OCR có nhưng khác schema/engine (schema {cache.ocr_schema}, "
+                f"engine {cache.engine.get('name')}) → bỏ qua, dùng v4. Cần OCR lại.",
+            ),
+            None,
         )
-    return "present", (
-        f"cache OCR Vision có sẵn ({len(cache.pages)} trang, {cache.n_lines} dòng) — "
-        "route hybrid sẽ dùng ở PIPELINE_VERSION 5.",
+    return (
+        "present",
+        (f"cache OCR Vision có ({len(cache.pages)} trang, {cache.n_lines} dòng) — route hybrid.",),
+        cache,
     )
 
 
@@ -162,15 +172,26 @@ def convert_pdf(
     # Phát hiện cache OCR Vision (chỉ sách scan_ocr). PR ocr-ingest-cache: CHỈ cảnh báo, chưa tiêu
     # thụ (route hybrid dùng ở PIPELINE_VERSION 5) → EPUB không đổi so với v4.
     ocr_cache_status = "n/a"
+    ocr_cache_obj: OcrCache | None = None
     if is_scan_ocr:
         cache_dir = ocr_cache_dir if ocr_cache_dir is not None else DEFAULT_CACHE_DIR
-        ocr_cache_status, cache_warnings = _ocr_cache_status(doc_model.pdf_sha256, cache_dir)
+        ocr_cache_status, cache_warnings, ocr_cache_obj = _ocr_cache_status(
+            doc_model.pdf_sha256, cache_dir
+        )
         warnings += cache_warnings
 
     if engine_used == "docling":
-        from .docling_adapter import extract_blocks_docling
+        # Route HYBRID (ADR-009): có cache Vision hợp lệ → bố cục Docling + chữ Vision theo toạ độ.
+        # Không có cache → giữ lớp chữ ẩn (Docling + ABBYY) như v4.
+        if ocr_cache_status == "present" and ocr_cache_obj is not None:
+            from .ocr_hybrid import extract_blocks_hybrid
 
-        blocks = extract_blocks_docling(pdf_path)
+            blocks, hybrid_report = extract_blocks_hybrid(pdf_path, ocr_cache_obj)
+            warnings += hybrid_report.warnings
+        else:
+            from .docling_adapter import extract_blocks_docling
+
+            blocks = extract_blocks_docling(pdf_path)
     else:
         warnings += collect_warnings(doc_model, config.reflow)
         n_img_pages = sum(1 for p in doc_model.pages if p.is_image_page)

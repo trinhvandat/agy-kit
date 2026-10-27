@@ -77,16 +77,34 @@ def test_convert_scan_ocr_cache_mismatch(scan_ocr_visible_book_pdf: Path, tmp_pa
     assert r.ocr_cache_status == "mismatch"
 
 
-def test_cache_detection_does_not_change_epub(
+def test_convert_with_cache_deterministic(scan_ocr_visible_book_pdf: Path, tmp_path: Path) -> None:
+    """Build 2 lần từ CÙNG cache → byte-identical (tất định, dù route hybrid hay v4)."""
+    cdir = tmp_path / "cache"
+    write_cache(_make_cache(scan_ocr_visible_book_pdf), cdir)
+    a, b = tmp_path / "a.epub", tmp_path / "b.epub"
+    convert_pdf(scan_ocr_visible_book_pdf, a, run_check=False, ocr_cache_dir=cdir)
+    convert_pdf(scan_ocr_visible_book_pdf, b, run_check=False, ocr_cache_dir=cdir)
+    assert a.read_bytes() == b.read_bytes()
+
+
+def test_cache_present_changes_epub_with_docling(
     scan_ocr_visible_book_pdf: Path, tmp_path: Path
 ) -> None:
-    """PR1 chỉ PHÁT HIỆN cache, chưa tiêu thụ → EPUB byte-identical dù có/không cache."""
+    """Có docling + cache → route hybrid dùng chữ Vision → EPUB KHÁC bản không cache (v4).
+
+    Không có docling (CI) → scan_ocr auto lùi heuristic, cache không tiêu thụ → bỏ qua test này.
+    """
+    from sepia_pipeline.docling_adapter import docling_available
+
+    if not docling_available():
+        pytest.skip("không có docling → route hybrid không kích hoạt")
     cdir = tmp_path / "cache"
     write_cache(_make_cache(scan_ocr_visible_book_pdf), cdir)
     a, b = tmp_path / "with.epub", tmp_path / "without.epub"
-    convert_pdf(scan_ocr_visible_book_pdf, a, run_check=False, ocr_cache_dir=cdir)
+    ra = convert_pdf(scan_ocr_visible_book_pdf, a, run_check=False, ocr_cache_dir=cdir)
     convert_pdf(scan_ocr_visible_book_pdf, b, run_check=False, ocr_cache_dir=tmp_path / "empty")
-    assert a.read_bytes() == b.read_bytes()
+    assert ra.ocr_cache_status == "present"
+    assert a.read_bytes() != b.read_bytes()  # hybrid thay chữ → khác v4
 
 
 def test_non_scan_book_no_cache_lookup(tmp_path: Path, unicode_vi_pdf: Path) -> None:
