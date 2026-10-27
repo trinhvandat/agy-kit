@@ -39,6 +39,16 @@ class SepiaThemeTest {
     }
 
     @Test
+    fun tablesFitColumnWidthAndWrap() {
+        val c = css()
+        // Bảng nhiều cột KHÔNG tràn ngang / cắt cột: co vừa bề rộng cột + ngắt từ dài.
+        assertTrue(c.contains("table-layout: fixed"), "bảng co cứng theo cột")
+        assertTrue(c.contains("width: 100%"), "bảng rộng đúng cột")
+        assertTrue(c.contains("word-break"), "ô bảng ngắt từ dài")
+        assertTrue(c.contains("table"), "có quy tắc table")
+    }
+
+    @Test
     fun multiWordFontFamilyQuoted() {
         assertTrue(css().contains("\"Noto Serif\""), "font nhiều từ phải bọc nháy")
     }
