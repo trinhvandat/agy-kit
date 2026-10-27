@@ -1,0 +1,49 @@
+-- Bảng Highlight (gộp cả Note/Bookmark) — docs/04 §1-2. Neo bền (textSnippet/prefix/suffix/contentHash)
+-- để re-anchor khi EPUB build lại (§3; re-anchor highlight làm ở Mốc 3e). FK→Book ON DELETE CASCADE
+-- (cần PRAGMA foreign_keys=ON — bật ở DatabaseDriverFactory). progress REAL (map Float ở domain).
+
+CREATE TABLE Highlight (
+    id          TEXT    NOT NULL PRIMARY KEY,   -- UUID
+    bookId      TEXT    NOT NULL,
+    kind        TEXT    NOT NULL,               -- highlight | note | bookmark
+    cfiRange    TEXT    NOT NULL,               -- CFI range (hoặc neo điểm cho bookmark/note rời)
+    textSnippet TEXT    NOT NULL,               -- bản sao text được tô (nền tảng re-anchor + xuất MD)
+    prefix      TEXT    NOT NULL,               -- ~32 ký tự trước (giữ space ranh giới)
+    suffix      TEXT    NOT NULL,               -- ~32 ký tự sau
+    contentHash TEXT    NOT NULL,               -- hash EPUB lúc tạo → so Book.contentHash
+    color       TEXT    NOT NULL,               -- id màu trong bảng màu lõi (HighlightColor)
+    note        TEXT,                           -- ghi chú gõ phím (Mốc 3c); NULL nếu chỉ tô
+    status      TEXT    NOT NULL,               -- active | orphan (mồ côi — KHÔNG xóa)
+    progress    REAL    NOT NULL DEFAULT 0.0,   -- vị trí thô 0..1 để tìm gần đúng khi re-anchor
+    createdAt   INTEGER NOT NULL,
+    updatedAt   INTEGER NOT NULL,
+    FOREIGN KEY(bookId) REFERENCES Book(id) ON DELETE CASCADE
+);
+
+CREATE INDEX Highlight_book ON Highlight(bookId);
+
+insert:
+INSERT INTO Highlight(
+    id, bookId, kind, cfiRange, textSnippet, prefix, suffix, contentHash, color, note,
+    status, progress, createdAt, updatedAt
+) VALUES (
+    :id, :bookId, :kind, :cfiRange, :textSnippet, :prefix, :suffix, :contentHash, :color, :note,
+    :status, :progress, :createdAt, :updatedAt
+);
+
+selectByBook:
+SELECT * FROM Highlight WHERE bookId = :bookId ORDER BY progress ASC, createdAt ASC;
+
+updateColor:
+UPDATE Highlight SET color = :color, updatedAt = :updatedAt WHERE id = :id;
+
+-- Re-anchor thất bại (Mốc 3e): đánh dấu mồ côi, KHÔNG xóa.
+markOrphan:
+UPDATE Highlight SET status = 'orphan', updatedAt = :updatedAt WHERE id = :id;
+
+-- Re-anchor lại được: cập nhật cfiRange + contentHash + status (Mốc 3e).
+updateAnchor:
+UPDATE Highlight SET cfiRange = :cfiRange, contentHash = :contentHash, status = :status, updatedAt = :updatedAt WHERE id = :id;
+
+delete:
+DELETE FROM Highlight WHERE id = :id;

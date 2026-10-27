@@ -1,0 +1,22 @@
+-- Migration schema v2 → v3: thêm bảng Highlight (Mốc 3b).
+-- Giữ nguyên bảng Book + Setting + toàn bộ dữ liệu (sách, vị trí đọc, cỡ chữ) trên máy đã cài.
+-- Khớp Highlight.sq (bản cài mới chạy Schema.create; máy cũ chạy migration này).
+CREATE TABLE Highlight (
+    id          TEXT    NOT NULL PRIMARY KEY,
+    bookId      TEXT    NOT NULL,
+    kind        TEXT    NOT NULL,
+    cfiRange    TEXT    NOT NULL,
+    textSnippet TEXT    NOT NULL,
+    prefix      TEXT    NOT NULL,
+    suffix      TEXT    NOT NULL,
+    contentHash TEXT    NOT NULL,
+    color       TEXT    NOT NULL,
+    note        TEXT,
+    status      TEXT    NOT NULL,
+    progress    REAL    NOT NULL DEFAULT 0.0,
+    createdAt   INTEGER NOT NULL,
+    updatedAt   INTEGER NOT NULL,
+    FOREIGN KEY(bookId) REFERENCES Book(id) ON DELETE CASCADE
+);
+
+CREATE INDEX Highlight_book ON Highlight(bookId);
