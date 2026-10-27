@@ -1,0 +1,35 @@
+{
+  "engine": "docling-layout + apple-vision-by-bbox",
+  "pages": [
+    23,
+    101,
+    186
+  ],
+  "seconds_total": 8.59,
+  "per_page": [
+    {
+      "page": 23,
+      "blocks": 32,
+      "pictures": 7,
+      "cer_pct": 1.97,
+      "wer_pct": 4.49,
+      "first": "TỰ HỌC ĐÔNG Y | 23 Lịch sử phát triển của Đông y Trung Quốc có liên quan tới sự thay đổi t"
+    },
+    {
+      "page": 101,
+      "blocks": 59,
+      "pictures": 1,
+      "cer_pct": 3.2,
+      "wer_pct": 4.54,
+      "first": "101 TỰ HỌC ĐÔNG Y XOA BÓP GIÚP THANH PHẾ GIÃN NGỰC Phổi nằm trong lồng ngực, cao hơn các t"
+    },
+    {
+      "page": 186,
+      "blocks": 8,
+      "pictures": 0,
+      "cer_pct": 1.2,
+      "wer_pct": 3.38,
+      "first": "186 Chương 6: Bí quyết dưỡng sinh truyền thống: Cạo gió NÊN DÙNG DỤNG CỤ GÌ ĐỂ CẠO GIÓ Tro"
+    }
+  ]
+}

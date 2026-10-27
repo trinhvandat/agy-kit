@@ -1,0 +1,62 @@
+# Ground truth — trang in 23 (0-based page 23) — "Tự Học Đông Y - Bùi Huy.pdf"
+# Chép tay từ ảnh render 300 DPI (xem out/spike5/p0023.png + crop cột). NFC.
+# Trang NHIỀU CỘT (timeline) — toàn bộ là văn xuôi (@prose), kiểm thứ tự đọc.
+# Bỏ qua furniture + các nhãn/ngày tháng tràn từ trang đối diện bị cắt ở mép trái
+# (vd "10 tr. CN)", "581 - 682)", "(1518 - 1593)") — chỉ chấm phần thân bài đọc được trọn.
+
+@prose
+Lịch sử phát triển của Đông y Trung Quốc có liên quan tới sự thay đổi triều đại và chiến tranh phong kiến, mỗi một thời kỳ lại mang những đặc điểm khác nhau. Nhưng bản thân y học cũng là một môn khoa học mang tính độc lập, cùng với sự phát triển của xã hội, kinh tế và văn hóa, ngày càng được phát triển mở rộng và hoàn thiện hơn.
+
+@prose
+Thời Tần Hán
+
+@prose
+Đỉnh cao thứ nhất
+
+@prose
+Từ thời Tần Hán, giao thương dần dần phát triển, thảo dược ở khu vực các dân tộc thiểu số đã được sử dụng nhiều trong y học. Dược liệu từ khu vực Đông Nam Á cũng được du nhập khá nhiều, làm phong phú hơn cho kiến thức về dược liệu. Việc điều trị thương hàn, tạp bệnh và bệnh ngoại khoa đạt được những thành tựu chưa từng thấy, đây là đỉnh cao đầu tiên trong lịch sử y học Trung Quốc.
+
+@prose
+Ông tổ của phương thuốc: Trương Trọng Cảnh
+
+@prose
+Ông họ Trương tên Cơ, người quận Hướng Dương, sống vào cuối thời Hán. Trước tác có "Thương hàn tạp bệnh luận", căn cứ vào sáu kinh để phát hiện thương hàn, dựa vào tạng phủ để phát hiện tạp bệnh, đã thiết lập nên nguyên tắc điều trị và hệ thống lý luận biện chứng của Đông y học, đặt cơ sở cho sự phát triển của y học lâm sàng.
+
+@prose
+Là nhà y học thời kỳ Chiến Quốc, họ Tần, tên Việt Nhân, người nước Tề. Tinh thông các khoa nội, ngoại, phụ, nhi, ngũ quan..., sử dụng các phương pháp như châm cứu, xoa bóp... để trị bệnh, được tôn làm tổ sư của y học, có cống hiến rất lớn tới sự phát triển của y dược học.
+
+@prose
+Tam Quốc Lưỡng Tấn Nam Bắc triều
+
+@prose
+Phát triển toàn diện
+
+@prose
+Trong các thời kỳ Tam Quốc Lưỡng Tấn Nam Bắc triều, nhờ sự hòa hợp dân tộc, cùng sự khôi phục và phát triển của nền kinh tế phương bắc, trên nhiều lĩnh vực đã đạt được thành tựu lớn lao. Y dược học đã đạt được nhiều thành tích đáng kể về các mặt mạch học, châm cứu học, phương thuốc, dưỡng sinh, ngoại khoa,... tích lũy kinh nghiệm cho sự phát triển toàn diện của Đông y.
+
+@prose
+Người dẫn đường cho y học dự phòng: Cát Hồng
+
+@prose
+Tự Trĩ Xuyên, hiệu Bão Phác Tử, người Đan Dương, sống vào triều Tấn. Trước tác có "Trửu hậu phương", đây là cuốn sách ghi chép sớm nhất về một số bệnh truyền nhiễm như bệnh đậu mùa, ngứa ngáy... Chứng "mụn phát ban" chính là ghi chép sớm nhất trên toàn thế giới về bệnh đậu mùa.
+
+@prose
+Ông người Hoa Nguyên, Kinh Triệu, sống vào đời Đường, đã dồn tâm lực cả đời để viết nên các cuốn "Bị cấp thiên kim yếu phương", "Thiên kim dực phương". Trong đó, "Bị cấp thiên kim yếu phương" gồm 30 quyển, với 5300 phương thuốc; "Thiên kim dực phương" gồm 30 quyển, với 2571 phương thuốc, có thành tựu rất lớn trong phương diện phòng và chống các bệnh do thiếu dinh dưỡng gây ra.
+
+@prose
+Đời Thanh
+
+@prose
+Kế thừa đời trước, mở lối tương lai
+
+@prose
+Đặc điểm lớn nhất của y học đời Thanh là kế thừa đời trước, mở lối tương lai. Việc kế thừa đời trước của y học đời Thanh không đơn giản chỉ là kế thừa những thành quả trước đó, mà còn tiến hành chỉnh lý, sửa đổi, nghiên cứu những văn hiến thời kỳ trước. Mở lối tương lai, tức là dựa vào cơ sở trị liệu thực tiễn để phát triển nền y học, đem lại cho nó có sức sống mới.
+
+@prose
+"Y lâm cải thác": Vương Thanh Nhậm
+
+@prose
+Còn có tên là Toàn Nhậm, tự Huân Thần, người Trực Lệ, Ngọc Điển (nay là Hà Bắc, Ngọc Điển), sống vào đời Thanh, là nhà giải phẫu học và y thuật học có tinh thần cách tân rất lớn. Đã sửa chữa lại một số sai lầm trước đây trong phương diện giải phẫu cơ thể người, nhấn mạnh tầm quan trọng của kiến thức giải phẫu, phát triển lý luận và phương pháp điều trị bệnh do máu đông tụ.
+
+@prose
+Tự Đông Bích, hiệu Tần Hồ sơn nhân, người Kỳ Châu (nay thuộc Kỳ Xuân tỉnh Hồ Bắc), sống vào triều Minh. Thường xuyên lên núi hái thuốc, thâm nhập vào dân gian, đọc hơn 800 loại sách y học cổ, trải qua 27 năm gian khổ, cuối cùng đã viết xong tác phẩm "Bản thảo cương mục", trong đó ghi chép về 1758 loại thuốc, có cống hiến kiệt xuất cho sự phát triển của nền y dược thế giới.

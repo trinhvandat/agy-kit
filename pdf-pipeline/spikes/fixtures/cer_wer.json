@@ -1,0 +1,2651 @@
+{
+  "pages": [
+    23,
+    101,
+    186
+  ],
+  "overall": {
+    "hidden": {
+      "prose": {
+        "cer_pct": 4.27,
+        "wer_pct": 15.01,
+        "gt_chars": 8047,
+        "gt_words": 1752
+      },
+      "label": {
+        "cer_pct": 5.88,
+        "wer_pct": 17.39,
+        "gt_chars": 1055,
+        "gt_words": 230
+      },
+      "all": {
+        "cer_pct": 4.46,
+        "wer_pct": 15.29,
+        "gt_chars": 9102,
+        "gt_words": 1982
+      }
+    },
+    "vision": {
+      "prose": {
+        "cer_pct": 1.89,
+        "wer_pct": 3.94,
+        "gt_chars": 8047,
+        "gt_words": 1752
+      },
+      "label": {
+        "cer_pct": 1.04,
+        "wer_pct": 3.91,
+        "gt_chars": 1055,
+        "gt_words": 230
+      },
+      "all": {
+        "cer_pct": 1.79,
+        "wer_pct": 3.94,
+        "gt_chars": 9102,
+        "gt_words": 1982
+      }
+    }
+  },
+  "per_page": [
+    {
+      "page": 23,
+      "blocks": 19,
+      "engines": {
+        "hidden": {
+          "prose": {
+            "cer_pct": 6.81,
+            "wer_pct": 24.69,
+            "gt_chars": 3703,
+            "gt_words": 802
+          },
+          "label": {
+            "cer_pct": null,
+            "wer_pct": null,
+            "gt_chars": 0,
+            "gt_words": 0
+          },
+          "all": {
+            "cer_pct": 6.81,
+            "wer_pct": 24.69,
+            "gt_chars": 3703,
+            "gt_words": 802
+          }
+        },
+        "vision": {
+          "prose": {
+            "cer_pct": 3.08,
+            "wer_pct": 5.61,
+            "gt_chars": 3703,
+            "gt_words": 802
+          },
+          "label": {
+            "cer_pct": null,
+            "wer_pct": null,
+            "gt_chars": 0,
+            "gt_words": 0
+          },
+          "all": {
+            "cer_pct": 3.08,
+            "wer_pct": 5.61,
+            "gt_chars": 3703,
+            "gt_words": 802
+          }
+        }
+      }
+    },
+    {
+      "page": 101,
+      "blocks": 15,
+      "engines": {
+        "hidden": {
+          "prose": {
+            "cer_pct": 1.7,
+            "wer_pct": 6.02,
+            "gt_chars": 1349,
+            "gt_words": 299
+          },
+          "label": {
+            "cer_pct": 5.88,
+            "wer_pct": 17.39,
+            "gt_chars": 1055,
+            "gt_words": 230
+          },
+          "all": {
+            "cer_pct": 3.54,
+            "wer_pct": 10.96,
+            "gt_chars": 2404,
+            "gt_words": 529
+          }
+        },
+        "vision": {
+          "prose": {
+            "cer_pct": 0.15,
+            "wer_pct": 0.67,
+            "gt_chars": 1349,
+            "gt_words": 299
+          },
+          "label": {
+            "cer_pct": 1.04,
+            "wer_pct": 3.91,
+            "gt_chars": 1055,
+            "gt_words": 230
+          },
+          "all": {
+            "cer_pct": 0.54,
+            "wer_pct": 2.08,
+            "gt_chars": 2404,
+            "gt_words": 529
+          }
+        }
+      }
+    },
+    {
+      "page": 186,
+      "blocks": 6,
+      "engines": {
+        "hidden": {
+          "prose": {
+            "cer_pct": 2.3,
+            "wer_pct": 7.22,
+            "gt_chars": 2995,
+            "gt_words": 651
+          },
+          "label": {
+            "cer_pct": null,
+            "wer_pct": null,
+            "gt_chars": 0,
+            "gt_words": 0
+          },
+          "all": {
+            "cer_pct": 2.3,
+            "wer_pct": 7.22,
+            "gt_chars": 2995,
+            "gt_words": 651
+          }
+        },
+        "vision": {
+          "prose": {
+            "cer_pct": 1.2,
+            "wer_pct": 3.38,
+            "gt_chars": 2995,
+            "gt_words": 651
+          },
+          "label": {
+            "cer_pct": null,
+            "wer_pct": null,
+            "gt_chars": 0,
+            "gt_words": 0
+          },
+          "all": {
+            "cer_pct": 1.2,
+            "wer_pct": 3.38,
+            "gt_chars": 2995,
+            "gt_words": 651
+          }
+        }
+      }
+    }
+  ],
+  "errors": {
+    "hidden": [
+      {
+        "op": "replace",
+        "ref": "Thời Tần",
+        "hyp": "Thài Tấn",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "Đỉnh",
+        "hyp": "Đinh",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Tần",
+        "hyp": "Tán",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "thương dần dần",
+        "hyp": "thưdng dán dân",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "ở",
+        "hyp": "ô",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "dụng",
+        "hyp": "dung",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "nhiều,",
+        "hyp": "nhiêu,",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "về dược",
+        "hyp": "vé được",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "điều",
+        "hyp": "điếu",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "thương",
+        "hyp": "thưdng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "đỉnh",
+        "hyp": "đinh",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "đầu",
+        "hyp": "đâu",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Quốc.",
+        "hyp": "Quổc.",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "tổ",
+        "hyp": "tồ",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "phương",
+        "hyp": "phưdng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "Ông",
+        "hyp": "ông",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Trương",
+        "hyp": "Trưong",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "Cơ,",
+        "hyp": "Co,",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Hướng",
+        "hyp": "Hưởng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "sống",
+        "hyp": "sóng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "thời",
+        "hyp": "thòi",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Trước",
+        "hyp": "Tníôc",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "\"Thương hàn",
+        "hyp": "Thường hán",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "căn",
+        "hyp": "cân",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "để",
+        "hyp": "đề",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "thương",
+        "hyp": "ttiưong",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "vào",
+        "hyp": "vằo",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "để",
+        "hyp": "đề",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "nên",
+        "hyp": "nèn",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "tắc điều",
+        "hyp": "tác điếu",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "của",
+        "hyp": "cùa",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "sự",
+        "hyp": "sụ",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "của",
+        "hyp": "cùa",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Là",
+        "hyp": "Lả",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "thời",
+        "hyp": "thài",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "tên",
+        "hyp": "lên",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Nhân,",
+        "hyp": "Nhản,",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "nước Tề.",
+        "hyp": "nưóc Té.",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "phương",
+        "hyp": "phưang",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "tổ sư",
+        "hyp": "tồ su",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "cống",
+        "hyp": "cóng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "tới",
+        "hyp": "tđi",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "của",
+        "hyp": "cùa",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Lưỡng",
+        "hyp": "Lưổng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "Phát",
+        "hyp": "phát",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "thời",
+        "hyp": "thài",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Quốc",
+        "hyp": "Quổc",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Tấn",
+        "hyp": "Tán",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Bắc",
+        "hyp": "Bác",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "sự",
+        "hyp": "sụ",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "của nền",
+        "hyp": "cùa nén",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "tế",
+        "hyp": "tể",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "bắc,",
+        "hyp": "bác,",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "nhiều",
+        "hyp": "nhiéu",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "đã",
+        "hyp": "đă",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "thành",
+        "hyp": "tỉíành",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "lớn",
+        "hyp": "Iđn",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "được nhiều",
+        "hyp": "dược nhiêu",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "về",
+        "hyp": "vê",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "mặt",
+        "hyp": "mật",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "châm",
+        "hyp": "chảm",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "thuốc, dưỡng",
+        "hyp": "thuỗc, dưang",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "của Đông",
+        "hyp": "cùa Dông",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "đường",
+        "hyp": "dường",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Hồng",
+        "hyp": "Hổng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "T",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "Tử, người",
+        "hyp": "ử, ngưài",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "Dương, sống",
+        "hyp": "DUdng, sóng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "Tấn.",
+        "hyp": "Tẩn.",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "hậu",
+        "hyp": "hâu",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "sớm",
+        "hyp": "sổm",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "về",
+        "hyp": "vé",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "số",
+        "hyp": "só",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "truyền",
+        "hyp": "truyển",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "\"mụn",
+        "hyp": "'mụn",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "chính",
+        "hyp": "chinh",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "nhất",
+        "hyp": "nhát",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "về",
+        "hyp": "vé",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "delete",
+        "ref": "Ông",
+        "hyp": "",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "sống",
+        "hyp": "sóng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "dồn tâm",
+        "hyp": "dón tãm",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "cả",
+        "hyp": "cà",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "nên",
+        "hyp": "nèn",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "cuốn",
+        "hyp": "cuón",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "cấp",
+        "hyp": "cáp",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "yếu",
+        "hyp": "yểu",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "dực phương\". Trong đó,",
+        "hyp": "dục phưong'. Trang đố,",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "yếu phương\" gồm",
+        "hyp": "yểu phưdng\" góm",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "quyển,",
+        "hyp": "quyền,",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "phương thuốc;",
+        "hyp": "phưong thuóc;",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "phương\" gồm",
+        "hyp": "phuong' góm",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "phương thuốc,",
+        "hyp": "phưong thuóc,",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "phương",
+        "hyp": "phưdng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "và chống",
+        "hyp": "vá chóng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "thiếu",
+        "hyp": "Sg2jthiếu",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "dưỡng",
+        "hyp": "dưỗng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "đời trước, mở lối tương",
+        "hyp": "đởi trưổc, mã lãitưdnglal Đặc",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "delete",
+        "ref": "lai",
+        "hyp": "",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "lớn",
+        "hyp": "Mn",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "kế",
+        "hyp": "ké",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "đời trước, mở lối tương",
+        "hyp": "döl (rüde, mồ IS tuơng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "đời",
+        "hyp": "dời",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "chỉ",
+        "hyp": "chl",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "kế",
+        "hyp": "Kễ",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "trước",
+        "hyp": "Iruôc",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "chỉnh lý,",
+        "hyp": "chình tỷ,",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "văn",
+        "hyp": "vân",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "thời kỳ trước. Mở lối tương",
+        "hyp": "thãi ký twđc. Mồ lỗi tưong",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "tức",
+        "hyp": "túc",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "để",
+        "hyp": "dể",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "triển nền",
+        "hyp": "triền nén",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "sống",
+        "hyp": "sổng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "\"Y",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "cải",
+        "hyp": "cài",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Vương",
+        "hyp": "Vưcing",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "Thần,",
+        "hyp": "Thán,",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Điển",
+        "hyp": "Đién",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "Bắc,",
+        "hyp": "Bác,",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "sống",
+        "hyp": "sóng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "phẫu",
+        "hyp": "phẵu",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "thần",
+        "hyp": "thán",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "lớn.",
+        "hyp": "lởn.",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "lầm trước",
+        "hyp": "lẩm trưđc",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "phương",
+        "hyp": "phưang",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "phẫu cơ thể",
+        "hyp": "phẵu co thề",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "tầm",
+        "hyp": "tám",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "của",
+        "hyp": "cùa",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "triển lý",
+        "hyp": "triền lỷ",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "phương",
+        "hyp": "phưong",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "Bích,",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "Tự Đông Bích, hiệu Tần Hồ",
+        "hyp": "hiệu Tán Hổ iT râ n",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "Cháu",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "Châu",
+        "hyp": "I",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "Hó",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "Hồ",
+        "hyp": "J",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "sống",
+        "hyp": "sóng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "triéu",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "triều Minh.",
+        "hyp": "Minh, í",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "f",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "dân",
+        "hyp": "dàn",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "hơn",
+        "hyp": "hdn",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "cổ,",
+        "hyp": "cồ,",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "năm",
+        "hyp": "nâm",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "cương",
+        "hyp": "cưdng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "về",
+        "hyp": "vế",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "thuốc,",
+        "hyp": "thuõc,",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "cống hiến",
+        "hyp": "cóng hién",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "của",
+        "hyp": "cùa",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "NGỰC",
+        "hyp": "NGựC",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "lồng",
+        "hyp": "lóng",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "ở",
+        "hyp": "ô",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Chức",
+        "hyp": "Chúc",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "điều",
+        "hyp": "điểu",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "thân,",
+        "hyp": "thắn,",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "điều",
+        "hyp": "điểu",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "\"kiều",
+        "hyp": "\"kiểu",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "ớt).",
+        "hyp": "ỏt).",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "với",
+        "hyp": "vói",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Phương",
+        "hyp": "Phưdng",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "2,",
+        "hyp": "2,3,",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "delete",
+        "ref": "3,",
+        "hyp": "",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "Phương",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "giãn",
+        "hyp": "Qiãn",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "rồi bấm",
+        "hyp": "rổi bẩm",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "lần.",
+        "hyp": "lắn.",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "tác.",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "Ở điểm",
+        "hyp": "ở điếm",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "của đường",
+        "hyp": "cùa đuòng",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": false
+      },
+      {
+        "op": "delete",
+        "ref": "qua",
+        "hyp": "",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "xương",
+        "hyp": "xưang",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "sườn",
+        "hyp": "sưòn",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": false
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "Huyệt",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "Khố",
+        "hyp": "Khó",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Ở",
+        "hyp": "ở",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "phủ:",
+        "hyp": "phù:",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "lồi",
+        "hyp": "lổi",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "chẩm.",
+        "hyp": "chầm.",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "phương: Ở",
+        "hyp": "phưóng: ở",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "lên",
+        "hyp": "lẽn",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "tấc,",
+        "hyp": "tác,",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Ở",
+        "hyp": "ở",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "delete",
+        "ref": "tấc,",
+        "hyp": "",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "sống",
+        "hyp": "sổng",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "Huyệt",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "trước.",
+        "hyp": "truớc.",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "thẳng",
+        "hyp": "thảng",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "đường",
+        "hyp": "đưòng",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "nối",
+        "hyp": "nói",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "điểm",
+        "hyp": "điềm",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "của đầu",
+        "hyp": "cùa đáu",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "môn: Ở phần",
+        "hyp": "mõn: ở phán",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "sống",
+        "hyp": "sỗng",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "về",
+        "hyp": "vé",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "đầu",
+        "hyp": "đáu",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "tấc.",
+        "hyp": "tác.",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Phế",
+        "hyp": "Phễ",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Dưới",
+        "hyp": "Dưđi",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "đốt sống",
+        "hyp": "đót sóng",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "CỤ",
+        "hyp": "cụ",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "đều",
+        "hyp": "đểu",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "công",
+        "hyp": "côtiị",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "cạo",
+        "hyp": "CỈK",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "Những",
+        "hyp": "Nhũng",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "trâu",
+        "hyp": "trắi",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "chất",
+        "hyp": "chấỉ",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "tổn",
+        "hyp": "tổr",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "đều",
+        "hyp": "đếu",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "cạo gió.",
+        "hyp": "cạc giỏ.",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "nên",
+        "hyp": "nêr",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "miếng",
+        "hyp": "miẽnc",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "đều",
+        "hyp": "đéu",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "đầu",
+        "hyp": "đắi",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "cạo",
+        "hyp": "cao",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "phần",
+        "hyp": "phân",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "vệ",
+        "hyp": "vệsflt",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "delete",
+        "ref": "sức",
+        "hyp": "",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "y",
+        "hyp": "J",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "truyền",
+        "hyp": "truyên",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "sau",
+        "hyp": "sỊ]",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "loại",
+        "hyp": "ỉoại",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "h",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "hợp",
+        "hyp": "i",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "cạo",
+        "hyp": "Cặo",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "Đông",
+        "hyp": "Đônpi",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "delete",
+        "ref": "y",
+        "hyp": "",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "kiên",
+        "hyp": "kÉ",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "phát",
+        "hyp": "phái",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "bền,",
+        "hyp": "bén,",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "giác,",
+        "hyp": "giác",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "độ",
+        "hyp": "đô",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Vì",
+        "hyp": "Vi",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "quý",
+        "hyp": "quỷ",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "trâu",
+        "hyp": "trâi",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "Đông",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "táo",
+        "hyp": "t*_\"",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "phiền",
+        "hyp": "phiểr",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "thần",
+        "hyp": "thắn",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "thanh thuần,",
+        "hyp": "thanf thuắn,",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "hành",
+        "hyp": "hànỉ",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "đều nên",
+        "hyp": "đéu nêr",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "cồn",
+        "hyp": "cón",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "nên",
+        "hyp": "nêr",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      }
+    ],
+    "vision": [
+      {
+        "op": "replace",
+        "ref": "Tần",
+        "hyp": "Tân",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "thiểu",
+        "hyp": "thiếu",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "dược",
+        "hyp": "được",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "Trương Trọng Cảnh",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "của",
+        "hyp": "(Khoảng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "delete",
+        "ref": "y học lâm sàng.",
+        "hyp": "",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "bệnh,",
+        "hyp": "bênh,",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "triều",
+        "hyp": "triều,",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "khôi",
+        "hyp": "khi",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "lao.",
+        "hyp": "tao.",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "nhiều",
+        "hyp": "nhiếu",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "Người",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "Hồng",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "triều",
+        "hyp": "triểu",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "mùa, ngứa ngáy...",
+        "hyp": "mua, ngưa ngày...",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "sớm",
+        "hyp": "sơm",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "mùa.",
+        "hyp": "mùa",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "delete",
+        "ref": "Ông",
+        "hyp": "",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "Đường,",
+        "hyp": "Đường",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "phương\",",
+        "hyp": "phương*,",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "\"Thiên",
+        "hyp": "*Thiên",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "quyển,",
+        "hyp": "quyền,",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "581 - 682)",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "kế",
+        "hyp": "kể",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "đổi,",
+        "hyp": "đối,",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "dựa",
+        "hyp": "đựa",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "tiễn",
+        "hyp": "tiên",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "delete",
+        "ref": "Còn có tên",
+        "hyp": "",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "(1768 - 1831)",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "Trân",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "triều",
+        "hyp": "triểu",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "giới.",
+        "hyp": "giới",
+        "page": 23,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "phổi",
+        "hyp": "phối",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Khố",
+        "hyp": "Khô",
+        "page": 101,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "của",
+        "hyp": "cúa",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "dọc",
+        "hyp": "doc",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "và",
+        "hyp": "va",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "-",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "Tử",
+        "hyp": "Từ",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "nằm",
+        "hyp": "năm",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "‡",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "mỏm",
+        "hyp": "móm",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "2,",
+        "hyp": "\"2,",
+        "page": 101,
+        "kind": "label",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "cạo",
+        "hyp": "cạc",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "trâu",
+        "hyp": "trâi",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "đá.",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "tổn",
+        "hyp": "tổi",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "lược...",
+        "hyp": "lược....",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "cạo",
+        "hyp": "cạc",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "nên",
+        "hyp": "nê",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "cạo",
+        "hyp": "cao",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "sức",
+        "hyp": "sit",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "theo",
+        "hyp": "thec",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "delete",
+        "ref": "y",
+        "hyp": "",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "insert",
+        "ref": "",
+        "hyp": "nhựa.",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "hợp",
+        "hyp": "hếi",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "cạo",
+        "hyp": "cạt",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "delete",
+        "ref": "y",
+        "hyp": "",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "kiên",
+        "hyp": "kiến",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "nhẵn",
+        "hyp": "nhắn",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "táo",
+        "hyp": "t°-",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "phiền",
+        "hyp": "phiết",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "Vì",
+        "hyp": "Vi",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": true
+      },
+      {
+        "op": "replace",
+        "ref": "hành",
+        "hyp": "hànt",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      },
+      {
+        "op": "replace",
+        "ref": "nên",
+        "hyp": "nêr",
+        "page": 186,
+        "kind": "prose",
+        "valid_syllable": false
+      }
+    ]
+  }
+}

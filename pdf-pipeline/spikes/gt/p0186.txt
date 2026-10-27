@@ -1,0 +1,24 @@
+# Ground truth — trang in 186 (0-based page 186) — "Tự Học Đông Y - Bùi Huy.pdf"
+# Chép tay từ ảnh render 300 DPI (xem out/spike5/p0186.png + crop). NFC.
+# Trang CHỮ THUẦN (văn xuôi một cột, có hình minh hoạ). Toàn bộ @prose.
+# Bỏ furniture (số trang 186, tiêu đề chạy "Chương 6: ... Cạo gió").
+# Vài ký tự cuối dòng sát mép phải bị bóng gáy sách nuốt (cả 2 engine đều mất như nhau);
+# khôi phục theo chính tả chuẩn: "công", "tổn", "nên", "Đông y", "tổng hợp", "nhuận táo phế".
+
+@prose
+NÊN DÙNG DỤNG CỤ GÌ ĐỂ CẠO GIÓ
+
+@prose
+Trong thời cổ đại, tiền xu, thìa muỗng múc canh, tấm tre non đều có thể dùng làm công cụ cạo gió. Ngày nay mọi người thường sử dụng miếng cạo gió chuyên dụng để thực hiện cạo gió. Những loại miếng cạo gió thường thấy gồm có hai loại: miếng cạo gió làm bằng sừng trâu và miếng cạo gió làm bằng ngọc đá.
+
+@prose
+Nhìn chung, tất cả những dụng cụ có mép tròn, chất liệu cứng, nhưng không gây ra tổn thương cho cơ thể thì đều có thể được dùng để cạo gió, như thìa muỗng múc canh, miệng bát sống lược... Thời xưa, các mảnh đá, mảnh gốm, tiền xu đều đã từng được dùng làm dụng cụ cạo gió. Tuy nhiên, nếu sử dụng trong thời gian dài hoặc dùng làm dụng cụ trị liệu, tốt nhất vẫn nên sử dụng những miếng cạo gió chuyên dùng. Ngày nay dụng cụ cạo gió chủ yếu chính là miếng cạo gió. Miếng cạo gió thường có hình chữ nhật, cạnh khá trơn nhẵn, bốn góc đều tròn tù. Hai đầu chiều dài của miếng cạo gió một đầu mỏng và một đầu dày. Đầu mỏng thường được dùng để cạo gió trên những vị trí mỏng của cơ thể, phần dầy thích hợp để tiến hành cạo gió xoa bóp bảo vệ sức khỏe, góc tù của miếng cạo gió thích hợp sử dụng ở những nơi khuyết lõm trên cơ thể. Dựa theo chất liệu khác nhau, miếng cạo gió cũng được chia thành nhiều loại khác nhau. Các nhà Đông y học truyền thống cho rằng, tốt nhất là miếng cạo gió được làm từ sừng tê giác hoặc sừng trâu, sau đó đến ngọc, đá, bằng sành sứ cũng được, nhưng không nên làm bằng nhựa.
+
+@prose
+Ngày nay trên thị trường xuất hiện rất nhiều loại miếng cạo gió, hình dạng đa dạng, tổng hợp được nhiều tác dụng, thường gặp nhất là miếng cạo gió làm bằng sừng trâu và ngọc. Miếng cạo gió làm bằng sừng trâu nguyên chất không gây ra những kích thích có hại và phản ứng hóa học không tốt đối với lớp biểu bì trên cơ thể, hơn nữa, sừng trâu lại có vị cay, mặn, tính hàn. Đông y cho rằng, cay có thể phát tán, hành khí hoạt huyết, nhuận dưỡng cơ bắp; mặn có thể nhuyễn kiên nhuận hạ; hàn có thể thanh nhiệt giải độc. Vì vậy miếng cạo gió làm bằng sừng trâu có thể phát huy được tác dụng phát tán hành khí, thanh nhiệt giải độc, hoạt huyết hóa ứ. Ngoài ra, miếng cạo gió làm bằng sừng trâu chất liệu cứng nhẵn và bền, dược tính của nó giống với sừng tê giác, nhưng tốc độ chậm hơn. Vì tê giác là loài động vật quý hiếm cần được bảo vệ, nên sừng trâu thường được dùng để thay thế cho sừng tê giác.
+
+@prose
+Đông y cho rằng, ngọc có vị ngọt tính bình, khi nhập vào phế kinh có thể giúp nhuận táo phế, thanh phế nhiệt; dụng cụ bằng ngọc còn phát ra âm thanh trong trẻo, giúp loại bỏ phiền muộn, định hư suyễn, an thần minh, tư dưỡng lục phủ ngũ tạng, là thuốc tốt có chứa khí thanh thuần, có thể giúp tránh được bệnh khí. Vì vậy, miếng cạo gió làm bằng ngọc có tác dụng hành khí hoạt huyết, sơ thông kinh lạc và không có tác dụng phụ.
+
+@prose
+Cho dù là miếng cạo gió làm từ sừng trâu hay ngọc, sau khi cạo gió xong, cũng đều nên dùng xà phòng rửa sạch hoặc dùng cồn lau sạch miếng cạo gió để khử trùng. Tốt nhất chỉ nên sử dụng cho một người cố định, tránh phát sinh tình trạng truyền nhiễm bệnh.
