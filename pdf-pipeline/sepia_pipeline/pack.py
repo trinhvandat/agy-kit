@@ -81,6 +81,36 @@ def _load_prior(out_dir: Path) -> dict[str, PackBook]:
     return prior
 
 
+def _ensure_ocr(pdf: Path, cache_dir: Path | None) -> None:
+    """OCR trước (Apple Vision) nếu ``pdf`` là sách ``scan_ocr`` và chưa có cache hợp lệ.
+
+    Chỉ chạy được trên macOS (extra ``ocr-mac``). Không có → cảnh báo và bỏ qua; ``convert_pdf``
+    sẽ tự dùng lớp chữ ẩn v4 (ADR-009), không crash.
+    """
+    from .detect import SCAN, SCAN_OCR, detect_pdf
+    from .ocr_cache import DEFAULT_CACHE_DIR, OCR_ENGINE, cache_status, write_cache
+
+    cdir = Path(cache_dir) if cache_dir is not None else DEFAULT_CACHE_DIR
+    result = detect_pdf(pdf)
+    if result.label not in (SCAN, SCAN_OCR):
+        return
+    try:
+        from .ocr_vision import engine_version, ocr_available, ocr_pdf
+    except Exception:
+        ocr_available = lambda: False  # noqa: E731
+    if not ocr_available():
+        print(
+            f"CẢNH BÁO: {pdf.name} là scan_ocr nhưng không OCR được (không macOS/extra ocr-mac) → "
+            "convert dùng v4.",
+            file=sys.stderr,
+        )
+        return
+    status = cache_status(cdir, sha256_file(pdf), OCR_ENGINE, engine_version())
+    if status.ok:
+        return
+    write_cache(ocr_pdf(pdf), cdir)
+
+
 def pack_pdfs(
     pdf_dir: str | Path,
     out_dir: str | Path,
@@ -89,10 +119,12 @@ def pack_pdfs(
     engine: str = "auto",
     run_check: bool = True,
     size_warn_bytes: int = SIZE_WARN_BYTES,
+    ocr_cache_dir: str | Path | None = None,
 ) -> PackManifest:
     pdf_dir = Path(pdf_dir)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    cache_dir = Path(ocr_cache_dir) if ocr_cache_dir is not None else None
 
     prior = _load_prior(out_dir)
     books: list[PackBook] = []
@@ -104,7 +136,15 @@ def pack_pdfs(
         if cached and cached.pipeline_version == PIPELINE_VERSION and epub_path.exists():
             books.append(dataclasses.replace(cached, source_pdf_name=pdf.name))
             continue
-        convert_pdf(pdf, epub_path, font_profile=font_profile, engine=engine, run_check=run_check)
+        _ensure_ocr(pdf, cache_dir)
+        convert_pdf(
+            pdf,
+            epub_path,
+            font_profile=font_profile,
+            engine=engine,
+            run_check=run_check,
+            ocr_cache_dir=ocr_cache_dir,
+        )
         title, author = _epub_title_author(epub_path)
         books.append(
             PackBook(

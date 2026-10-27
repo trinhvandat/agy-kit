@@ -1,9 +1,12 @@
 from pathlib import Path
 
 import fitz  # PyMuPDF
+import pytest
 
 from sepia_pipeline import PIPELINE_VERSION
+from sepia_pipeline.__main__ import build_parser
 from sepia_pipeline.extract import sha256_file
+from sepia_pipeline.ocr_vision import ocr_available
 from sepia_pipeline.pack import PACK_VERSION, pack_pdfs
 
 
@@ -82,3 +85,31 @@ def test_pack_books_sorted_by_uid(tmp_path):
     m = pack_pdfs(pdf_dir, out, run_check=False)
     uids = [b.book_uid for b in m.books]
     assert uids == sorted(uids)
+
+
+def test_pack_subcommand_registered():
+    parser = build_parser()
+    ns = parser.parse_args(["pack", "somedir", "--out", "packdir"])
+    assert ns.command == "pack"
+    assert ns.input == "somedir"
+    assert ns.output == "packdir"
+
+
+@pytest.mark.skipif(not ocr_available(), reason="OCR cần Apple Vision (macOS)")
+def test_pack_runs_ocr_for_scan_without_cache(tmp_path):
+    # Dựng 1 PDF scan (ảnh, không text) → pack phải sinh cache OCR rồi convert.
+    import fitz
+
+    pdf_dir = tmp_path / "src"
+    pdf_dir.mkdir()
+    doc = fitz.open()
+    page = doc.new_page(width=200, height=80)  # khớp kích thước ảnh → ảnh phủ kín cả trang
+    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 200, 80))
+    pix.clear_with(255)
+    page.insert_image(fitz.Rect(0, 0, 200, 80), pixmap=pix)
+    doc.save(str(pdf_dir / "scan.pdf"))
+    doc.close()
+    out = tmp_path / "p"
+    cache_dir = tmp_path / "ocrcache"
+    pack_pdfs(pdf_dir, out, run_check=False, ocr_cache_dir=cache_dir)
+    assert list(cache_dir.glob("*.json"))  # OCR cache written

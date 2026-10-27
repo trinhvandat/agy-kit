@@ -119,6 +119,25 @@ def _cmd_ocr(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_pack(args: argparse.Namespace) -> int:
+    from .pack import pack_pdfs
+
+    manifest = pack_pdfs(
+        args.input,
+        args.output,
+        font_profile=args.font_profile,
+        engine=args.engine,
+        run_check=not args.no_check,
+    )
+    if args.json:
+        print(json.dumps(manifest.to_dict(), ensure_ascii=False, indent=2))
+    else:
+        print(f"pack: {len(manifest.books)} sách → {args.output}/manifest.json")
+        for b in manifest.books:
+            print(f"  {b.book_uid}  {b.file}  (v{b.pipeline_version})  {b.source_pdf_name}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="sepia_pipeline",
@@ -171,6 +190,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_ocr.add_argument("--json", action="store_true", help="In cache dạng JSON")
     p_ocr.set_defaults(func=_cmd_ocr)
+
+    p_pack = sub.add_parser(
+        "pack",
+        help="Đóng gói thư mục PDF → content pack (EPUB + manifest.json) để nhét vào app.",
+    )
+    p_pack.add_argument("input", help="Thư mục chứa .pdf")
+    p_pack.add_argument("--out", dest="output", required=True, help="Thư mục gói ra")
+    p_pack.add_argument("--font-profile", default=None, help="Profile font (vd dongy)")
+    p_pack.add_argument(
+        "--engine", choices=["auto", "heuristic", "docling"], default="auto", help="Engine trích"
+    )
+    p_pack.add_argument("--no-check", action="store_true", help="Bỏ qua epubcheck")
+    p_pack.add_argument("--json", action="store_true", help="In manifest dạng JSON")
+    p_pack.set_defaults(func=_cmd_pack)
     return parser
 
 
