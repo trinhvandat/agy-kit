@@ -47,7 +47,18 @@ fun App(variant: VariantConfig = VariantConfig.Default) {
             val syncer = koinInject<ContentPackSyncer>()
             val appScope = koinInject<CoroutineScope>()
 
-            LaunchedEffect(Unit) { appScope.launch { runCatching { syncer.sync() } } }
+            LaunchedEffect(Unit) {
+                appScope.launch {
+                    try {
+                        val report = syncer.sync()
+                        println("[ContentPack] sync: $report")
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Throwable) {
+                        println("[ContentPack] sync failed: $e")
+                    }
+                }
+            }
 
             val books by repo.observeBooks().collectAsState(initial = emptyList())
             var openId by remember { mutableStateOf<String?>(null) }
@@ -78,6 +89,7 @@ fun App(variant: VariantConfig = VariantConfig.Default) {
                     books = books,
                     onAdd = pickEpub,
                     onOpen = { openId = it.id },
+                    onDelete = { book -> appScope.launch { repo.delete(book) } },
                     status = status,
                     onStatusShown = { status = null },
                 )
