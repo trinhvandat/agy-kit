@@ -346,8 +346,7 @@ def main() -> int:
         f"— assigned+floating={assigned + floating} vs cache={cache.n_lines}"
     )
     print(
-        f"Cụm 8 từ nhân đôi Vision+ABBYY: {dup_count} "
-        f"{'(ĐẠT: 0)' if dup_count == 0 else '(HỎNG)'}"
+        f"Cụm 8 từ nhân đôi Vision+ABBYY: {dup_count} {'(ĐẠT: 0)' if dup_count == 0 else '(HỎNG)'}"
     )
     if dup_examples:
         for ex in dup_examples[:5]:
