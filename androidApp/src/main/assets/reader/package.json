@@ -1,0 +1,5 @@
+{
+  "//": "Chỉ để node coi các .js trong thư mục này là ES module khi chạy test (node --test). Trình duyệt/WebView bỏ qua file này; foliate-js + bridge.js vốn đã là ES module.",
+  "type": "module",
+  "private": true
+}

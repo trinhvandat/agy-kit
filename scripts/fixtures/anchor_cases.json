@@ -1,0 +1,65 @@
+[
+  {
+    "name": "tu-nguyen-ven",
+    "before": "Huyệt ",
+    "selected": "Hợp cốc",
+    "after": " nằm ở bàn tay.",
+    "anchor": { "prefix": "Huyệt ", "text": "Hợp cốc", "suffix": " nằm ở bàn tay." }
+  },
+  {
+    "name": "giua-tu-op",
+    "before": "Huyệt H",
+    "selected": "ợp",
+    "after": " cốc nằm ở.",
+    "anchor": { "prefix": "Huyệt H", "text": "ợp", "suffix": " cốc nằm ở." }
+  },
+  {
+    "name": "dau-doan",
+    "before": "",
+    "selected": "Chẩn mạch",
+    "after": " là phương pháp.",
+    "anchor": { "prefix": "", "text": "Chẩn mạch", "suffix": " là phương pháp." }
+  },
+  {
+    "name": "cuoi-doan",
+    "before": "kết thúc ",
+    "selected": "đoạn này.",
+    "after": "",
+    "anchor": { "prefix": "kết thúc ", "text": "đoạn này.", "suffix": "" }
+  },
+  {
+    "name": "nhieu-space-newline",
+    "before": "dòng trên\n\n   ",
+    "selected": "nội   dung",
+    "after": "  \n sau đó",
+    "anchor": { "prefix": "dòng trên ", "text": "nội dung", "suffix": " sau đó" }
+  },
+  {
+    "name": "vung-chon-co-space-ranh-gioi",
+    "before": "abc",
+    "selected": "  giữa  ",
+    "after": "xyz",
+    "anchor": { "prefix": "abc ", "text": "giữa", "suffix": " xyz" }
+  },
+  {
+    "name": "trong-the-b-i",
+    "before": "xem phần ",
+    "selected": "in đậm rồi in nghiêng",
+    "after": " tiếp theo",
+    "anchor": { "prefix": "xem phần ", "text": "in đậm rồi in nghiêng", "suffix": " tiếp theo" }
+  },
+  {
+    "name": "tieng-viet-nfd",
+    "before": "cà phê ",
+    "selected": "nóng",
+    "after": " lắm",
+    "anchor": { "prefix": "cà phê ", "text": "nóng", "suffix": " lắm" }
+  },
+  {
+    "name": "prefix-dai-bi-cat-32",
+    "before": "0123456789012345678901234567890123456789ABCDE ",
+    "selected": "mục tiêu",
+    "after": " phần đuôi rất dài vượt ba hai ký tự nên sẽ bị cắt lại cho gọn",
+    "anchor": { "prefix": "45678901234567890123456789ABCDE ", "text": "mục tiêu", "suffix": " phần đuôi rất dài vượt ba hai k" }
+  }
+]

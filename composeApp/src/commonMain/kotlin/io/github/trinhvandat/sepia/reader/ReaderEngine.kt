@@ -43,12 +43,13 @@ sealed interface ReaderEvent {
     /** Chạm đơn trong WebView (không phải link/không đang chọn chữ) — Kotlin quyết hành động UI. */
     data class Tap(val zone: TapZone) : ReaderEvent
 
-    /** Vùng chọn chữ không rỗng — kèm CFI range + neo (prefix/suffix) để dựng Highlight ở Mốc 3b. */
+    /** Vùng chọn chữ không rỗng — kèm CFI range + neo (prefix/suffix) + fraction để dựng Highlight (3b). */
     data class Selection(
         val cfi: String,
         val text: String,
         val prefix: String,
         val suffix: String,
+        val fraction: Float,
         val rect: SelectionRect,
     ) : ReaderEvent
 

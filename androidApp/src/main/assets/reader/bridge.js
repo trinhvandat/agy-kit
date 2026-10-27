@@ -6,7 +6,7 @@
 //              ready{} · relocated{cfi,fraction,snippet,prefix,suffix} · error{where,message}
 //              · reanchorResult{token, cfis:[...]}
 //              · tap{zone:'left'|'center'|'right'}            (chạm đơn, không link/không đang chọn)
-//              · selection{cfi,text,prefix,suffix,rect:{x,y,w,h}} · selectionCleared{}
+//              · selection{cfi,text,prefix,suffix,fraction,rect:{x,y,w,h}} · selectionCleared{}
 //
 // Cử chỉ (Mốc 3a): VUỐT lật trang do paginator.js tự xử lý (touch* trên doc trong iframe) —
 // KHÔNG lặp lại ở đây. TAP đơn được quy về khung nhìn TRANG CHỦ (iframe rộng hơn màn hình theo
@@ -15,6 +15,7 @@
 // báo CFI (view.getCFI) + neo prefix/suffix (NFC + gộp khoảng trắng, docs/04 §3.1).
 
 import './foliate/view.js' // định nghĩa <foliate-view>
+import { computeAnchor } from './anchor.js' // logic neo thuần, test bằng node
 
 const SNIPPET_LEN = 64
 const CTX_LEN = 32
@@ -22,7 +23,7 @@ const CTX_LEN = 32
 const TAP_LEFT_FRACTION = 0.3
 const TAP_RIGHT_FRACTION = 0.7
 const SELECTION_DEBOUNCE_MS = 250
-const SELECTION_CTX_LEN = 32 // độ dài prefix/suffix của vùng chọn (ký tự, sau chuẩn hoá)
+const SELECTION_CTX_RAW = 500 // số ký tự THÔ lấy quanh vùng chọn trước khi tính neo (giới hạn chi phí)
 // Cú chạm xoá vùng chọn thường tới SAU khi WebView đã tự huỷ selection → 'click' thấy selection rỗng.
 // Nuốt tap trong khoảng này sau khi selection vừa bị xoá để tránh lật trang ngoài ý muốn (ca f).
 const TAP_AFTER_CLEAR_GUARD_MS = 400
@@ -88,11 +89,6 @@ function onRelocate(e) {
   } catch (err) { reportError('relocate', err) }
 }
 
-// Chuẩn hoá NFC + gộp khoảng trắng + cắt đầu/cuối — khớp AnchorText.normalize phía Kotlin (docs/04 §3.1).
-function normalize(s) {
-  return (s || '').normalize('NFC').replace(/\s+/g, ' ').trim()
-}
-
 // Lấy phần tử iframe (trong khung TRANG CHỦ) chứa một document của section.
 // sandbox 'allow-same-origin' + cùng origin https → frameElement truy cập được.
 function frameOf(doc) {
@@ -128,24 +124,29 @@ function isNonEmpty(sel) {
   return !!(sel && sel.rangeCount > 0 && !sel.isCollapsed && String(sel).trim().length > 0)
 }
 
-// Ngữ cảnh prefix/suffix quanh vùng chọn — XUYÊN nhiều text node (dùng Range.toString qua ranh giới
-// <b>/<i>/đoạn), khác extractAnchor (chỉ trong một node). Chuẩn hoá rồi cắt về SELECTION_CTX_LEN.
-function contextBefore(doc, range) {
+// Văn bản THÔ ngay trước/sau vùng chọn — XUYÊN nhiều text node (Range.toString qua ranh giới
+// <b>/<i>/đoạn). Lấy tối đa SELECTION_CTX_RAW ký tự để giới hạn chi phí; computeAnchor sẽ chuẩn hoá & cắt.
+function rawBefore(doc, range) {
   try {
     const r = doc.createRange()
     r.selectNodeContents(doc.body || doc.documentElement)
     r.setEnd(range.startContainer, range.startOffset)
-    return normalize(r.toString()).slice(-SELECTION_CTX_LEN)
+    return r.toString().slice(-SELECTION_CTX_RAW)
   } catch (_) { return '' }
 }
 
-function contextAfter(doc, range) {
+function rawAfter(doc, range) {
   try {
     const r = doc.createRange()
     r.selectNodeContents(doc.body || doc.documentElement)
     r.setStart(range.endContainer, range.endOffset)
-    return normalize(r.toString()).slice(0, SELECTION_CTX_LEN)
+    return r.toString().slice(0, SELECTION_CTX_RAW)
   } catch (_) { return '' }
+}
+
+function currentFraction() {
+  const f = view && view.lastLocation ? view.lastLocation.fraction : undefined
+  return typeof f === 'number' ? f : 0
 }
 
 function postSelection(doc, index) {
@@ -153,14 +154,16 @@ function postSelection(doc, index) {
     const sel = selectionOf(doc)
     if (!isNonEmpty(sel)) return
     const range = sel.getRangeAt(0)
-    const text = normalize(String(sel))
-    if (!text) return
+    // Tính neo: giữ space ranh giới ở prefix/suffix (sửa lỗi review 3a) — logic thuần ở anchor.js.
+    const a = computeAnchor(rawBefore(doc, range), String(sel), rawAfter(doc, range))
+    if (!a.text) return
     const cfi = view ? view.getCFI(index, range) : ''
     post('selection', {
       cfi: cfi || '',
-      text,
-      prefix: contextBefore(doc, range),
-      suffix: contextAfter(doc, range),
+      text: a.text,
+      prefix: a.prefix,
+      suffix: a.suffix,
+      fraction: currentFraction(),
       rect: toHostRect(doc, range.getBoundingClientRect()),
     })
   } catch (e) { reportError('selection', e) }

@@ -81,3 +81,13 @@ jobs:
       # sách không mở nhưng không văng. Chỉ cần python3 stdlib.
       - name: Check reader imports
         run: python3 scripts/check_reader_imports.py
+
+      # Test logic neo vùng chọn phía JS (assets/reader/anchor.js) — node:test, KHÔNG thêm npm deps.
+      # Dùng chung fixture với test Kotlin AnchorContractTest (hợp đồng JS↔Kotlin).
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Node test (anchor.js)
+        run: node --test scripts/test/*.test.mjs

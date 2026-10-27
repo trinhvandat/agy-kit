@@ -23,7 +23,7 @@ class ReaderEventParserTest {
     fun parsesSelectionWithRectAndAnchor() {
         val json = """
             {"cfi":"epubcfi(/6/4!/2)","text":"Cá phê","prefix":"uống ","suffix":" nóng",
-             "rect":{"x":10.0,"y":20.0,"w":100.0,"h":18.5}}
+             "fraction":0.42,"rect":{"x":10.0,"y":20.0,"w":100.0,"h":18.5}}
         """.trimIndent()
         val event = ReaderEventParser.parse("selection", json)
         assertEquals(
@@ -32,6 +32,7 @@ class ReaderEventParserTest {
                 text = "Cá phê",
                 prefix = "uống ",
                 suffix = " nóng",
+                fraction = 0.42f,
                 rect = SelectionRect(10f, 20f, 100f, 18.5f),
             ),
             event,

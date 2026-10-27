@@ -33,6 +33,7 @@ object ReaderEventParser {
                 text = it.text,
                 prefix = it.prefix,
                 suffix = it.suffix,
+                fraction = it.fraction,
                 rect = SelectionRect(it.rect.x, it.rect.y, it.rect.w, it.rect.h),
             )
         }
@@ -80,6 +81,7 @@ object ReaderEventParser {
         val text: String = "",
         val prefix: String = "",
         val suffix: String = "",
+        val fraction: Float = 0f,
         val rect: RectDto = RectDto(),
     )
 
