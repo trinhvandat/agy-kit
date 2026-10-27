@@ -1,12 +1,11 @@
 from pathlib import Path
 
 import fitz  # PyMuPDF
-import pytest
 
 from sepia_pipeline import PIPELINE_VERSION
 from sepia_pipeline.__main__ import build_parser
 from sepia_pipeline.extract import sha256_file
-from sepia_pipeline.ocr_vision import ocr_available
+from sepia_pipeline.ocr_cache import OCR_ENGINE, OcrCache
 from sepia_pipeline.pack import PACK_VERSION, pack_pdfs
 
 
@@ -95,21 +94,57 @@ def test_pack_subcommand_registered():
     assert ns.output == "packdir"
 
 
-@pytest.mark.skipif(not ocr_available(), reason="OCR cần Apple Vision (macOS)")
-def test_pack_runs_ocr_for_scan_without_cache(tmp_path):
-    # Dựng 1 PDF scan (ảnh, không text) → pack phải sinh cache OCR rồi convert.
-    import fitz
+def test_ensure_ocr_skips_plain_text_pdf(tmp_path):
+    """Sách text thuần (không phải scan_ocr theo đúng tín hiệu convert dùng) → không OCR.
+
+    Tất định, chạy trên CI (không cần Vision): dùng chính ``_is_scan_ocr`` thật (mirror
+    ``convert.py:165``) — chứng minh pack không bắn OCR tràn lan ngoài scan_ocr.
+    """
+    import sepia_pipeline.pack as packmod
+
+    pdf = tmp_path / "text.pdf"
+    _make_text_pdf(pdf, "T", "Đoạn văn tiếng Việt đủ dài để không bị coi là scan chút nào cả.")
+    cache_dir = tmp_path / "cache"
+
+    packmod._ensure_ocr(pdf, cache_dir)
+
+    assert not cache_dir.exists()  # không viết cache cho sách không phải scan_ocr
+
+
+def test_pack_writes_ocr_cache_for_scan_ocr_classification(tmp_path, monkeypatch):
+    """``pack`` OCR đúng sách mà ``convert`` phân loại là scan_ocr — không cần Vision/macOS thật.
+
+    Giả lập quyết định (``_is_scan_ocr`` → True, khớp tín hiệu ``scan_ocr_book_signal`` mà
+    ``convert.py:165`` dùng) và lớp Vision (``ocr_vision.ocr_available``/``ocr_pdf``), nên test
+    chạy được trên CI non-macOS mà vẫn phủ đúng logic quyết định của ``_ensure_ocr``.
+    """
+    import sepia_pipeline.ocr_vision as ocr_vision_mod
+    import sepia_pipeline.pack as packmod
 
     pdf_dir = tmp_path / "src"
     pdf_dir.mkdir()
-    doc = fitz.open()
-    page = doc.new_page(width=200, height=80)  # khớp kích thước ảnh → ảnh phủ kín cả trang
-    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 200, 80))
-    pix.clear_with(255)
-    page.insert_image(fitz.Rect(0, 0, 200, 80), pixmap=pix)
-    doc.save(str(pdf_dir / "scan.pdf"))
-    doc.close()
+    pdf = pdf_dir / "book.pdf"
+    _make_text_pdf(pdf, "Book", "Nội dung bất kỳ — _is_scan_ocr bị giả lập True ở test này.")
     out = tmp_path / "p"
     cache_dir = tmp_path / "ocrcache"
+
+    monkeypatch.setattr(packmod, "_is_scan_ocr", lambda pdf_path, config: True)
+    monkeypatch.setattr(ocr_vision_mod, "ocr_available", lambda: True)
+    monkeypatch.setattr(ocr_vision_mod, "engine_version", lambda: {"fake_engine_version": "v1"})
+
+    def fake_ocr_pdf(pdf_path, **kwargs):
+        sha = sha256_file(pdf_path)
+        return OcrCache(
+            book_uid=f"sepia:{sha}",
+            pdf_sha256=sha,
+            render={"dpi": 300},
+            engine=dict(OCR_ENGINE),
+            engine_version={"fake_engine_version": "v1"},
+            created="2025-01-01",
+        )
+
+    monkeypatch.setattr(ocr_vision_mod, "ocr_pdf", fake_ocr_pdf)
+
     pack_pdfs(pdf_dir, out, run_check=False, ocr_cache_dir=cache_dir)
-    assert list(cache_dir.glob("*.json"))  # OCR cache written
+
+    assert list(cache_dir.glob("*.json"))  # OCR cache written before convert

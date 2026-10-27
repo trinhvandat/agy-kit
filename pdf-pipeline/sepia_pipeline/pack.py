@@ -12,11 +12,13 @@ import json
 import sys
 from pathlib import Path
 
+import pymupdf as fitz
 from ebooklib import epub
 
 from . import PIPELINE_VERSION
 from .convert import convert_pdf
-from .extract import sha256_file
+from .detect import DetectConfig, scan_ocr_book_signal
+from .extract import extract_document, sha256_file
 
 PACK_VERSION = 1
 SIZE_WARN_BYTES = 150 * 1024 * 1024
@@ -81,18 +83,35 @@ def _load_prior(out_dir: Path) -> dict[str, PackBook]:
     return prior
 
 
+def _is_scan_ocr(pdf: Path, config: DetectConfig) -> bool:
+    """Tín hiệu ``scan_ocr`` **y hệt** ``convert_pdf`` (``convert.py:165``): trích bằng
+    :func:`extract_document` rồi gọi :func:`scan_ocr_book_signal` với cùng ``config.detect``.
+
+    Dùng chung đúng hàm/đúng đối số với ``convert.py`` để ``pack`` và ``convert`` luôn phân loại
+    giống nhau — ``pack`` không OCR sách mà ``convert`` sẽ không đọc cache (và ngược lại).
+    """
+    fitz_doc = fitz.open(str(pdf))
+    try:
+        doc_model = extract_document(fitz_doc, pdf, config)
+    finally:
+        fitz_doc.close()
+    n_pages = len(doc_model.pages)
+    full_image = sum(1 for p in doc_model.pages if p.has_full_page_image)
+    texty = sum(1 for p in doc_model.pages if p.char_count >= config.scan_min_chars)
+    return scan_ocr_book_signal(n_pages, full_image, texty, config)
+
+
 def _ensure_ocr(pdf: Path, cache_dir: Path | None) -> None:
-    """OCR trước (Apple Vision) nếu ``pdf`` là sách ``scan_ocr`` và chưa có cache hợp lệ.
+    """OCR trước (Apple Vision) nếu ``pdf`` là sách ``scan_ocr`` (y hệt ``convert_pdf``) và
+    chưa có cache hợp lệ.
 
     Chỉ chạy được trên macOS (extra ``ocr-mac``). Không có → cảnh báo và bỏ qua; ``convert_pdf``
     sẽ tự dùng lớp chữ ẩn v4 (ADR-009), không crash.
     """
-    from .detect import SCAN, SCAN_OCR, detect_pdf
     from .ocr_cache import DEFAULT_CACHE_DIR, OCR_ENGINE, cache_status, write_cache
 
     cdir = Path(cache_dir) if cache_dir is not None else DEFAULT_CACHE_DIR
-    result = detect_pdf(pdf)
-    if result.label not in (SCAN, SCAN_OCR):
+    if not _is_scan_ocr(pdf, DetectConfig()):
         return
     try:
         from .ocr_vision import engine_version, ocr_available, ocr_pdf
