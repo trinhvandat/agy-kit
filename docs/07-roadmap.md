@@ -10,6 +10,12 @@
 - **Nhánh Pipeline**: EPUB xuất ra **đọc kiểm chứng ngay bằng app EPUB có sẵn** (KOReader / Google Play Books / Apple Books) — có giá trị dùng được *trước cả khi* app Sepia xong.
 - **Nhánh App**: Sepia thay thế dần app đọc có sẵn.
 
+> **Đường đưa sách vào app (hiện tại)**: pipeline chạy trên máy tác giả → **content pack** (lệnh
+> `pack`, nhúng vào APK lúc build qua Gradle `sepia.contentDir`, ADR-010) là cách **chính** để nạp cả
+> bộ sách; nhập tay **một file EPUB** qua SAF (Mốc 2) vẫn còn, dùng khi thử nhanh một cuốn lẻ. **App
+> tự nhận PDF trực tiếp** (người dùng thả PDF vào app, app tự OCR/convert mà không cần chạy
+> `sepia-pipeline` trên máy tính) **vẫn là mốc sau, chưa làm** — xem "Giai đoạn sau" ở Mốc 5+.
+
 Hai nhánh chạy xen kẽ (một người), nhưng **không phụ thuộc chặt**: bạn có thể đọc sách đã chuyển bằng KOReader trong khi app Sepia còn đang xây.
 
 ```mermaid
@@ -139,7 +145,7 @@ graph TD
 - [ ] Hiệu ứng lật trang (nếu mượt) + tối ưu NFR-1.
 - [ ] Ổn định `ReaderEngine`; cân nhắc tách Gradle module/flavor nếu chuẩn bị app thứ hai (ADR-007).
 - [ ] **OCR (US-A7)** — nếu SPIKE-0 đã báo nhiều scan thì phần này **đã nằm ở giai đoạn đầu**, không chờ tới đây.
-- **Giai đoạn sau (đóng băng lúc đầu)**: gom ghi chú theo **nhãn/chủ đề người dùng** (US-F1, thêm lại Tag/Topic); **điểm mở rộng tra cứu/từ điển theo lĩnh vực** (US-F2, bật bằng flag); xem PDF gốc trong app (US-F4); **nhân bản sang biến thể khác**. *(Tính năng đặc thù & thương mại hóa của biến thể Đông y — vd tra huyệt, tra Hán Việt, bán cho sinh viên — thuộc [variants/dongy.md](./variants/dongy.md), không phải lõi.)*
+- **Giai đoạn sau (đóng băng lúc đầu)**: gom ghi chú theo **nhãn/chủ đề người dùng** (US-F1, thêm lại Tag/Topic); **điểm mở rộng tra cứu/từ điển theo lĩnh vực** (US-F2, bật bằng flag); xem PDF gốc trong app (US-F4); **app tự nhận PDF trực tiếp** (bỏ qua chạy `sepia-pipeline` trên máy tính — đường hiện tại vẫn là content pack đóng gói lúc build, ADR-010, + nhập EPUB tay qua SAF); **nhân bản sang biến thể khác**. *(Tính năng đặc thù & thương mại hóa của biến thể Đông y — vd tra huyệt, tra Hán Việt, bán cho sinh viên — thuộc [variants/dongy.md](./variants/dongy.md), không phải lõi.)*
 
 ---
 

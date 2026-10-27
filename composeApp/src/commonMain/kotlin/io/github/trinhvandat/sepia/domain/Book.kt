@@ -15,6 +15,7 @@ data class Book(
     val contentHash: String,
     val pipelineVersion: Int,
     val sourcePdfName: String? = null,
+    val source: BookSource = BookSource.Import,
     val addedAt: Long,
     val sortIndex: Int,
     val positionCfi: String? = null,

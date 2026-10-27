@@ -50,6 +50,21 @@ adb shell am start -n io.github.trinhvandat.sepia/.MainActivity
 > render tiếng Việt nền sepia, lật trang, nhớ vị trí qua mở lại. Cửa quyết định ADR-001 **đóng (giữ
 > foliate-js)**. Chọn chữ/highlight: Mốc 3 (xem [docs/07](./docs/07-roadmap.md)). iOS: hoãn (issue #3).
 
+## Đóng gói sách vào app
+
+Sách có bản quyền **không commit vào repo**. Thay vào đó, đóng gói cục bộ bằng pipeline rồi nhúng vào APK lúc build:
+
+```bash
+# 1. (macOS, nếu sách scan) OCR trước — cache theo sách
+sepia-pipeline ocr sach-scan.pdf
+# 2. Đóng gói cả thư mục PDF → content pack
+sepia-pipeline pack ./content-src --out ./content
+# 3. Build app kèm gói
+./gradlew :androidApp:assembleDebug -Psepia.contentDir=./content
+```
+
+`./content` đã có trong `.gitignore` (anchor `/content/`) — gói sách **không bao giờ vào git**; CI có guard `scripts/check_no_bundled_books.py` chặn PR nếu lọt `.epub`/`.pdf` ngoài fixture test. Chi tiết lệnh `pack`, `manifest.json` xem [`docs/03-pdf-pipeline.md`](./docs/03-pdf-pipeline.md), quyết định kiến trúc xem [ADR-010](./docs/05-tech-decisions.md#adr-010--content-pack-đóng-gói-trong-apk-build-cục-bộ-sách-không-vào-git).
+
 ### iOS
 
 ⏳ **Chưa dựng được**: máy phát triển hiện **chưa cài Xcode** (chỉ có Command Line Tools), mà Kotlin/Native iOS cần toolchain Xcode. Nguồn Swift (`iosApp/`) + `iosMain` đã có; còn thiếu `iosApp.xcodeproj`. Các bước khi đã cài Xcode: xem [`iosApp/README.md`](./iosApp/README.md).

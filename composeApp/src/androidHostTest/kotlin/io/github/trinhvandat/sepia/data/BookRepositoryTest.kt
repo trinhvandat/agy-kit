@@ -3,6 +3,7 @@ package io.github.trinhvandat.sepia.data
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.github.trinhvandat.sepia.db.SepiaDatabase
 import io.github.trinhvandat.sepia.domain.Book
+import io.github.trinhvandat.sepia.domain.BookSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -79,8 +80,35 @@ class BookRepositoryTest {
     @Test
     fun deleteRemoves() = runTest {
         val repo = repo()
-        repo.insert(book("1", "sepia:a"))
-        repo.delete("1")
+        val b = book("1", "sepia:a")
+        repo.insert(b)
+        repo.delete(b)
         assertTrue(repo.observeBooks().first().isEmpty())
+    }
+
+    @Test
+    fun deletingPackBookWritesTombstone() = runTest {
+        val repo = repo()
+        val b = book("1", "sepia:a").copy(source = BookSource.Pack)
+        repo.insert(b)
+        repo.delete(b)
+        assertTrue(repo.observeBooks().first().isEmpty())
+        assertEquals(setOf("sepia:a"), repo.deletedPackUids())
+    }
+
+    @Test
+    fun deletingImportBookDoesNotWriteTombstone() = runTest {
+        val repo = repo()
+        val b = book("1", "sepia:a")
+        repo.insert(b)
+        repo.delete(b)
+        assertTrue(repo.deletedPackUids().isEmpty())
+    }
+
+    @Test
+    fun markPackDeletedAndDeletedPackUidsRoundTrip() = runTest {
+        val repo = repo()
+        repo.markPackDeleted("sepia:x")
+        assertEquals(setOf("sepia:x"), repo.deletedPackUids())
     }
 }

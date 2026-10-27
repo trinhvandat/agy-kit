@@ -1,6 +1,7 @@
 package io.github.trinhvandat.sepia.data
 
 import io.github.trinhvandat.sepia.domain.Book
+import io.github.trinhvandat.sepia.domain.BookSource
 import io.github.trinhvandat.sepia.domain.ImportOutcome
 
 /**
@@ -12,7 +13,11 @@ class ImportBookUseCase(
     private val metadataReader: EpubMetadataReader,
     private val fileStore: BookFileStore,
 ) {
-    suspend fun import(epubBytes: ByteArray, fallbackTitle: String): ImportOutcome {
+    suspend fun import(
+        epubBytes: ByteArray,
+        fallbackTitle: String,
+        source: BookSource = BookSource.Import,
+    ): ImportOutcome {
         val meta = metadataReader.read(epubBytes)
         val contentHash = sha256Hex(epubBytes)
         val bookUid = meta.effectiveUid(contentHash)
@@ -34,6 +39,7 @@ class ImportBookUseCase(
                 contentHash = contentHash,
                 pipelineVersion = meta.pipelineVersion,
                 sourcePdfName = meta.sourcePdfName,
+                source = source,
                 addedAt = now,
                 sortIndex = repo.nextSortIndex(),
                 positionUpdatedAt = now,

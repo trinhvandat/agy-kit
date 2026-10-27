@@ -14,6 +14,7 @@ data class VariantConfig(
     val brandColor: Long,
     val fontFallback: List<String>,
     val featureFlags: Map<String, Boolean>,
+    val contentPack: String? = null,
 ) {
     companion object {
         /** Biến thể mặc định = lõi trung tính (dùng để dogfood khung app). */
@@ -22,6 +23,7 @@ data class VariantConfig(
             brandColor = 0xFF5B4636,
             fontFallback = listOf("Literata", "Noto Serif", "Noto Serif CJK TC", "Noto Serif CJK SC", "serif"),
             featureFlags = emptyMap(),
+            contentPack = "content",
         )
     }
 }

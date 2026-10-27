@@ -22,6 +22,7 @@ Hướng dẫn cho AI/người làm khi làm việc trong repo này. Chi tiết 
 - **Re-anchor chạy trong JS** bằng `search` của foliate-js (có dự phòng tìm `textSnippet` + xác nhận `prefix`/`suffix`), không parser EPUB phía Kotlin — [ADR-008](./docs/05-tech-decisions.md).
 - **Highlight mồ côi không bị xóa**: re-anchor thất bại → đánh dấu `orphan`, vẫn hiển thị và vẫn xuất Markdown — [04-data-model.md §3](./docs/04-data-model.md).
 - **OCR lại sách scan bằng Apple Vision lúc ingest, cache theo sách; build chỉ đọc cache** — lệnh `sepia-pipeline ocr` (chỉ macOS, extra `ocr-mac`), khoá cache = SHA-256 PDF + engine + phiên bản macOS/Vision; `convert` không OCR trong build (miss → giữ v4 + cảnh báo) → tất định, chạy được CI không-Vision — [ADR-009](./docs/05-tech-decisions.md#adr-009--ocr-lại-sách-scan-bằng-apple-vision-lúc-ingest-cache-theo-sách-build-epub-chỉ-đọc-cache), [SPIKE-5](./docs/spikes/spike-5-reocr-vision.md) (WER 15.3%→3.9%).
+- **Content pack đóng gói trong APK, build cục bộ, sách không vào git**: lệnh `sepia-pipeline pack <thư-mục-PDF> --out <thư-mục-gói>` chạy trên máy tác giả → Gradle `-Psepia.contentDir=<dir>` nhúng gói vào `assets/content/` lúc build; app đọc qua `VariantConfig.contentPack` (mặc định `"content"`) để đồng bộ vào DB lúc khởi động; sách **không bao giờ** vào git (`content/` gitignored + CI guard `check_no_bundled_books.py`) — [ADR-010](./docs/05-tech-decisions.md#adr-010--content-pack-đóng-gói-trong-apk-build-cục-bộ-sách-không-vào-git).
 
 ## Cấu trúc thư mục
 

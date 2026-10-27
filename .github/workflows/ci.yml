@@ -46,6 +46,10 @@ jobs:
       - name: uv sync (base + dev, KHÔNG extra docling)
         run: uv sync --frozen
 
+      - name: Guard — no bundled books in git
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/check_no_bundled_books.py
+
       - name: Ruff lint
         run: uv run ruff check .
 

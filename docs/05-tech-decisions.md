@@ -171,6 +171,26 @@ Lý do: tối đa hóa chia sẻ code và né viết Swift/tích hợp 2 toolkit
 
 ---
 
+## ADR-010 — Content pack đóng gói trong APK, build cục bộ, sách không vào git
+
+**Bối cảnh**: pipeline PDF→EPUB (ADR-004/005/009) chạy trên **máy tính của người viết**, không chạy trên điện thoại; OCR Apple Vision (ADR-009) **chỉ macOS**. Người dùng cuối (dogfood: chính tác giả; sau có thể là sinh viên Đông y mua biến thể) **không tự chạy Python** được. Sách lại **có bản quyền** → tuyệt đối **không commit** vào git repo công khai (R-08 mở rộng sang chính nội dung sách, không chỉ license thư viện).
+
+**Phương án**:
+- **A. App tự tải/giải mã sách từ nguồn ngoài lúc chạy** (CDN, cloud sync…) — cần hạ tầng mạng, trái NFR-2/NFR-6 (offline-first, không tài khoản). **Loại.**
+- **B. Đóng gói sách thành "content pack" (EPUB + `manifest.json`), build cục bộ bằng lệnh `pack`, nhúng vào APK lúc build qua Gradle, đồng bộ vào DB lúc app khởi động.** **Chọn.**
+
+**Quyết định**:
+- Lệnh `sepia-pipeline pack <thư-mục-PDF> --out <thư-mục-gói>` chạy **trên máy tác giả** (giống `convert`/`ocr`), **không** chạy trong app hay CI công khai.
+- Gradle: property **`-Psepia.contentDir=<dir>`** (hoặc `gradle.properties`) đồng bộ thư mục gói vào `assets/content/` của APK lúc build (`:androidApp` task `syncContentPack`, chạy trước `preBuild`); **không dùng Gradle flavors** (giữ nguyên hướng ADR-007) — thiếu property thì APK không có sách, thư viện rỗng.
+- App đọc `VariantConfig.contentPack` (mặc định `"content"`, trỏ tới thư mục asset) để biết nơi tìm `manifest.json` lúc khởi động — core vẫn **trung tính về lĩnh vực**, chỉ biết "có một gói asset tên X", không biết nội dung là gì.
+- **Sách không bao giờ vào git**: thư mục gói nằm **ngoài repo** hoặc `content/` ở gốc repo (gitignored, anchor `/content/`); CI guard `scripts/check_no_bundled_books.py` chặn PR nếu có `.epub`/`.pdf` lọt vào tracked files ngoài `pdf-pipeline/tests/fixtures/`.
+- **Giới hạn kích thước APK**: `pack` cảnh báo (stderr) khi tổng dung lượng EPUB trong gói **vượt 150 MB** (Play Store giới hạn APK/AAB tải trực tiếp **~200 MB**); vượt xa ngưỡng này về sau cần chuyển sang **Play Asset Delivery** (tải asset riêng, không nhúng APK) — **chưa làm ở giai đoạn này**, chỉ cảnh báo sớm.
+
+**Ràng buộc license**: không đổi — pipeline (AGPL, ADR-004) vẫn tách rời app KMP, `pack` chỉ xuất `.epub` + `manifest.json`, không link ngược vào app.
+**Dự phòng**: một sách trong gói lỗi khi đồng bộ (sha256/pipelineVersion không đọc được, EPUB hỏng…) → bỏ qua **chỉ sách đó**, không chặn các sách còn lại hay app khởi động.
+
+---
+
 ## Nguồn (kiểm tra 2026-10-25)
 - Kotlin / Compose MP: kotlinlang.org/docs/releases.html; kotlinlang.org/docs/multiplatform/compose-compatibility-and-versioning.html
 - Room KMP: developer.android.com/jetpack/androidx/releases/room; developer.android.com/kotlin/multiplatform/room

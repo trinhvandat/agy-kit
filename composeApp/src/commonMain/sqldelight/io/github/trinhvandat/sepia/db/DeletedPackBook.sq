@@ -1,0 +1,16 @@
+-- Bảng DeletedPackBook — "mộ bia" (tombstone) cho sách content-pack người dùng đã xóa.
+-- Sách pack đi kèm APK; nếu người dùng xóa, lần sau không tự thêm lại (khớp bookUid).
+
+CREATE TABLE DeletedPackBook (
+    bookUid   TEXT    NOT NULL PRIMARY KEY,
+    deletedAt INTEGER NOT NULL
+);
+
+insertDeleted:
+INSERT OR REPLACE INTO DeletedPackBook(bookUid, deletedAt) VALUES (?, ?);
+
+selectDeletedUids:
+SELECT bookUid FROM DeletedPackBook;
+
+isDeleted:
+SELECT EXISTS(SELECT 1 FROM DeletedPackBook WHERE bookUid = ?);
