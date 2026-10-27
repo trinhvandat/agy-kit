@@ -1,6 +1,7 @@
 package io.github.trinhvandat.sepia.data
 
 import io.github.trinhvandat.sepia.domain.Book
+import io.github.trinhvandat.sepia.domain.BookSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -8,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 /** BookRepository trong bộ nhớ cho test logic import (không đụng DB thật). */
 class InMemoryBookRepository : BookRepository {
     private val state = MutableStateFlow<List<Book>>(emptyList())
+    private val deletedUids = mutableSetOf<String>()
     private val byId get() = state.value.associateBy { it.id }
 
     override fun observeBooks(): Flow<List<Book>> = state.asStateFlow()
@@ -54,11 +56,20 @@ class InMemoryBookRepository : BookRepository {
         }
     }
 
-    override suspend fun delete(id: String) {
-        state.value = state.value.filterNot { it.id == id }
+    override suspend fun delete(book: Book) {
+        if (book.source == BookSource.Pack) {
+            deletedUids.add(book.bookUid)
+        }
+        state.value = state.value.filterNot { it.id == book.id }
     }
 
     override suspend fun nextSortIndex(): Int = (state.value.maxOfOrNull { it.sortIndex } ?: -1) + 1
+
+    override suspend fun markPackDeleted(bookUid: String) {
+        deletedUids.add(bookUid)
+    }
+
+    override suspend fun deletedPackUids(): Set<String> = deletedUids.toSet()
 }
 
 /** BookFileStore giả: nhớ các lần ghi, không chạm hệ thống file. */

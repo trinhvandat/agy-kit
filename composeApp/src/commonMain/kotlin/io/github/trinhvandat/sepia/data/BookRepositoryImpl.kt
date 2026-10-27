@@ -4,6 +4,7 @@ import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import io.github.trinhvandat.sepia.db.SepiaDatabase
 import io.github.trinhvandat.sepia.domain.Book
+import io.github.trinhvandat.sepia.domain.BookSource
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -14,6 +15,7 @@ class BookRepositoryImpl(
     private val dispatcher: CoroutineDispatcher,
 ) : BookRepository {
     private val q = db.bookQueries
+    private val deletedPackQueries = db.deletedPackBookQueries
 
     override fun observeBooks(): Flow<List<Book>> =
         q.selectAll(::mapRow).asFlow().mapToList(dispatcher)
@@ -35,8 +37,7 @@ class BookRepositoryImpl(
             contentHash = book.contentHash,
             pipelineVersion = book.pipelineVersion.toLong(),
             sourcePdfName = book.sourcePdfName,
-            // TODO(Task 6): domain Book chưa có field `source` — tạm literal "import" để compile.
-            source = "import",
+            source = book.source.wire,
             addedAt = book.addedAt,
             sortIndex = book.sortIndex.toLong(),
             positionCfi = book.positionCfi,
@@ -93,11 +94,23 @@ class BookRepositoryImpl(
     override suspend fun updatePositionCfi(id: String, cfi: String, updatedAt: Long): Unit =
         withContext(dispatcher) { q.updatePositionCfi(cfi, updatedAt, id) }
 
-    override suspend fun delete(id: String): Unit =
-        withContext(dispatcher) { q.delete(id) }
+    override suspend fun delete(book: Book): Unit = withContext(dispatcher) {
+        if (book.source == BookSource.Pack) {
+            deletedPackQueries.insertDeleted(book.bookUid, nowMillis())
+        }
+        q.delete(book.id)
+    }
 
     override suspend fun nextSortIndex(): Int =
         withContext(dispatcher) { q.maxSortIndex().executeAsOne().toInt() + 1 }
+
+    override suspend fun markPackDeleted(bookUid: String): Unit = withContext(dispatcher) {
+        deletedPackQueries.insertDeleted(bookUid, nowMillis())
+    }
+
+    override suspend fun deletedPackUids(): Set<String> = withContext(dispatcher) {
+        deletedPackQueries.selectDeletedUids().executeAsList().toSet()
+    }
 
     // SQLDelight mapper: hàng DB → domain Book (Long→Int, Double→Float).
     private fun mapRow(
@@ -110,8 +123,7 @@ class BookRepositoryImpl(
         contentHash: String,
         pipelineVersion: Long,
         sourcePdfName: String?,
-        // TODO(Task 6): domain Book chưa có field `source` — bind để khớp mapper, chưa dùng.
-        @Suppress("UNUSED_PARAMETER") source: String,
+        source: String,
         addedAt: Long,
         sortIndex: Long,
         positionCfi: String?,
@@ -130,6 +142,7 @@ class BookRepositoryImpl(
         contentHash = contentHash,
         pipelineVersion = pipelineVersion.toInt(),
         sourcePdfName = sourcePdfName,
+        source = BookSource.fromWire(source),
         addedAt = addedAt,
         sortIndex = sortIndex.toInt(),
         positionCfi = positionCfi,

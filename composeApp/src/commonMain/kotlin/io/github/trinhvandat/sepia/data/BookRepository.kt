@@ -39,8 +39,15 @@ interface BookRepository {
     /** Cập nhật riêng CFI sau khi re-anchor thành công. */
     suspend fun updatePositionCfi(id: String, cfi: String, updatedAt: Long)
 
-    suspend fun delete(id: String)
+    /** Xóa cuốn sách; nếu là sách content-pack (source=Pack), ghi tombstone trước để không tự thêm lại. */
+    suspend fun delete(book: Book)
 
     /** sortIndex kế tiếp (cuối danh sách). */
     suspend fun nextSortIndex(): Int
+
+    /** Ghi tombstone cho một bookUid sách pack (đứng độc lập với [delete], dùng khi đồng bộ pack). */
+    suspend fun markPackDeleted(bookUid: String)
+
+    /** Tập bookUid sách pack đã bị người dùng xóa (không tự thêm lại). */
+    suspend fun deletedPackUids(): Set<String>
 }

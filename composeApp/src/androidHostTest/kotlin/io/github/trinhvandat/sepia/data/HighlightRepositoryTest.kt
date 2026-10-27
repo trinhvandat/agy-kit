@@ -78,10 +78,11 @@ class HighlightRepositoryTest {
     @Test
     fun deletingBookCascadesHighlights() = runTest {
         val f = Fixture()
-        f.books.insert(book("b1"))
+        val b = book("b1")
+        f.books.insert(b)
         f.repo.insert(hl("h1"))
         f.repo.insert(hl("h2"))
-        f.books.delete("b1")
+        f.books.delete(b)
         assertTrue(f.repo.getByBook("b1").isEmpty(), "CASCADE: xóa Book phải xóa Highlight (foreign_keys ON)")
     }
 }

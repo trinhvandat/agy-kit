@@ -1,5 +1,6 @@
 package io.github.trinhvandat.sepia.data
 
+import io.github.trinhvandat.sepia.domain.BookSource
 import io.github.trinhvandat.sepia.domain.ImportOutcome
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -77,5 +78,17 @@ class ImportBookUseCaseTest {
         val (uc, _, _) = useCase()
         val outcome = uc.import(TestEpub.bytes(identifier = "sepia:uid1", title = ""), fallbackTitle = "Tên Tệp.epub")
         assertEquals("Tên Tệp.epub", outcome.book.title)
+    }
+
+    @Test
+    fun import_tags_source_pack_for_new_pack_book() = runTest {
+        val (uc, _, _) = useCase()
+        val outcome = uc.import(
+            epubBytes = TestEpub.bytes(identifier = "sepia:uid1", title = "T"),
+            fallbackTitle = "T",
+            source = BookSource.Pack,
+        )
+        val created = assertIs<ImportOutcome.Created>(outcome)
+        assertEquals(BookSource.Pack, created.book.source)
     }
 }
