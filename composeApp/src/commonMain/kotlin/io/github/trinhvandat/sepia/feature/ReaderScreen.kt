@@ -1,14 +1,12 @@
 package io.github.trinhvandat.sepia.feature
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Surface
@@ -23,6 +21,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,6 +32,8 @@ import io.github.trinhvandat.sepia.domain.Book
 import io.github.trinhvandat.sepia.reader.ReaderController
 import io.github.trinhvandat.sepia.reader.ReaderEvent
 import io.github.trinhvandat.sepia.reader.ReaderSurface
+import io.github.trinhvandat.sepia.reader.SelectionRect
+import io.github.trinhvandat.sepia.reader.TapZone
 import io.github.trinhvandat.sepia.theme.SepiaTheme
 import io.github.trinhvandat.sepia.data.BookRepository
 import io.github.trinhvandat.sepia.data.SettingsRepository
@@ -45,8 +47,10 @@ import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
 /**
- * Màn đọc: foliate-js (qua [ReaderSurface]) + lớp chạm Compose để lật trang (trái/phải) và
- * hiện/ẩn thanh trên (giữa). Lưu vị trí có debounce ~1s (docs/07 Mốc 2). Re-anchor khi cần (ADR-008).
+ * Màn đọc: foliate-js (qua [ReaderSurface]). Cử chỉ chạm/vuốt do **JS trong foliate** xử lý
+ * (bridge.js: paginator tự vuốt lật trang; tap báo về [ReaderEvent.Tap] theo vùng 30/40/30 →
+ * trái lật trước, giữa ẩn/hiện thanh, phải lật sau). KHÔNG còn lớp chạm Compose phủ WebView
+ * (gỡ nợ Mốc 2 — nó nuốt nhấn-giữ chọn chữ). Lưu vị trí debounce ~1s. Re-anchor khi cần (ADR-008).
  */
 @OptIn(FlowPreview::class)
 @Composable
@@ -64,9 +68,13 @@ fun ReaderContent(
     // Cỡ chữ bền: nạp giá trị đã lưu khi mở; A−/A+ lưu lại ngay. Mặc định cho tới khi nạp xong.
     var fontScale by remember { mutableStateOf(SepiaTheme.DefaultFontScale) }
     var failure by remember(book.id) { mutableStateOf<String?>(null) }
+    // Vùng chọn chữ hiện hành (Mốc 3a: nhận từ JS; Mốc 3b: dựng Highlight). null = không chọn.
+    var selection by remember(book.id) { mutableStateOf<ReaderEvent.Selection?>(null) }
     var opened by remember(book.id) { mutableStateOf(false) }
     var ready by remember(book.id) { mutableStateOf(false) }
     val relocations = remember(book.id) { MutableStateFlow<ReaderEvent.Relocated?>(null) }
+
+    val clipboard = LocalClipboardManager.current
 
     val css = SepiaTheme.css(fontScale, variant.fontFallback)
 
@@ -106,6 +114,13 @@ fun ReaderContent(
                     val cfi = event.cfis.firstOrNull()
                     if (cfi != null) controller.goTo(cfi) else controller.goToFraction(book.progress)
                 }
+                is ReaderEvent.Tap -> when (event.zone) {
+                    TapZone.LEFT -> controller.prev()
+                    TapZone.CENTER -> uiVisible = !uiVisible
+                    TapZone.RIGHT -> controller.next()
+                }
+                is ReaderEvent.Selection -> selection = event
+                ReaderEvent.SelectionCleared -> selection = null
                 is ReaderEvent.Failure -> failure = "${event.where}: ${event.message}"
             }
         }
@@ -160,12 +175,7 @@ fun ReaderContent(
     Box(Modifier.fillMaxSize().background(Color(SepiaTheme.BackgroundArgb))) {
         ReaderSurface(controller = controller, currentBookPath = book.filePath, modifier = Modifier.fillMaxSize())
 
-        // Lớp chạm: 30% trái = trang trước, 40% giữa = ẩn/hiện thanh, 30% phải = trang sau.
-        Row(Modifier.fillMaxSize()) {
-            TapZone(0.3f) { controller.prev() }
-            TapZone(0.4f) { uiVisible = !uiVisible }
-            TapZone(0.3f) { controller.next() }
-        }
+        // Không còn lớp chạm Compose: cử chỉ do JS trong foliate xử lý (vuốt = paginator; tap = event.Tap).
 
         if (uiVisible) {
             ReaderTopBar(
@@ -176,6 +186,24 @@ fun ReaderContent(
                 onFontDec = { changeFontScale(fontScale - SepiaTheme.FontScaleStep) },
                 onFontInc = { changeFontScale(fontScale + SepiaTheme.FontScaleStep) },
                 modifier = Modifier.align(Alignment.TopCenter),
+            )
+        }
+
+        // SPIKE Mốc 3a: thanh chọn chữ Compose thay ActionMode hệ thống (đã chặn ở WebView).
+        // Mốc 3b sẽ thêm nút "Highlight"/ghi chú; 3a chỉ cần Sao chép + Bỏ chọn để kiểm luồng.
+        selection?.let { sel ->
+            SelectionBar(
+                rect = sel.rect,
+                onCopy = {
+                    clipboard.setText(AnnotatedString(sel.text))
+                    controller.clearSelection()
+                    selection = null
+                },
+                onDismiss = {
+                    controller.clearSelection()
+                    selection = null
+                },
+                modifier = Modifier.align(Alignment.TopStart),
             )
         }
 
@@ -190,13 +218,32 @@ fun ReaderContent(
     }
 }
 
+/**
+ * Thanh nổi cạnh vùng chọn (toạ độ `rect` theo CSS px của WebView ≈ dp). Đặt ngay dưới vùng chọn,
+ * kẹp vào mép trái. Mốc 3a: Sao chép (clipboard) + Bỏ chọn. Mốc 3b: thêm Highlight/ghi chú.
+ */
 @Composable
-private fun androidx.compose.foundation.layout.RowScope.TapZone(weight: Float, onClick: () -> Unit) {
-    val interaction = remember { MutableInteractionSource() }
-    Box(
-        Modifier.weight(weight).fillMaxHeight()
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick),
-    )
+private fun SelectionBar(
+    rect: SelectionRect,
+    onCopy: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val x = rect.x.coerceAtLeast(0f)
+    val y = (rect.y + rect.h + 4f).coerceAtLeast(0f)
+    Surface(
+        color = Color(0xF2F2E7D0),
+        shadowElevation = 4.dp,
+        modifier = modifier.offset(x = x.dp, y = y.dp),
+    ) {
+        Row(
+            Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            TextButton(onClick = onCopy) { Text("Sao chép", fontSize = 13.sp) }
+            TextButton(onClick = onDismiss) { Text("Bỏ chọn", fontSize = 13.sp) }
+        }
+    }
 }
 
 @Composable
