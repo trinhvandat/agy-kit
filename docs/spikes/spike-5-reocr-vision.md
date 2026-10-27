@@ -196,6 +196,56 @@ nguyên vẹn. **1/10 chưa đạt**: thân bài "Trương Trọng Cảnh" bị 
 đề của nó (lỗi reading-order của Docling, không phải lỗi chữ). Tiêu đề chạy "TỰ HỌC ĐÔNG Y | 23" đôi chỗ
 dính vào heading cột (Docling không gắn nhãn `page_header` ở trang này).
 
+### v5 → v5.1 (PIPELINE_VERSION 6) — **vá rò lớp chữ ABBYY** (nhánh `fix-hybrid-abbyy-leak`)
+
+**Lỗi phát hiện khi soát v5**: độ phủ **107.46%** ở bảng trên **KHÔNG** phải "đọc thêm chữ trong hình"
+mà là **rò lớp chữ ẩn ABBYY**. `extract_blocks_hybrid` fallback `text = item.text` (lớp ABBYY khi
+`do_ocr=False`) cho **TỪNG KHỐI** không nhận dòng Vision — kể cả trên trang **CÓ cache**. Hệ quả: EPUB
+v5 có **395 262** ký tự trong khi **toàn bộ** cache Vision chỉ **366 321** (~8.5k từ ABBYY lọt vào); lỗi
+đặc trưng ABBYY (nhiéu/điéu/vđi/Phưdng/xưong) xuất hiện trong EPUB nhưng **0 lần** trong cache; trang 87
+có **cả** bản Vision lẫn bản ABBYY (nhân đôi).
+
+**Sửa** (PIPELINE_VERSION 6): trang **CÓ cache** → khối chữ (heading/para/caption) không nhận dòng Vision
+nào thì **BỎ** (không lấy `item.text`), picture không chữ Vision → **ảnh không caption**; chỉ trang
+**KHÔNG cache** (fallback) mới giữ lớp chữ Docling/ABBYY. Dòng Vision **"trôi"** (không chồng khối Docling
+nào ≥20%) **không** còn bị nhét vào khối gần nhất (kéo chữ sang cột khác) mà **gom thành đoạn riêng, chèn
+theo vị trí (y)**. Đo lại cả cuốn (`spikes/spike5_v51_measure.py`):
+
+| Chỉ số (cả cuốn, 292 trang) | v5 (rò ABBYY) | **v5.1 / v6 (đã vá)** |
+|---|---|---|
+| Ký tự (không trắng) trong EPUB | 395 262 (**107%** cache) | **365 118 (≤ cache 366 321)** |
+| "Chữ ngoài nguồn" ở khối chữ (từ ∉ cache trang) | nhiều (~8.5k từ) | **0** |
+| Token lỗi ABBYY nhiéu/điéu/vđi/Phưdng/xưong | 9 / 7 / 7 / 4 / 4 | **0 / 0 / 0 / 0 / 0** |
+| Token `cùa` (18 rò + 2 thật trong cache) | 20 | **2** (= đúng mức cache) |
+| Bất biến A: từ khối ⊆ cache trang | — | **ĐẠT** |
+| Bất biến B: mỗi dòng cache dùng 1 lần (assigned+floating=11 889=cache) | — | **ĐẠT** |
+| Khối chữ rỗng trên trang có cache bị bỏ | — | **36** |
+| Build 2 lần byte-identical · epubcheck | ✓ · HỢP LỆ | **✓ · HỢP LỆ** |
+
+→ **Rò ABBYY đã hết** (bất biến A/B đạt, ký tự ≤ cache, token lỗi về mức cache). Đây là mục tiêu chính
+của nhánh và **đã đạt**.
+
+**CÒN MỞ (chưa đạt cổng — cần quyết định trước khi merge):**
+
+1. **WER "tính chèn" (GT ↔ toàn trang theo thứ tự output)**: p23 **75.2%** / p101 **22.3%** / p186 **5.2%**
+   — **vượt** ngưỡng 5%. Nhưng số này **y hệt v5** (p23 74.6 / p101 22.3 / p186 5.2) → **không** do rò
+   ABBYY (số từ output trên 3 trang GT gần như không đổi v5→v6). Phân tích **bag-of-words** (bỏ thứ tự):
+   sai nội dung chỉ **4.7–9.4%**, còn WER theo thứ tự tới 75% → **~90% là do THỨ TỰ ĐỌC** lệch so với GT
+   chép tay (GT gom @prose rồi @label; trang thực xen kẽ nhiều cột + nhãn quanh sơ đồ). WER cửa-sổ
+   (độ chính xác từng khối) vẫn **2–4.5%**. ⇒ Cổng "WER tính chèn ≤5%" như định nghĩa **đo thứ tự**, không
+   đo rò chữ; với sách tra cứu nhiều cột gần như không thể đạt trừ khi thứ tự output khớp đúng GT.
+2. **Dòng trôi 20.4%** (2 427/11 889 dòng) — **> 5%**. Chẩn đoán: **2 416/2 427** dòng chồng **0%** với
+   MỌI khối (không phải "gần ngưỡng"); soi trang 101 thấy toạ độ Vision ↔ Docling **khớp đúng**
+   (overlap 0.6–0.99 ở nơi có khối) → **bác** giả thuyết "bbox lệch hệ toạ độ". Nguyên nhân thực:
+   **Docling phủ bố cục thưa trên trang scan** (nhiều trang chỉ ra 1 header + 1 `picture`, bỏ sót vùng
+   thân chữ) nên dòng Vision thân bài **nằm ngoài mọi khối**; 1 092 dòng trôi gần `section_header`,
+   865 gần `text`. Chỉnh ngưỡng/toạ độ **không** giúp (overlap = 0, không phải near-miss). Giảm số này cần
+   **đổi chiến lược map dòng→bố cục** khi Docling phủ thưa (vd: trang có khối phủ < X% dòng thì xếp dòng
+   trôi thành **một cột theo thứ tự Vision**) — việc lớn hơn phạm vi vá rò, nên **dừng để báo trước khi
+   tinh chỉnh tiếp** (đúng yêu cầu brief mục 2).
+3. **Bảng (`Table`) vẫn lấy chữ ABBYY**: 2 101 từ trong bảng ∉ cache Vision (route hybrid chưa thay chữ
+   bảng bằng Vision). Nằm ngoài "khối chữ" của bất biến A nhưng vẫn là **nguồn ABBYY còn lại**.
+
 ## Thiết kế tất định: OCR = **ingest một lần** + **cache** (ĐÃ hiện thực — ADR-009)
 
 **Vấn đề**: kết quả Vision **có thể đổi theo phiên bản macOS/Vision** → nếu OCR chạy **mỗi lần build**

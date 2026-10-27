@@ -11,6 +11,10 @@ extract/reflow/build_epub thuộc Mốc 1 (xem docs/07-roadmap.md).
 #     tra cứu — spike-4 §v4) → giữ lại "Tên gọi:"/"LẤY HUYỆT"… vốn bị v3 xoá nhầm → đầu ra đổi.
 # v5: route scan_ocr HYBRID — bố cục Docling + chữ Apple Vision từ cache (ADR-009) khi có cache;
 #     không có cache → giữ v4 (lớp chữ ẩn ABBYY). Chữ sách scan đúng hơn hẳn (SPIKE-5 WER→3.9%).
-PIPELINE_VERSION = 5
+# v6: vá rò lớp chữ ABBYY ở route hybrid — trên trang CÓ cache, khối không nhận dòng Vision nào thì
+#     BỎ (không lấy item.text ABBYY); picture không chữ Vision → ảnh không caption; dòng Vision
+#     "trôi" gom thành đoạn riêng chèn theo vị trí (không nhét vào khối khác cột). Trước đây v5 rò
+#     ~8.5k từ ABBYY vào EPUB (độ phủ 107%). → đầu ra trang scan có cache đổi (SPIKE-5 v5.1).
+PIPELINE_VERSION = 6
 
 __all__ = ["PIPELINE_VERSION"]
