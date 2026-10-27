@@ -68,10 +68,64 @@ Mẫu đo: **20 trang** = 2 trang chẩn đoán (p23=in trang 24, p101=in trang 
 Lỗi ABBYY **phá chữ thường gặp** → hỏng nghĩa khi đọc/tra/xuất ghi chú. Lỗi sót của Vision chủ yếu là
 **nhãn trên sơ đồ huyệt** và mẩu dính dòng — không phải văn xuôi — nên tác hại thấp hơn nhiều.
 
+> ⚠️ **Đính chính sau khi đo CER/WER (mục dưới)**: câu "lỗi Vision chủ yếu ở nhãn hình" **chỉ đúng
+> một phần**. Vision **vẫn** mắc lỗi **sai 1 dấu thanh trong thân bài** (`Tần→Tân`, `dược→được`,
+> `nhiều→nhiếu`, `bệnh→bênh`, `khôi→khi`, `lao→tao`…) — **cùng kiểu** lỗi ABBYY, chỉ **ít hơn ~4×**.
+
+## Soát lại (2026-10-27): thước đo âm tiết **bỏ sót** lỗi — đo CER/WER trên ground truth
+
+**Vấn đề của thước đo gốc.** "Tỷ lệ token không phải âm tiết Việt hợp lệ" **chỉ bắt được** lỗi làm
+chữ **hỏng cấu trúc âm tiết** (`phưdng`, `Dưđi`). Nó **bỏ sót toàn bộ** lỗi mà kết quả **vẫn là một
+âm tiết hợp lệ**: `phổi→phối`, `nằm→năm`, `mỏm→móm`, `của→cúa`, `dọc→doc`, `và→va`, `dược→được`…
+Đây lại chính là **đa số** lỗi còn sót. Vì vậy con số **0.11 %** (và cả **2.03 %** của ABBYY) **không
+phải tỷ lệ lỗi thật** — chúng là **cận dưới** rất lỏng.
+
+**Cách đo đúng.** Tự **chép tay ground truth** 3 trang từ ảnh 300 DPI (NFC), tách **văn xuôi** và
+**nhãn/chú thích hình**: **p23** (văn xuôi + nhiều cột), **p101** (văn xuôi *nghiêng* + nhãn sơ đồ),
+**p186** (chữ thuần một cột). GT ở `pdf-pipeline/spikes/gt/*.txt`. Đo **CER** (ký tự) + **WER** (từ)
+bằng Levenshtein, ghép GT↔OCR **theo từng khối** (`rapidfuzz.partial_ratio_alignment`, chịu được
+khác thứ tự đọc giữa 2 engine). Script: `spikes/spike5_cer_wer.py` — **không gọi Vision**, đọc văn bản
+OCR đã lưu → **chạy được ở CI Ubuntu**.
+
+```bash
+cd pdf-pipeline && uv run --with rapidfuzz python spikes/spike5_cer_wer.py   # mặc định trang 23 101 186
+```
+
+### Số liệu CER/WER (ground truth, 3 trang — 9 102 ký tự / 1 982 từ)
+
+| Trang | | CER văn xuôi | WER văn xuôi | CER nhãn hình | WER nhãn hình | **CER chung** | **WER chung** |
+|---|---|---|---|---|---|---|---|
+| **p23** (nhiều cột) | ABBYY | 6.81% | 24.69% | — | — | **6.81%** | **24.69%** |
+| | Vision | 3.08% | 5.61% | — | — | **3.08%** | **5.61%** |
+| **p101** (nghiêng+nhãn) | ABBYY | 1.70% | 6.02% | 5.88% | 17.39% | **3.54%** | **10.96%** |
+| | Vision | 0.15% | 0.67% | 1.04% | 3.91% | **0.54%** | **2.08%** |
+| **p186** (chữ thuần) | ABBYY | 2.30% | 7.22% | — | — | **2.30%** | **7.22%** |
+| | Vision | 1.20% | 3.38% | — | — | **1.20%** | **3.38%** |
+| **Tổng** | **ABBYY** | 4.27% | 15.01% | 5.88% | 17.39% | **4.46%** | **15.29%** |
+| **Tổng** | **Vision** | 1.89% | 3.94% | 1.04% | 3.91% | **1.79%** | **3.94%** |
+
+**Lỗi cấp từ** (thay/xoá/chèn, so GT): **ABBYY 242** (222 thay), **Vision 65** (50 thay). Trong số lỗi
+"thay", số lỗi mà kết quả **vẫn là âm tiết Việt hợp lệ** (→ **thước đo gốc BỎ SÓT**): **ABBYY 130/222**,
+**Vision 43/50**. Tức thước đo âm tiết chỉ "thấy" được **~40 %** lỗi ABBYY và **~14 %** lỗi Vision.
+
+### Diễn giải (trung thực hơn "18×")
+
+- **Vision vẫn thắng rõ**, nhưng mức thật là **CER ~2.5× / WER ~3.9×** (4.46→1.79 %, 15.29→3.94 %),
+  **không phải 18×**. Con số 18× là **ảo giác của thước đo mù** (chỉ đếm token vỡ cấu trúc).
+- **Chênh lệch lớn nhất ở nơi ABBYY hỏng hệ thống**: trang nhiều cột **p23** (WER 24.7→5.6 %, ~4.4×)
+  và nhãn hình **p101** (WER 17.4→3.9 %). Ở **chữ thuần p186** khoảng cách **hẹp lại** (7.2→3.4 %) vì
+  **cả hai** cùng vấp **mất ký tự cuối dòng do bóng gáy sách** (scan), không phải lỗi engine.
+- **Nhãn/chú thích hình**: Vision tốt hơn hẳn (WER 17.4→3.9 %) — đúng hướng, vì nhãn là nơi app sẽ
+  xuất ghi chú/tra cứu.
+- **Lỗi còn lại của Vision** (xem `cer_wer.json`) chủ yếu là **sai 1 dấu thanh** (ă/â, ể/ế, ỏ/ó…) rải
+  trong **cả thân bài lẫn nhãn** — **cùng bản chất** lỗi ABBYY, chỉ ít hơn. Không phải "chỉ ở nhãn hình"
+  như nhận định ban đầu. 10 ví dụ đại diện (kèm loại) ở cuối tài liệu.
+
 ## Kết luận
 
-- **A = CÓ, rõ rệt.** OCR lại từ ảnh bằng Apple Vision cho chữ đúng hơn ~18× ở token có dấu
-  (2.03 %→0.11 %), **~1 giây/trang**, **offline, 0 cài đặt** trên Mac. **A đủ tốt và đủ nhanh.**
+- **A = CÓ, rõ rệt.** OCR lại từ ảnh bằng Apple Vision cho chữ đúng hơn — đo trên ground truth:
+  **WER 15.3 %→3.9 % (~3.9×)**, **CER 4.5 %→1.8 % (~2.5×)** (con số "18×" theo thước đo âm tiết là
+  **ảo**, xem mục "Soát lại"). **~1 giây/trang**, **offline, 0 cài đặt** trên Mac. **A đủ tốt và đủ nhanh.**
 - **B không cần làm** như đường chính: A vừa đúng hơn vừa nhanh. Bảng nhầm + từ điển chỉ nên giữ như
   **bộ sửa phụ** cho ~0.11 % sót, hoặc cho máy **không phải Mac** (Vision không có) — không ưu tiên.
 
@@ -107,3 +161,28 @@ Lỗi ABBYY **phá chữ thường gặp** → hỏng nghĩa khi đọc/tra/xu�
 `out/spike5/summary.json`: `engine=apple-vision`, `dpi=300`, `level=accurate`,
 `ocr_sec_per_page≈0.80`, `render_sec_per_page≈0.21`, `est_full_book_min≈4.9` (macOS Sequoia, Vision
 chạy trên Neural Engine/GPU, không cần tải model rời).
+
+## Phụ lục — 10 lỗi Vision còn lại (đại diện, kèm loại)
+
+Trích từ `out/spike5/cer_wer.json` (50 lỗi "thay" của Vision). "Hợp lệ?" = kết quả có là âm tiết Việt
+hợp lệ không → nếu **có** thì **thước đo âm tiết gốc bỏ sót** lỗi này.
+
+| # | GT → Vision | Trang / ngữ cảnh | Loại | Hợp lệ? (metric bỏ sót) |
+|---|---|---|---|---|
+| 1 | `phổi → phối` | p101, thân bài **nghiêng** | sai 1 dấu (ổ→ố); chữ nghiêng khó hơn | ✅ |
+| 2 | `nằm → năm` | p101, **nhãn hình** | sai 1 dấu (ằ→ă) | ✅ |
+| 3 | `mỏm → móm` | p101, **nhãn hình** | sai 1 dấu (ỏ→ó) | ✅ |
+| 4 | `của → cúa` | p101, **nhãn hình** | sai 1 dấu (ủ→ú) | ✅ |
+| 5 | `dọc → doc` | p101, **nhãn hình** | mất dấu nặng | ✅ |
+| 6 | `dược → được` | p23, thân bài | nhầm phụ âm d→đ | ✅ |
+| 7 | `lao → tao` | p23, thân bài | nhầm phụ âm l→t | ✅ |
+| 8 | `khôi → khi` | p23, thân bài | mất nguyên âm ô | ✅ |
+| 9 | `nhiều → nhiếu` | p23, thân bài | sai 1 dấu (ề→ế) | ✅ |
+| 10 | `mùa, ngứa ngáy → mua, ngưa ngày` | p23, thân bài | **chuỗi** nhiều dấu sai (dính dòng) | ❌ |
+
+> **Nhận xét**: 43/50 lỗi "thay" của Vision là **sai 1 dấu nhưng vẫn ra âm tiết hợp lệ** (metric mù).
+> Phân bố **cả thân bài lẫn nhãn hình** (không chỉ nhãn). Chữ **nghiêng** (hàng 1) và **nhãn nhỏ**
+> (hàng 2–5) là nơi Vision dễ vấp nhất. Một nhóm lỗi **riêng** (không có trong bảng) là **mất ký tự
+> cuối dòng sát mép phải do bóng gáy sách** (`sức→sit`, `nên→nêr`, `táo→t°-`…) — **cả ABBYY lẫn Vision
+> đều mất như nhau**, là lỗi **scan**, không phải lỗi engine; có thể giảm bằng cách **chừa lề/deskew**
+> khi render ảnh trước khi OCR.

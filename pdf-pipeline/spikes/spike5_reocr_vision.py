@@ -107,8 +107,14 @@ def main() -> int:
             (OUT / f"p{pi:04d}_hidden.txt").write_text(hidden, encoding="utf-8")
             (OUT / f"p{pi:04d}_vision.txt").write_text(vision, encoding="utf-8")
 
-        rows.append({"page": pi, "hidden": _metrics(hidden), "vision": _metrics(vision),
-                     "ocr_seconds": round(ocr_t[-1], 3)})
+        rows.append(
+            {
+                "page": pi,
+                "hidden": _metrics(hidden),
+                "vision": _metrics(vision),
+                "ocr_seconds": round(ocr_t[-1], 3),
+            }
+        )
     doc.close()
 
     def _agg(key: str) -> dict:
@@ -116,13 +122,21 @@ def main() -> int:
         dia = sum(r[key]["diacritic_tokens"] for r in rows)
         ba = sum(r[key]["bad_all"] for r in rows)
         bd = sum(r[key]["bad_diacritic"] for r in rows)
-        return {"tokens": tot, "diacritic_tokens": dia, "bad_all": ba, "bad_diacritic": bd,
-                "bad_all_pct": round(ba / tot * 100, 2) if tot else 0.0,
-                "bad_diacritic_pct": round(bd / dia * 100, 2) if dia else 0.0}
+        return {
+            "tokens": tot,
+            "diacritic_tokens": dia,
+            "bad_all": ba,
+            "bad_diacritic": bd,
+            "bad_all_pct": round(ba / tot * 100, 2) if tot else 0.0,
+            "bad_diacritic_pct": round(bd / dia * 100, 2) if dia else 0.0,
+        }
 
     spp = sum(ocr_t) / len(ocr_t)
     summary = {
-        "pdf": pdf.name, "dpi": dpi, "level": level, "engine": "apple-vision",
+        "pdf": pdf.name,
+        "dpi": dpi,
+        "level": level,
+        "engine": "apple-vision",
         "pages_sampled": len(pages),
         "render_sec_per_page": round(sum(render_t) / len(render_t), 3),
         "ocr_sec_per_page": round(spp, 3),
@@ -135,8 +149,10 @@ def main() -> int:
 
     h, v = summary["hidden_abbyy"], summary["vision"]
     print(f"pages={len(pages)} dpi={dpi} level={level}")
-    print(f"render {summary['render_sec_per_page']}s/pg + Vision {summary['ocr_sec_per_page']}s/pg"
-          f"  → ~{summary['est_full_book_min']} phút/cuốn")
+    print(
+        f"render {summary['render_sec_per_page']}s/pg + Vision {summary['ocr_sec_per_page']}s/pg"
+        f"  → ~{summary['est_full_book_min']} phút/cuốn"
+    )
     print(f"HIDDEN (ABBYY): bad-âm-tiết ALL={h['bad_all_pct']}%  DẤU={h['bad_diacritic_pct']}%")
     print(f"VISION (ảnh)  : bad-âm-tiết ALL={v['bad_all_pct']}%  DẤU={v['bad_diacritic_pct']}%")
     print("→ out/spike5/summary.json")
