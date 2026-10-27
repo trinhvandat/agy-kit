@@ -62,13 +62,14 @@ def test_assign_lines_overlap_cross_floating() -> None:
             OcrLine("a", (0.1, 0.10, 0.4, 0.15), 0.9),  # trong A
             OcrLine("b", (0.6, 0.10, 0.9, 0.15), 0.8),  # trong B
             OcrLine("c", (0.38, 0.10, 0.56, 0.15), 0.95),  # vắt A|B (A nhiều hơn) → cross, gán A
-            OcrLine("d", (0.1, 0.80, 0.2, 0.85), 0.7),  # dưới cả hai → floating, gần A
+            OcrLine("d", (0.1, 0.80, 0.2, 0.85), 0.7),  # dưới cả hai → TRÔI (không nhét vào A/B)
         ]
     }
-    assigned, cross, floating = _assign_lines([a, b], lines)
-    assert (assigned, cross, floating) == (3, 1, 1)
-    assert [ln.text for ln in a.lines] == ["a", "c", "d"]
+    assigned, cross, floating_by_page = _assign_lines([a, b], lines)
+    assert (assigned, cross) == (3, 1)
+    assert [ln.text for ln in a.lines] == ["a", "c"]  # "d" KHÔNG còn bị nhét vào khối gần nhất
     assert [ln.text for ln in b.lines] == ["b"]
+    assert floating_by_page == {1: [lines[0][3]]}  # "d" trả riêng theo trang Docling 1-based
 
 
 def test_target_text_keeps_vision_order_and_min_conf() -> None:
