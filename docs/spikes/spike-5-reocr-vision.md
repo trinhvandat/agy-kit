@@ -165,7 +165,38 @@ nhiều cột). **~2.9s/trang** (Docling layout + 1 lần Vision). **Đây là h
 > (`fixtures/layout_summary.json`); <100% ở vài trang gần toàn ảnh (p265/p280), >100% khi Vision đọc
 > thêm chữ trong hình mà lớp ẩn xếp chỗ khác.
 
-## Thiết kế tất định: OCR = **ingest một lần** + **cache** (CHƯA code vào `convert`)
+### Kết quả cả cuốn — v4 (ABBYY) → v5 (hybrid) — ĐÃ HIỆN THỰC
+
+Route `scan_ocr` hybrid đã vào pipeline (`sepia_pipeline/ocr_hybrid.py`, PIPELINE_VERSION 5, ADR-009).
+Đo trên **cả cuốn** mẫu (292 trang) bằng `spikes/spike5_v5_measure.py` (cache OCR từ lệnh `ocr`):
+
+| Chỉ số | v4 (Docling + lớp ẩn ABBYY) | **v5 (hybrid Docling + Vision)** |
+|---|---|---|
+| **WER** p23 / p101 / p186 (GT) | 24.31 / 11.15 / 7.37 % | **4.36 / 2.08 / 3.38 %** |
+| **CER** p23 / p101 / p186 | 6.89 / 3.70 / 2.50 % | **1.76 / 0.54 / 1.20 %** |
+| Âm tiết sai cấu trúc (toàn cuốn) | 2.58 % | **0.54 %** |
+| Độ phủ chữ (so lớp ẩn PDF) | 95.38 % | **107.46 %** (đọc thêm chữ trong hình) |
+| Heading / đoạn / ảnh | 712 / 1712 / 180 | 720 / 1726 / **163** |
+| Dòng Vision vắt ≥2 khối (cross) | — | **15** |
+| Thời gian trích (Docling, CPU) | 35.8 s | 39.2 s *(+ ingest OCR ~5 phút/cuốn, một lần)* |
+| Build 2 lần **byte-identical** | ✓ | **✓** |
+| epubcheck | HỢP LỆ | **HỢP LỆ** |
+
+→ **Đạt cổng chất lượng** (WER 3 trang GT đều **≤ 5 %**). Chữ sách scan đúng hơn hẳn (WER p23 **24→4 %**),
+giữ bố cục Docling (reading-order nhiều cột + cắt hình), **tất định**, EPUB **hợp lệ**.
+
+**Lỗi quan trọng đã sửa khi hiện thực**: trang có **sơ đồ**, Docling gộp cả hình + mọi nhãn vào **một
+khối `picture`** (không tách nhãn thành khối con). Nếu **sắp lại dòng Vision theo (y, x)** trong khối đó
+→ **quét ngang trộn các cột nhãn** (p101 WER vọt lên **29 %**). Sửa: **giữ nguyên thứ tự dòng Vision gốc**
+trong mỗi khối (Vision đọc nhiều cột đã hợp lý) → p101 về **2.08 %**.
+
+**Spot-check thứ tự đọc nhiều cột (p23, 10 đoạn, đối chiếu ảnh trang)**: Docling tuyến tính hoá **theo
+cột** (xuống hết cột trái → giữa → phải) — hợp lý cho reflow; **9/10 Đạt**, mỗi khối tiểu sử đúng chữ +
+nguyên vẹn. **1/10 chưa đạt**: thân bài "Trương Trọng Cảnh" bị Docling đặt **cuối trang**, rời khỏi tiêu
+đề của nó (lỗi reading-order của Docling, không phải lỗi chữ). Tiêu đề chạy "TỰ HỌC ĐÔNG Y | 23" đôi chỗ
+dính vào heading cột (Docling không gắn nhãn `page_header` ở trang này).
+
+## Thiết kế tất định: OCR = **ingest một lần** + **cache** (ĐÃ hiện thực — ADR-009)
 
 **Vấn đề**: kết quả Vision **có thể đổi theo phiên bản macOS/Vision** → nếu OCR chạy **mỗi lần build**
 thì EPUB **không còn tất định** (phá NFR; đối lập với kết quả byte-identical ở SPIKE-4). Thêm nữa: **CI
@@ -216,8 +247,9 @@ commit** (292 trang có thể lớn); **commit mẫu nhỏ** cho test (đúng nh
 kiểm **byte-identical**, **không gọi Vision**. `spikes/spike5_cer_wer.py` (đọc fixtures, không Vision)
 đã chứng minh nguyên tắc "test chạy từ cache" khả thi trên CI.
 
-> **Ứng viên ADR mới (CHƯA chốt)**: "OCR = bước ingest một lần, cache theo `bookUid`+engine+phiên bản;
-> `build_epub` tất định từ cache, không OCR trong build". Khi chốt hướng → ghi docs/03 §5 + ADR.
+> **ĐÃ CHỐT → [ADR-009](../05-tech-decisions.md#adr-009--ocr-lại-sách-scan-bằng-apple-vision-lúc-ingest-cache-theo-sách-build-epub-chỉ-đọc-cache)**:
+> "OCR = ingest một lần, cache theo `bookUid`+engine+phiên bản; `build_epub` tất định từ cache, không
+> OCR trong build". Hiện thực: `sepia_pipeline/ocr_cache.py` + `ocr_vision.py` + `ocr_hybrid.py`; docs/03 §5.1.
 
 ## Kết luận
 

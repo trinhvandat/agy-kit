@@ -90,6 +90,25 @@ mặc định `auto`):
 - Cả hai engine đổ về **cùng một mô hình trung gian** (Heading/Paragraph/Table/ImageBlock) → **một
   đường dựng EPUB duy nhất** (`build_epub`). (Chi tiết [05-tech-decisions.md](./05-tech-decisions.md) ADR-004.)
 
+### 5.1 Route `scan_ocr` HYBRID — bố cục Docling + chữ Apple Vision (PIPELINE_VERSION 5, ADR-009)
+
+Sau SPIKE-5: lớp chữ ẩn ABBYY lỗi dấu hệ thống (WER ~15%). **OCR lại bằng Apple Vision** (~4% WER) —
+nhưng chỉ chạy macOS và có thể đổi theo phiên bản OS. Giải pháp **2 bước**:
+
+1. **Ingest một lần** (`sepia-pipeline ocr <pdf>`, chỉ macOS, extra `ocr-mac`): render trang 300 DPI →
+   Apple Vision (`vi-VT`) → **cache đĩa** (`sepia_pipeline/ocr_cache.py`), khoá theo SHA-256 PDF +
+   engine + phiên bản macOS/Vision; mỗi dòng = text (NFC) + bbox chuẩn hoá + độ tin.
+2. **`convert` (route hybrid)**: với cuốn `scan_ocr` **có cache hợp lệ** + đã cài Docling →
+   Docling(`do_ocr=False`) lấy **khối + bbox + thứ tự đọc**, rồi **gán mỗi dòng Vision vào khối chồng
+   lấn nhiều nhất** (theo diện tích) → chữ Vision + bố cục Docling (`ocr_hybrid.py`). Dòng vắt ≥2 khối
+   (gộp cột) → gán theo chồng lấn lớn nhất + **đếm & cảnh báo**. Độ tin lưu trong model (**chưa** xuất
+   EPUB). Trang không có cache → **giữ chữ Docling/ABBYY** (v4).
+
+**Tất định**: `convert` **không OCR trong build** — chỉ đọc cache → EPUB byte-identical trên mọi máy
+(kể cả CI Ubuntu không-Vision, dùng cache fixture). Cache **miss**/engine khác → **giữ v4** + cảnh báo
+(không tự OCR). Vì sao không để Docling tự gọi Vision (gọn hơn): SPIKE-5 cho thấy chữ **tệ ~10×** (lỗi
+trong khâu OCR nội bộ Docling). Số liệu v4 → v5: [spikes/spike-5-reocr-vision.md](./spikes/spike-5-reocr-vision.md).
+
 ## 6. Bước 4 — Reflow (`reflow.py`) — US-A4 (đã đơn giản hóa)
 
 - **Bỏ header/footer/số trang**: phát hiện block lặp lại ở cùng vị trí y trên nhiều trang (so string similarity); regex xóa dòng chỉ gồm số ở mép trang.

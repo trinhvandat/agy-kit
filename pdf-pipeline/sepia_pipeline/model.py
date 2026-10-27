@@ -115,6 +115,9 @@ class Heading:
     level: int
     page: int
     top_ratio: float | None = None
+    confidence: float | None = (
+        None  # độ tin OCR (route hybrid); KHÔNG xuất EPUB — dành đánh dấu sau
+    )
 
 
 @dataclass(frozen=True)
@@ -122,11 +125,15 @@ class Paragraph:
     """Một đoạn văn đã ghép dòng → ``<p>``.
 
     ``top_ratio``: xem :class:`Heading` (chỉ đường Docling ghi; heuristic để ``None``).
+    ``confidence``: độ tin OCR thấp nhất của các dòng Vision gộp vào (route hybrid); ``None`` nếu
+    không từ OCR. **Chỉ dùng nội bộ** — build_epub KHÔNG xuất ra EPUB (dành cho việc đánh dấu chữ
+    không chắc về sau).
     """
 
     text: str
     page: int
     top_ratio: float | None = None
+    confidence: float | None = None
 
 
 @dataclass(frozen=True)
