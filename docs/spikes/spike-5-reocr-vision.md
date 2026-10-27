@@ -121,6 +121,50 @@ cd pdf-pipeline && uv run --with rapidfuzz python spikes/spike5_cer_wer.py   # m
   trong **cả thân bài lẫn nhãn** — **cùng bản chất** lỗi ABBYY, chỉ ít hơn. Không phải "chỉ ở nhãn hình"
   như nhận định ban đầu. 10 ví dụ đại diện (kèm loại) ở cuối tài liệu.
 
+## Tích hợp bố cục: Docling + Vision (2026-10-27)
+
+Spike đo "đúng ký tự" chưa dựng bố cục. Thử 2 hướng đưa Vision vào đường `scan_ocr` (giữ reading-order
++ cắt hình của Docling — SPIKE-4). Script: `spikes/spike5_layout.py` (gọn) và `spikes/spike5_hybrid.py`
+(hướng 2). Cần `uv sync --extra docling` + `--with ocrmac` (chỉ macOS).
+
+### Hướng A (gọn) — Docling + `OcrMacOptions` (Apple Vision) — **CHẠY ĐƯỢC nhưng chữ TỆ**
+
+Docling **2.142.1 có sẵn** engine Apple Vision (`OcrMacOptions`, `framework="vision"`,
+`recognition="accurate"`, `lang=["vi-VT"]`, `force_full_page_ocr=True`). Chạy **1.6s/trang**, bố cục tốt
+(**27 hình**/13 trang; p23 reading-order **đúng** — đoạn mở đầu ra trước). **Nhưng text tệ hơn ~10×**:
+
+| | p23 | p101 | p186 |
+|---|---|---|---|
+| **WER Docling+Vision (gọn)** | **28.93%** | **20.23%** | 10.91% |
+| WER Vision chạy thẳng (raw) | 5.61% | 2.08% | 3.38% |
+
+→ Hướng gọn cho chữ **còn tệ hơn cả ABBYY lớp ẩn** (WER chung 15.3%) ⇒ **mất sạch** lợi thế Vision.
+**Truy nguyên** (quan trọng): **không** phải lỗi Vision/ocrmac/ngôn ngữ/renderer/DPI — `ocrmac` chạy
+thẳng trên ảnh **PyMuPDF _và_ pypdfium2** đều cho **WER ~2%** (p101), và **nâng `scale` lên 300/432 DPI
+không cứu được**. Lỗi nằm **bên trong khâu OCR của Docling** (cách nó cắt vùng/ghép cell). ⇒ Hướng gọn
+**chưa dùng được** nếu không vá Docling.
+
+### Hướng B (hướng 2 của brief) — **bố cục Docling + chữ Vision theo toạ độ** — **ĐẠT**
+
+Docling(`do_ocr=False`) lấy **khối + bbox + thứ tự đọc**; OCR **cả trang một lần** bằng Vision (chất
+lượng raw); gán mỗi **dòng Vision** vào khối Docling **chứa tâm dòng** (bbox chuẩn hoá); xuất theo thứ
+tự khối Docling. `spikes/spike5_hybrid.py`:
+
+| Trang | CER | WER | Hình (Docling) | Thứ tự đọc |
+|---|---|---|---|---|
+| **p23** (nhiều cột) | **1.97%** | **4.49%** | 7 | đoạn mở đầu ra trước ✓ |
+| **p101** (nghiêng+nhãn) | **3.20%** | **4.54%** | 1 | ✓ |
+| **p186** (chữ thuần) | **1.20%** | **3.38%** | 0 | ✓ |
+
+→ **Chất lượng chữ ≈ Vision raw** (WER ~3.9%), **đồng thời giữ bố cục Docling** (hình + reading-order
+nhiều cột). **~2.9s/trang** (Docling layout + 1 lần Vision). **Đây là hướng tích hợp khuyến nghị.**
+
+> Đánh đổi còn lại của hướng B: việc gán dòng→khối theo bbox làm **nhãn nhỏ** đôi chỗ bị tách/gộp
+> (p101 WER 4.54% hơi cao hơn raw 2.08%) — chấp nhận được, vẫn **≪** hướng gọn. Có thể tinh chỉnh gán
+> theo chồng lấn diện tích thay vì chỉ tâm dòng. Độ phủ chữ (Docling+Vision so lớp ẩn) ~56–120%/trang
+> (`fixtures/layout_summary.json`); <100% ở vài trang gần toàn ảnh (p265/p280), >100% khi Vision đọc
+> thêm chữ trong hình mà lớp ẩn xếp chỗ khác.
+
 ## Kết luận
 
 - **A = CÓ, rõ rệt.** OCR lại từ ảnh bằng Apple Vision cho chữ đúng hơn — đo trên ground truth:
@@ -148,9 +192,9 @@ cd pdf-pipeline && uv run --with rapidfuzz python spikes/spike5_cer_wer.py   # m
 
 ## Việc nên làm tiếp (nếu chốt hướng OCR-lại-Vision cho `scan_ocr`)
 
-- Dựng **prototype "thay chữ theo dòng"**: Docling/PyMuPDF giữ khối + bbox, Vision cấp chữ, khớp theo
-  toạ độ dòng; đo lại độ phủ + đọc thử KOReader.
-- Thiết kế **cache OCR theo `bookUid`** để giữ tất định (điểm 2) — ghi vào docs/03 §5 và cân nhắc ADR mới.
+- ✅ **ĐÃ LÀM** prototype "thay chữ theo dòng" (`spikes/spike5_hybrid.py`) — xem mục "Tích hợp bố cục"
+  hướng B (WER ~4.5%, giữ bố cục). Còn lại: **đọc thử KOReader** + tinh gán bbox theo chồng lấn diện tích.
+- Thiết kế **cache OCR theo `bookUid`** để giữ tất định — xem mục "Thiết kế tất định" bên dưới.
 - Thêm **mẫu scan khác** (nguồn OCR khác ABBYY, và 1 scan **không có** lớp chữ) để xác nhận Vision
   tổng quát, không chỉ hợp mẫu này.
 - Nếu chốt: cập nhật **R-11** (cửa quyết định OCR → có engine khả thi), **docs/03-pdf-pipeline.md §5**,

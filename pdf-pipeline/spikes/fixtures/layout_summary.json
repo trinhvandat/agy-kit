@@ -1,0 +1,121 @@
+{
+  "engine": "docling+apple-vision (OcrMacOptions, vi-VT, full_page, accurate)",
+  "docling": "2.142.1",
+  "pages": [
+    23,
+    101,
+    186,
+    25,
+    55,
+    85,
+    115,
+    145,
+    175,
+    205,
+    235,
+    265,
+    280
+  ],
+  "seconds_total": 21.26,
+  "seconds_per_page": 1.64,
+  "total_pictures": 27,
+  "per_page": [
+    {
+      "page": 23,
+      "docling_vision_chars": 3812,
+      "hidden_chars": 3940,
+      "coverage_vs_hidden_pct": 96.8,
+      "pictures": 7,
+      "cer_pct": 8.86,
+      "wer_pct": 28.93
+    },
+    {
+      "page": 101,
+      "docling_vision_chars": 2434,
+      "hidden_chars": 2489,
+      "coverage_vs_hidden_pct": 97.8,
+      "pictures": 1,
+      "cer_pct": 6.03,
+      "wer_pct": 20.23
+    },
+    {
+      "page": 186,
+      "docling_vision_chars": 3345,
+      "hidden_chars": 3100,
+      "coverage_vs_hidden_pct": 107.9,
+      "pictures": 0,
+      "cer_pct": 3.67,
+      "wer_pct": 10.91
+    },
+    {
+      "page": 25,
+      "docling_vision_chars": 1220,
+      "hidden_chars": 1460,
+      "coverage_vs_hidden_pct": 83.6,
+      "pictures": 2
+    },
+    {
+      "page": 55,
+      "docling_vision_chars": 860,
+      "hidden_chars": 842,
+      "coverage_vs_hidden_pct": 102.1,
+      "pictures": 1
+    },
+    {
+      "page": 85,
+      "docling_vision_chars": 412,
+      "hidden_chars": 428,
+      "coverage_vs_hidden_pct": 96.3,
+      "pictures": 1
+    },
+    {
+      "page": 115,
+      "docling_vision_chars": 401,
+      "hidden_chars": 407,
+      "coverage_vs_hidden_pct": 98.5,
+      "pictures": 2
+    },
+    {
+      "page": 145,
+      "docling_vision_chars": 1785,
+      "hidden_chars": 1739,
+      "coverage_vs_hidden_pct": 102.6,
+      "pictures": 1
+    },
+    {
+      "page": 175,
+      "docling_vision_chars": 1276,
+      "hidden_chars": 1171,
+      "coverage_vs_hidden_pct": 109.0,
+      "pictures": 2
+    },
+    {
+      "page": 205,
+      "docling_vision_chars": 1216,
+      "hidden_chars": 1017,
+      "coverage_vs_hidden_pct": 119.6,
+      "pictures": 1
+    },
+    {
+      "page": 235,
+      "docling_vision_chars": 2387,
+      "hidden_chars": 2417,
+      "coverage_vs_hidden_pct": 98.8,
+      "pictures": 9
+    },
+    {
+      "page": 265,
+      "docling_vision_chars": 1391,
+      "hidden_chars": 2468,
+      "coverage_vs_hidden_pct": 56.4,
+      "pictures": 0
+    },
+    {
+      "page": 280,
+      "docling_vision_chars": 1491,
+      "hidden_chars": 2210,
+      "coverage_vs_hidden_pct": 67.5,
+      "pictures": 0
+    }
+  ]
+}
