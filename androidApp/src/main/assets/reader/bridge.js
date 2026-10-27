@@ -88,7 +88,9 @@ function onRelocate(e) {
     const anchor = extractAnchor(loc.range)
     post('relocated', {
       cfi: loc.cfi || '',
-      fraction: typeof loc.fraction === 'number' ? loc.fraction : 0,
+      // Number.isFinite loại cả NaN (typeof NaN === 'number' nên check 'number' KHÔNG đủ; NaN →
+      // JSON.stringify ra null → Kotlin parse lỗi). foliate có thể trả NaN lúc mở ở đầu sách.
+      fraction: Number.isFinite(loc.fraction) ? loc.fraction : 0,
       snippet: anchor.snippet,
       prefix: anchor.prefix,
       suffix: anchor.suffix,

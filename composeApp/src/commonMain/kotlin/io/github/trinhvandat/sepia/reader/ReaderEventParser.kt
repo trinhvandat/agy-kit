@@ -13,7 +13,9 @@ import kotlinx.serialization.json.Json
  * An toàn: payload hỏng → [ReaderEvent.Failure] (không ném); method lạ → null (bỏ qua).
  */
 object ReaderEventParser {
-    private val json = Json { ignoreUnknownKeys = true }
+    // coerceInputValues: JSON `null` cho field không-null có mặc định → dùng mặc định (vd fraction=NaN
+    // → JSON.stringify ra null → về 0f) thay vì ném, tránh banner "Lỗi trình đọc" (Việc 2).
+    private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true }
 
     fun parse(method: String, params: String): ReaderEvent? = when (method) {
         "bridgeReady" -> ReaderEvent.BridgeReady

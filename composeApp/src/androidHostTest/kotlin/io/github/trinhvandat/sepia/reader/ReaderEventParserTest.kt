@@ -115,6 +115,20 @@ class ReaderEventParserTest {
     }
 
     @Test
+    fun relocatedWithNullFractionBecomesZeroNotFailure() {
+        // foliate có thể phát relocate với fraction=NaN lúc mở ở đầu sách → JSON.stringify → null.
+        // Parser phải coi null là 0 (coerceInputValues), KHÔNG Failure (tránh banner lỗi — Việc 2).
+        val event = assertIs<ReaderEvent.Relocated>(
+            ReaderEventParser.parse(
+                "relocated",
+                """{"cfi":"epubcfi(/6/2!/4)","fraction":null,"snippet":"","prefix":"","suffix":""}""",
+            ),
+        )
+        assertEquals(0f, event.fraction)
+        assertEquals("epubcfi(/6/2!/4)", event.cfi)
+    }
+
+    @Test
     fun parsesEmptyReanchorCandidates() {
         val event = assertIs<ReaderEvent.ReanchorResult>(
             ReaderEventParser.parse("reanchorResult", """{"token":"pos","candidates":[]}"""),
