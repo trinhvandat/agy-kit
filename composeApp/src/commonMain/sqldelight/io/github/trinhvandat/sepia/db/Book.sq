@@ -11,6 +11,7 @@ CREATE TABLE Book (
     contentHash       TEXT    NOT NULL,                -- SHA-256 của file EPUB (đổi mỗi lần build lại)
     pipelineVersion   INTEGER NOT NULL,                -- Long trong DB; map Int ở domain (tránh adapter)
     sourcePdfName     TEXT,
+    source            TEXT    NOT NULL DEFAULT 'import',  -- 'import' (người dùng thêm) hay 'pack' (kèm sẵn trong APK)
     addedAt           INTEGER NOT NULL,                -- epoch ms
     sortIndex         INTEGER NOT NULL,                -- Long trong DB; map Int ở domain
     positionCfi       TEXT,
@@ -38,11 +39,11 @@ SELECT coalesce(max(sortIndex), -1) FROM Book;
 insert:
 INSERT INTO Book(
     id, bookUid, title, author, filePath, coverPath, contentHash, pipelineVersion,
-    sourcePdfName, addedAt, sortIndex, positionCfi, positionSnippet, positionPrefix,
+    sourcePdfName, source, addedAt, sortIndex, positionCfi, positionSnippet, positionPrefix,
     positionSuffix, progress, positionUpdatedAt
 ) VALUES (
     :id, :bookUid, :title, :author, :filePath, :coverPath, :contentHash, :pipelineVersion,
-    :sourcePdfName, :addedAt, :sortIndex, :positionCfi, :positionSnippet, :positionPrefix,
+    :sourcePdfName, :source, :addedAt, :sortIndex, :positionCfi, :positionSnippet, :positionPrefix,
     :positionSuffix, :progress, :positionUpdatedAt
 );
 

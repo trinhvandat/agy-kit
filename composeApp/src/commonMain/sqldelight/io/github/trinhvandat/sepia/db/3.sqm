@@ -1,0 +1,9 @@
+-- Migration schema v3 → v4: thêm Book.source (import/pack) + bảng DeletedPackBook (Content Pack).
+-- Giữ nguyên bảng Book + Setting + Highlight + toàn bộ dữ liệu trên máy đã cài.
+-- Khớp Book.sq + DeletedPackBook.sq (bản cài mới chạy Schema.create; máy cũ chạy migration này).
+ALTER TABLE Book ADD COLUMN source TEXT NOT NULL DEFAULT 'import';
+
+CREATE TABLE DeletedPackBook (
+    bookUid   TEXT    NOT NULL PRIMARY KEY,
+    deletedAt INTEGER NOT NULL
+);

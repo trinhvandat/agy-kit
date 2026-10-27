@@ -35,6 +35,8 @@ class BookRepositoryImpl(
             contentHash = book.contentHash,
             pipelineVersion = book.pipelineVersion.toLong(),
             sourcePdfName = book.sourcePdfName,
+            // TODO(Task 6): domain Book chưa có field `source` — tạm literal "import" để compile.
+            source = "import",
             addedAt = book.addedAt,
             sortIndex = book.sortIndex.toLong(),
             positionCfi = book.positionCfi,
@@ -108,6 +110,8 @@ class BookRepositoryImpl(
         contentHash: String,
         pipelineVersion: Long,
         sourcePdfName: String?,
+        // TODO(Task 6): domain Book chưa có field `source` — bind để khớp mapper, chưa dùng.
+        @Suppress("UNUSED_PARAMETER") source: String,
         addedAt: Long,
         sortIndex: Long,
         positionCfi: String?,

@@ -43,12 +43,23 @@ class DatabaseMigrationTest {
         SepiaDatabase.Schema.migrate(driver, 2L, 3L)
 
         val db = SepiaDatabase(driver)
-        // Book còn nguyên (kể cả vị trí đọc).
-        val book = db.bookQueries.selectById("b1") { id, _, title, _, _, _, _, _, _, _, _, _, _, _, _, progress, _ ->
-            title to progress
-        }.executeAsOne()
-        assertEquals("Sách cũ", book.first)
-        assertEquals(0.33, book.second)
+        // Book còn nguyên (kể cả vị trí đọc). Dùng SQL thô (không qua bookQueries.selectById) vì
+        // mapper đó được sinh theo Book.sq mới nhất (có `source`, thêm ở Mốc sau) — ở đây DB mới
+        // chỉ migrate tới v3 nên chưa có cột đó.
+        val title = driver.executeQuery(
+            null,
+            "SELECT title FROM Book WHERE id = 'b1'",
+            { cursor -> app.cash.sqldelight.db.QueryResult.Value(if (cursor.next().value) cursor.getString(0) else null) },
+            0,
+        ).value
+        val progress = driver.executeQuery(
+            null,
+            "SELECT progress FROM Book WHERE id = 'b1'",
+            { cursor -> app.cash.sqldelight.db.QueryResult.Value(if (cursor.next().value) cursor.getDouble(0) else null) },
+            0,
+        ).value
+        assertEquals("Sách cũ", title)
+        assertEquals(0.33, progress)
         // Setting còn nguyên.
         assertEquals("120", db.settingsQueries.get("reader.fontScalePercent").executeAsOne())
         // Bảng Highlight mới dùng được.
@@ -58,5 +69,51 @@ class DatabaseMigrationTest {
             status = "active", progress = 0.33, createdAt = 1, updatedAt = 1,
         )
         assertEquals(1, db.highlightQueries.selectByBook("b1") { id, _, _, _, _, _, _, _, _, _, _, _, _, _ -> id }.executeAsList().size)
+    }
+
+    @Test
+    fun migrateV3ToV4AddsSourceAndDeletedPackBookTombstone() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        // --- Dựng schema v3 (Book Mốc 2 + Setting + Highlight Mốc 3b, chưa có source) ---
+        driver.execute(null, bookDdlV2, 0)
+        driver.execute(null, "CREATE INDEX Book_sort ON Book(sortIndex, addedAt)", 0)
+        driver.execute(null, "CREATE TABLE Setting (key TEXT NOT NULL PRIMARY KEY, value TEXT NOT NULL)", 0)
+        driver.execute(
+            null,
+            """CREATE TABLE Highlight (
+                id TEXT NOT NULL PRIMARY KEY, bookId TEXT NOT NULL, kind TEXT NOT NULL,
+                cfiRange TEXT NOT NULL, textSnippet TEXT NOT NULL, prefix TEXT NOT NULL,
+                suffix TEXT NOT NULL, contentHash TEXT NOT NULL, color TEXT NOT NULL, note TEXT,
+                status TEXT NOT NULL, progress REAL NOT NULL DEFAULT 0.0,
+                createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL,
+                FOREIGN KEY(bookId) REFERENCES Book(id) ON DELETE CASCADE
+            )""",
+            0,
+        )
+        // --- Dữ liệu người dùng đã có ở v3 ---
+        driver.execute(
+            null,
+            """INSERT INTO Book(id, bookUid, title, author, filePath, contentHash, pipelineVersion,
+               addedAt, sortIndex, progress, positionUpdatedAt)
+               VALUES('b1','sepia:b1','Sách cũ','TG','/b/b1.epub','h1',1,100,0,0.33,100)""",
+            0,
+        )
+
+        // --- Migrate v3 → v4 (chạy 3.sqm) ---
+        SepiaDatabase.Schema.migrate(driver, 3L, 4L)
+
+        // Book.source mới thêm phải default 'import' cho dữ liệu cũ.
+        val source = driver.executeQuery(
+            null,
+            "SELECT source FROM Book WHERE id = 'b1'",
+            { cursor -> app.cash.sqldelight.db.QueryResult.Value(if (cursor.next().value) cursor.getString(0) else null) },
+            0,
+        ).value
+        assertEquals("import", source)
+
+        // Bảng DeletedPackBook mới dùng được.
+        val db = SepiaDatabase(driver)
+        db.deletedPackBookQueries.insertDeleted("sepia:x", 1)
+        assertEquals(listOf("sepia:x"), db.deletedPackBookQueries.selectDeletedUids().executeAsList())
     }
 }
