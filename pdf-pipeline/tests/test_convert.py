@@ -50,7 +50,8 @@ def test_convert_produces_epub(book_pdf: Path, tmp_path: Path) -> None:
     report = convert_pdf(book_pdf, out, run_check=False)
     assert out.exists()
     assert report.epub.book_uid.startswith("sepia:")
-    assert report.epub.n_chapters >= 2  # ≥ 2 chương cấp 1
+    # v8: sách nhỏ (fixture vài đoạn ngắn) gộp vào 1 file — chia nhỏ chỉ khi > ~10k ký tự.
+    assert report.epub.n_chapters >= 1
     assert report.n_image_pages == 1
     assert report.epub.n_images == 1
     assert report.quality.n_headings >= 2

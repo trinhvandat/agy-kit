@@ -26,6 +26,12 @@ object SepiaTheme {
     const val HSmallEm = 1.1 // h3–h6
     const val FigcaptionEm = 0.85
 
+    // Bảng: co vừa bề rộng cột (table-layout fixed) để KHÔNG tràn ngang/cắt cột trên điện thoại
+    // (bảng 4–5 cột sách scan trước đây bị cắt mép phải). Chữ nhỏ hơn + ngắt từ dài cho đỡ chật.
+    const val TableFontEm = 0.8
+    const val TableLineHeight = 1.35
+    const val TableBorderHex = "#B9A38A" // viền nâu nhạt hợp nền sepia (thay #999 xám của EPUB)
+
     /**
      * CSS tiêm vào từng tài liệu chương (foliate renderer.setStyles), **ghi đè CSS của sách**.
      * @param fontScalePercent cỡ chữ người dùng (100 = mặc định); đặt ở `html` nên mọi cỡ `rem`/`em`
@@ -72,6 +78,23 @@ object SepiaTheme {
                 font-style: italic !important;
                 opacity: 0.8;
                 text-align: center;
+            }
+            table {
+                width: 100% !important;
+                table-layout: fixed !important;
+                border-collapse: collapse !important;
+                font-size: ${TableFontEm}em !important;
+                line-height: $TableLineHeight !important;
+                margin: 1em 0 !important;
+            }
+            td, th {
+                border: 1px solid $TableBorderHex !important;
+                padding: 3px 5px !important;
+                vertical-align: top !important;
+                text-align: left !important;
+                word-break: break-word !important;
+                overflow-wrap: anywhere !important;
+                hyphens: none !important;
             }
             a, a:visited { color: $ForegroundHex !important; }
         """.trimIndent()

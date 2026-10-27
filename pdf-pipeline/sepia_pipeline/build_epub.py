@@ -62,11 +62,13 @@ def _css(font_family: str) -> str:
     )
 
 
-# Chia file: chỉ tách theo heading cấp cao **xuất hiện ít** (≤ _MAX_FORCED_CHAPTERS); nếu không có
-# cấp nào đủ hiếm (vd Docling gán mọi tiêu đề là cấp 1) thì chỉ cắt theo kích thước. Nav vẫn giữ
-# heading tới cấp _NAV_MAX_LEVEL làm mục (anchor trong file) → tránh hàng trăm file.
-_MAX_FILE_BYTES = 100_000
-_MAX_FORCED_CHAPTERS = 40
+# Chia file (v8): GỘP các mục liên tiếp vào một file tới ~_TARGET_CHARS ký tự, **tách ở ranh giới
+# heading** (file luôn bắt đầu bằng heading). Ưu tiên tách ở cấp coarsest (vd h1); cấp sâu hơn chỉ
+# tách khi file đã gần _MAX_CHARS. Đoạn/bảng/ảnh KHÔNG bị cắt đôi; đoạn/bảng khổng lồ vượt
+# _MAX_CHARS vẫn giữ nguyên khối (cắt kích thước chỉ ở ranh giới khối kế tiếp). Mục tiêu ~40–80 file
+# sách vài trăm nghìn ký tự (nhẹ khi mở trên điện thoại). Nav giữ heading tới _NAV_MAX_LEVEL.
+_TARGET_CHARS = 7000  # vượt ngưỡng này → tách ở heading coarsest kế tiếp
+_MAX_CHARS = 10_000  # trần cứng: vượt → cắt ở ranh giới khối kế tiếp (kể cả giữa chương)
 _NAV_MAX_LEVEL = 2
 
 # Ảnh: ảnh chụp/scan → JPEG q80, cạnh dài ≤ _IMG_MAX_EDGE; ảnh ít màu (≤ _IMG_PALETTE_MAX màu) giữ
@@ -167,42 +169,47 @@ def _block_html(b: Block, images: list[tuple[str, bytes, str]]) -> str:
     return f'<figure><img src="{name}" alt="{alt}"/>{caption}</figure>'
 
 
-def _force_break_level(blocks: list[Block], max_forced: int) -> int:
-    """Cấp heading lớn nhất để **ép tách file** sao cho tổng số mốc ≤ ``max_forced``; 0 = chỉ cắt
-    theo kích thước (khi cả cấp 1 cũng quá nhiều, vd Docling gán mọi tiêu đề là cấp 1)."""
-    counts = {1: 0, 2: 0, 3: 0}
-    for b in blocks:
-        if isinstance(b, Heading):
-            counts[min(max(b.level, 1), 3)] += 1
-    # Cấp (số nhỏ = cao) ĐẦU TIÊN xuất hiện trong khoảng [1, max_forced] → tách file ở đó.
-    for lvl in (1, 2, 3):
-        if 1 <= counts[lvl] <= max_forced:
-            return lvl
-    return 0
+def _content_len(b: Block) -> int:
+    """Số **ký tự nội dung** của một khối (để chia file theo ~ký tự, không theo byte/tag HTML)."""
+    if isinstance(b, Table):
+        return sum(len(c) for row in b.rows for c in row)
+    if isinstance(b, ImageBlock):
+        return len(b.caption or "")
+    return len(getattr(b, "text", "") or "")
+
+
+def _coarsest_level(blocks: list[Block]) -> int:
+    """Cấp heading cao nhất (số nhỏ nhất) xuất hiện trong ``blocks``; 0 nếu không có heading."""
+    levels = {min(max(b.level, 1), 3) for b in blocks if isinstance(b, Heading)}
+    return min(levels) if levels else 0
 
 
 def _blocks_to_chapters(
     doc: Document,
     blocks: list[Block],
     *,
-    max_file_bytes: int = _MAX_FILE_BYTES,
-    max_forced: int = _MAX_FORCED_CHAPTERS,
+    target_chars: int = _TARGET_CHARS,
+    max_chars: int = _MAX_CHARS,
     nav_max_level: int = _NAV_MAX_LEVEL,
 ) -> tuple[list[_Chapter], list[tuple[str, bytes, str]], list[_NavEntry]]:
-    """Gom blocks thành file XHTML + danh sách nav.
+    """Gom blocks thành file XHTML + danh sách nav (v8 — chia nhỏ theo ~ký tự).
 
-    Tách file khi: (a) gặp heading cấp ≤ ``_force_break_level`` (mốc hiếm), hoặc (b) file vượt
-    ``max_file_bytes`` (cắt tại ranh giới đoạn/ảnh/bảng). Mọi heading tới ``nav_max_level`` được
-    gắn anchor + vào nav (dù không tách file) → nav giàu nhưng số file ít.
+    - **Tách ở heading**: khi gặp heading mà file hiện tại đã có nội dung và đạt ngưỡng → mở file
+      mới bắt đầu bằng heading đó. Ngưỡng theo cấp: cấp **coarsest** (vd h1) dùng ``target_chars``
+      (tách sớm); cấp sâu hơn dùng ``max_chars`` (chỉ khi đã gần trần — "cấp 2 nếu còn lớn").
+    - **Cắt theo kích thước**: nếu file vượt ``max_chars`` → cắt ở ranh giới khối (đoạn/ảnh/bảng) kế
+      tiếp, file mới "(tiếp)". KHÔNG cắt đôi đoạn/bảng; khối khổng lồ vẫn nguyên.
+    - Không bỏ mồ côi heading (file luôn có nội dung trước khi cắt kích thước).
+    - Mọi heading tới ``nav_max_level`` có anchor + vào nav (dù không tách file).
     """
-    force_level = _force_break_level(blocks, max_forced)
+    coarsest = _coarsest_level(blocks)
     chapters: list[dict] = []
     images: list[tuple[str, bytes, str]] = []
     nav: list[dict] = []
     anchor_seq = 0
 
     def start_chapter(title: str) -> dict:
-        ch: dict = {"title": title, "frags": [], "bytes": 0}
+        ch: dict = {"title": title, "frags": [], "chars": 0, "has_content": False}
         chapters.append(ch)
         return ch
 
@@ -210,25 +217,27 @@ def _blocks_to_chapters(
     for b in blocks:
         if isinstance(b, Heading):
             lvl = min(max(b.level, 1), 3)
-            if force_level and lvl <= force_level and (cur is None or cur["bytes"] > 0):
+            # Cấp coarsest tách sớm (target); cấp sâu hơn chỉ tách khi gần trần (max).
+            threshold = target_chars if lvl <= coarsest else max_chars
+            # File mới (tên theo heading) khi: chưa có file nào, hoặc file hiện tại đã đủ ngưỡng.
+            if cur is None or (cur["has_content"] and cur["chars"] >= threshold):
                 cur = start_chapter(b.text)
-            elif cur is None:
-                cur = start_chapter(doc.title or "Mở đầu")
             anchor_seq += 1
             anchor = f"h{anchor_seq}"
             frag = f'<h{lvl} id="{anchor}">{_esc(b.text)}</h{lvl}>'
             cur["frags"].append(frag)
-            cur["bytes"] += len(frag.encode("utf-8"))
+            cur["chars"] += _content_len(b)
             if lvl <= nav_max_level:
                 nav.append({"ci": len(chapters) - 1, "anchor": anchor, "text": b.text, "lvl": lvl})
             continue
         if cur is None:
             cur = start_chapter(doc.title or "Mở đầu")
-        elif cur["bytes"] > max_file_bytes and isinstance(b, Paragraph | ImageBlock | Table):
+        elif cur["has_content"] and cur["chars"] >= max_chars:
             cur = start_chapter(f"{cur['title']} (tiếp)")
         frag = _block_html(b, images)
         cur["frags"].append(frag)
-        cur["bytes"] += len(frag.encode("utf-8"))
+        cur["chars"] += _content_len(b)
+        cur["has_content"] = True
 
     out: list[_Chapter] = [
         _Chapter(
