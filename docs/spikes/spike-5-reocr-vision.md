@@ -165,6 +165,60 @@ nhiều cột). **~2.9s/trang** (Docling layout + 1 lần Vision). **Đây là h
 > (`fixtures/layout_summary.json`); <100% ở vài trang gần toàn ảnh (p265/p280), >100% khi Vision đọc
 > thêm chữ trong hình mà lớp ẩn xếp chỗ khác.
 
+## Thiết kế tất định: OCR = **ingest một lần** + **cache** (CHƯA code vào `convert`)
+
+**Vấn đề**: kết quả Vision **có thể đổi theo phiên bản macOS/Vision** → nếu OCR chạy **mỗi lần build**
+thì EPUB **không còn tất định** (phá NFR; đối lập với kết quả byte-identical ở SPIKE-4). Thêm nữa: **CI
+Ubuntu không có Vision** → build/test **không được** gọi Vision.
+
+**Nguyên tắc**: tách OCR thành **bước ingest chạy một lần trên Mac**, lưu **cache**; `build_epub` **chỉ
+đọc cache**, **không OCR trong build**. Nhờ đó build **tất định trên mọi máy** (kể cả CI Ubuntu) vì
+bước phụ-thuộc-nền-tảng duy nhất đã bị đẩy ra khỏi đường build.
+
+**Khoá cache** (một entry = một lần OCR cụ thể):
+
+```
+bookUid        = "sepia:" + SHA-256(PDF gốc)         # = dc:identifier, đã có (docs/03 §8, 04 §6)
+render         = { dpi: 300 }                         # tham số render ảnh trước OCR
+engine         = { name:"apple-vision", recognition:"accurate", lang:["vi-VT"], framework:"vision" }
+engine_version = { macos_build:"24E263", vision_langs_sha:"0f6dbcc92f23", ocrmac:"1.0.1" }
+cache_key      = SHA-256( bookUid | render | engine | engine_version )
+```
+
+**Giá trị cache** (đủ để chạy **hướng B** tất định, KHÔNG cần Vision lúc build) — per-page:
+
+```jsonc
+// .ocr_cache/<sha256(pdf)>.json   (NFC, sort_keys → tự tái lập + diff được)
+{
+  "book_uid": "sepia:…", "pdf_sha256": "…", "render": {...}, "engine": {...},
+  "engine_version": {...}, "created": "2026-10-27", "ocr_schema": 1,
+  "pages": [ { "page": 23, "lines": [ { "text": "Lịch sử…", "bbox": [x,y,w,h], "conf": 0.97 }, … ] } ]
+}
+```
+
+> Lưu **dòng + bbox + độ tin** (không chỉ text phẳng) để hướng B (gán dòng→khối Docling theo toạ độ)
+> dựng lại **y hệt** từ cache. `spikes/fixtures/*.txt` hiện tại là **PoC rút gọn** của cache này (chỉ
+> text); bản thật thêm bbox/conf.
+
+**Hành vi build** (quyết định rõ ràng để giữ tất định):
+
+- **Cache HIT** (`cache_key` khớp engine cấu hình) → build EPUB từ cache.
+- **Cache MISS** → **BÁO LỖI** "chạy bước ingest OCR trên Mac trước" — **KHÔNG tự OCR trong build**
+  (nếu tự OCR: phá tất định + không chạy được trên Ubuntu/CI).
+- **PDF đổi** → `sha256` đổi → `bookUid` mới → entry mới; entry cũ **giữ nguyên** (build cũ tái lập được).
+- **Đổi macOS/Vision/engine** → `cache_key` mới; build dùng entry **khớp `engine_version` đang cấu hình**,
+  thiếu thì báo lỗi (không im lặng dùng OCR phiên bản khác).
+
+**Vị trí**: sidecar cạnh **pipeline** (không cạnh app; ADR-004 pipeline tách rời). Kho thật **không
+commit** (292 trang có thể lớn); **commit mẫu nhỏ** cho test (đúng như `spikes/fixtures/`).
+
+**CI / test (Ubuntu, không Vision)**: nạp **cache fixture** đã commit → build EPUB + `epubcheck` +
+kiểm **byte-identical**, **không gọi Vision**. `spikes/spike5_cer_wer.py` (đọc fixtures, không Vision)
+đã chứng minh nguyên tắc "test chạy từ cache" khả thi trên CI.
+
+> **Ứng viên ADR mới (CHƯA chốt)**: "OCR = bước ingest một lần, cache theo `bookUid`+engine+phiên bản;
+> `build_epub` tất định từ cache, không OCR trong build". Khi chốt hướng → ghi docs/03 §5 + ADR.
+
 ## Kết luận
 
 - **A = CÓ, rõ rệt.** OCR lại từ ảnh bằng Apple Vision cho chữ đúng hơn — đo trên ground truth:
