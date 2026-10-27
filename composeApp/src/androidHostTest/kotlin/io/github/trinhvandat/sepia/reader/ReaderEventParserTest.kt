@@ -53,6 +53,14 @@ class ReaderEventParserTest {
     }
 
     @Test
+    fun parsesHighlightTap() {
+        assertEquals(
+            ReaderEvent.HighlightTap("abc", SelectionRect(5f, 6f, 7f, 8f)),
+            ReaderEventParser.parse("highlightTap", """{"id":"abc","rect":{"x":5,"y":6,"w":7,"h":8}}"""),
+        )
+    }
+
+    @Test
     fun malformedSelectionPayloadBecomesFailureNotCrash() {
         // rect sai kiểu (string thay vì object) → Failure, không ném.
         val event = assertIs<ReaderEvent.Failure>(

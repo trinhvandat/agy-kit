@@ -2,11 +2,13 @@
 //
 // Kotlin → JS: window.sepia.open(url, cfi?) / goTo(cfi) / goToFraction(f) / next() / prev()
 //              / applyStyle(css) / reAnchor(fullQuery, snippetQuery, targetFraction) / clearSelection()
+//              / setHighlights([{id,cfi,color}]) (thay toàn bộ tập) / removeHighlight(id)
 // JS → Kotlin (qua window.kmpJsBridge.callNative của compose-webview-multiplatform):
 //              ready{} · relocated{cfi,fraction,snippet,prefix,suffix} · error{where,message}
 //              · reanchorResult{token, cfis:[...]}
-//              · tap{zone:'left'|'center'|'right'}            (chạm đơn, không link/không đang chọn)
+//              · tap{zone:'left'|'center'|'right'}            (chạm đơn, không link/không đang chọn/không trúng highlight)
 //              · selection{cfi,text,prefix,suffix,fraction,rect:{x,y,w,h}} · selectionCleared{}
+//              · highlightTap{id, rect:{x,y,w,h}}             (chạm trúng một highlight)
 //
 // Cử chỉ (Mốc 3a): VUỐT lật trang do paginator.js tự xử lý (touch* trên doc trong iframe) —
 // KHÔNG lặp lại ở đây. TAP đơn được quy về khung nhìn TRANG CHỦ (iframe rộng hơn màn hình theo
@@ -15,6 +17,7 @@
 // báo CFI (view.getCFI) + neo prefix/suffix (NFC + gộp khoảng trắng, docs/04 §3.1).
 
 import './foliate/view.js' // định nghĩa <foliate-view>
+import { Overlayer } from './foliate/overlayer.js' // vẽ highlight (Overlayer.highlight)
 import { computeAnchor } from './anchor.js' // logic neo thuần, test bằng node
 
 const SNIPPET_LEN = 64
@@ -33,6 +36,10 @@ let styleCss = '' // CSS theme hiện hành (Sepia…) do Kotlin đẩy xuống
 let selectionActive = false // đang có vùng chọn không rỗng (đã báo lên Kotlin)?
 let selectionClearedAt = 0 // mốc thời gian (ms) selection chuyển không-rỗng → rỗng
 let selectionTimer = null // debounce post 'selection'
+// Highlight (Mốc 3b): foliate addAnnotation dùng CFI làm value → map hai chiều id↔cfi để biết màu + báo tap.
+const DEFAULT_HL_CSS = '#F2C94C' // màu dự phòng nếu thiếu
+const hlById = new Map() // id -> {cfi, color}
+const hlByCfi = new Map() // cfi -> id
 
 function post(method, payload) {
   try {
@@ -188,6 +195,8 @@ function onDocClick(doc, e) {
   try {
     // Link/chú thích: để foliate xử lý (view.js đã preventDefault cho <a[href]>).
     if (e.target && e.target.closest && e.target.closest('a[href]')) return
+    // Chạm trúng highlight → view.js tự phát 'show-annotation' (→ 'highlightTap'); KHÔNG lật/toggle.
+    if (hitHighlight(doc, e)) return
     const sel = selectionOf(doc)
     if (isNonEmpty(sel)) {
       // Còn selection lúc click → bỏ chọn, KHÔNG lật (ca f). removeAllRanges kéo selectionchange.
@@ -230,6 +239,12 @@ async function open(url, cfi) {
     ;(document.body || document.documentElement).appendChild(view)
     view.addEventListener('relocate', onRelocate)
     view.addEventListener('load', onLoad)
+    // Highlight: màu khi vẽ; vẽ lại khi section mới nạp; báo khi chạm.
+    view.addEventListener('draw-annotation', onDrawAnnotation)
+    view.addEventListener('create-overlay', redrawHighlights)
+    view.addEventListener('show-annotation', onShowAnnotation)
+    hlById.clear()
+    hlByCfi.clear()
     await view.open(url)
     try { view.renderer.setAttribute('flow', 'paginated') } catch (_) {}
     applyStyleNow()
@@ -244,6 +259,79 @@ async function next() { try { if (view) await view.next() } catch (e) { reportEr
 async function prev() { try { if (view) await view.prev() } catch (e) { reportError('prev', e) } }
 
 function applyStyle(css) { styleCss = css || ''; applyStyleNow() }
+
+// --- Highlight (Mốc 3b) -----------------------------------------------------------------------
+// foliate addAnnotation({value: cfi}) → khi đến section chứa cfi, phát 'draw-annotation' để ta vẽ
+// bằng Overlayer.highlight với màu. 'create-overlay' (section vừa nạp) → vẽ lại toàn bộ. Chạm overlay
+// → view.js phát 'show-annotation' {value, range} → ta báo 'highlightTap'{id, rect}.
+
+function onDrawAnnotation(e) {
+  try {
+    const { draw, annotation } = e.detail || {}
+    const id = hlByCfi.get(annotation && annotation.value)
+    const color = (id && hlById.get(id)) ? hlById.get(id).color : DEFAULT_HL_CSS
+    draw(Overlayer.highlight, { color: color || DEFAULT_HL_CSS })
+  } catch (err) { reportError('drawAnnotation', err) }
+}
+
+function redrawHighlights() {
+  if (!view) return
+  for (const h of hlById.values()) {
+    try { view.addAnnotation({ value: h.cfi }) } catch (_) { /* section khác chưa nạp → bỏ qua */ }
+  }
+}
+
+function onShowAnnotation(e) {
+  try {
+    const { value, range } = e.detail || {}
+    const id = hlByCfi.get(value)
+    if (!id) return
+    const doc = range && range.startContainer ? range.startContainer.ownerDocument : null
+    const rect = (doc && range) ? toHostRect(doc, range.getBoundingClientRect()) : { x: 0, y: 0, w: 0, h: 0 }
+    post('highlightTap', { id, rect })
+  } catch (err) { reportError('showAnnotation', err) }
+}
+
+// Có chạm trúng highlight không? Dùng overlayer.hitTest của chính section đang chạm.
+function hitHighlight(doc, e) {
+  try {
+    if (!view || !view.renderer || !view.renderer.getContents) return false
+    const entry = view.renderer.getContents().find(function (c) { return c.doc === doc })
+    if (!entry || !entry.overlayer) return false
+    const hit = entry.overlayer.hitTest(e)
+    const value = hit && hit[0]
+    return !!(value && hlByCfi.has(value))
+  } catch (_) { return false }
+}
+
+// Thay TOÀN BỘ tập highlight (Kotlin đẩy xuống mỗi khi danh sách đổi). list: [{id, cfi, color}].
+function setHighlights(list) {
+  try {
+    // bỏ cái cũ không còn trong tập mới
+    const next = new Map()
+    for (const item of (list || [])) if (item && item.id && item.cfi) next.set(item.id, item)
+    for (const [id, h] of hlById) {
+      if (!next.has(id)) { try { if (view) view.deleteAnnotation({ value: h.cfi }) } catch (_) {} }
+    }
+    hlById.clear()
+    hlByCfi.clear()
+    for (const item of next.values()) {
+      hlById.set(item.id, { cfi: item.cfi, color: item.color })
+      hlByCfi.set(item.cfi, item.id)
+    }
+    redrawHighlights()
+  } catch (e) { reportError('setHighlights', e) }
+}
+
+function removeHighlight(id) {
+  try {
+    const h = hlById.get(id)
+    if (!h) return
+    try { if (view) view.deleteAnnotation({ value: h.cfi }) } catch (_) {}
+    hlById.delete(id)
+    hlByCfi.delete(h.cfi)
+  } catch (e) { reportError('removeHighlight', e) }
+}
 
 // Xoá vùng chọn hiện hành (Kotlin gọi khi đóng thanh chọn chữ ở 3b). Quét mọi doc đang hiển thị.
 function clearSelection() {
@@ -293,6 +381,7 @@ function sendReady(attempt) {
 // ping(): Kotlin gọi sau onPageFinished để yêu cầu gửi lại bridgeReady (phòng khi tín hiệu đầu mất).
 window.sepia = {
   open, goTo, goToFraction, next, prev, applyStyle, reAnchor, clearSelection,
+  setHighlights, removeHighlight,
   ping: function () { sendReady(0) },
 }
 

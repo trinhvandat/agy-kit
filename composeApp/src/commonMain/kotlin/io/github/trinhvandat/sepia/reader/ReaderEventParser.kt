@@ -38,6 +38,9 @@ object ReaderEventParser {
             )
         }
         "selectionCleared" -> ReaderEvent.SelectionCleared
+        "highlightTap" -> decode<HighlightTapDto>(method, params) {
+            ReaderEvent.HighlightTap(it.id, SelectionRect(it.rect.x, it.rect.y, it.rect.w, it.rect.h))
+        }
         "error" -> decode<ErrorDto>(method, params) { ReaderEvent.Failure(it.where, it.message) }
         else -> null
     }
@@ -92,6 +95,9 @@ object ReaderEventParser {
         val w: Float = 0f,
         val h: Float = 0f,
     )
+
+    @Serializable
+    private data class HighlightTapDto(val id: String = "", val rect: RectDto = RectDto())
 
     @Serializable
     private data class ErrorDto(val where: String = "", val message: String = "")

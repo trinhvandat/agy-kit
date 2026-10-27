@@ -56,8 +56,15 @@ sealed interface ReaderEvent {
     /** Vùng chọn bị xoá (chạm ra ngoài, lật trang…). */
     data object SelectionCleared : ReaderEvent
 
+    /** Chạm trúng một highlight đã vẽ → mở thanh đổi màu / sao chép / xoá (Mốc 3b). */
+    data class HighlightTap(val id: String, val rect: SelectionRect) : ReaderEvent
+
     data class Failure(val where: String, val message: String) : ReaderEvent
 }
+
+/** Một highlight cần vẽ (Kotlin→JS). color = mã CSS (HighlightColor.cssColor). */
+@kotlinx.serialization.Serializable
+data class HighlightDraw(val id: String, val cfi: String, val color: String)
 
 /**
  * Bề mặt điều khiển reader (ADR-001: bọc foliate-js sau interface — UI không biết renderer).
@@ -81,6 +88,12 @@ class ReaderController {
     fun prev() = eval("window.sepia.prev()")
     fun applyStyle(css: String) = eval("window.sepia.applyStyle(${js(css)})")
     fun clearSelection() = eval("window.sepia.clearSelection()")
+
+    /** Thay toàn bộ tập highlight đang vẽ. */
+    fun setHighlights(items: List<HighlightDraw>) =
+        eval("window.sepia.setHighlights(${Json.encodeToString(items)})")
+
+    fun removeHighlight(id: String) = eval("window.sepia.removeHighlight(${js(id)})")
 
     fun reAnchor(token: String, fullQuery: String, snippetQuery: String, targetFraction: Float) =
         eval("window.sepia.reAnchor(${js(token)}, ${js(fullQuery)}, ${js(snippetQuery)}, $targetFraction)")
