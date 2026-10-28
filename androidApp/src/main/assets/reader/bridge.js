@@ -1,14 +1,15 @@
 // Cầu nối foliate-js ↔ Kotlin cho Sepia (SPIKE-1, docs/02 §6, ADR-001/008, Mốc 3a).
 //
-// Kotlin → JS: window.sepia.open(url, cfi?) / goTo(cfi) / goToFraction(f) / next() / prev()
-//              / applyStyle(css) / reAnchor(fullQuery, snippetQuery, targetFraction) / clearSelection()
-//              / setHighlights([{id,cfi,color}]) (thay toàn bộ tập) / removeHighlight(id)
+// Kotlin → JS: window.sepia.open(url, cfi?) / goTo(cfi) / goToHref(href) / goToStart() / goToFraction(f)
+//              / next() / prev() / applyStyle(css) / reAnchor(fullQuery, snippetQuery, targetFraction)
+//              / clearSelection() / setHighlights([{id,cfi,color}]) / removeHighlight(id) / getToc()
 // JS → Kotlin (qua window.kmpJsBridge.callNative của compose-webview-multiplatform):
-//              ready{} · relocated{cfi,fraction,snippet,prefix,suffix} · error{where,message}
+//              ready{} · relocated{cfi,fraction,snippet,prefix,suffix,tocLabel,tocHref} · error{where,message}
 //              · reanchorResult{token, candidates:[{cfi,progress,text,exact}]}
 //              · tap{zone:'left'|'center'|'right'}            (chạm đơn, không link/không đang chọn/không trúng highlight)
 //              · selection{cfi,text,prefix,suffix,fraction,rect:{x,y,w,h}} · selectionCleared{}
 //              · highlightTap{id, rect:{x,y,w,h}}             (chạm trúng một highlight)
+//              · toc{items:[{label,href,level,children}]}     (đáp getToc) · link{cfi}  (link trong sách)
 //
 // Cử chỉ (Mốc 3a): VUỐT lật trang do paginator.js tự xử lý (touch* trên doc trong iframe) —
 // KHÔNG lặp lại ở đây. TAP đơn được quy về khung nhìn TRANG CHỦ (iframe rộng hơn màn hình theo
@@ -86,6 +87,7 @@ function onRelocate(e) {
   try {
     const loc = e.detail || {}
     const anchor = extractAnchor(loc.range)
+    const toc = loc.tocItem || {}
     post('relocated', {
       cfi: loc.cfi || '',
       // Number.isFinite loại cả NaN (typeof NaN === 'number' nên check 'number' KHÔNG đủ; NaN →
@@ -94,8 +96,39 @@ function onRelocate(e) {
       snippet: anchor.snippet,
       prefix: anchor.prefix,
       suffix: anchor.suffix,
+      // Mục lục đang đọc (foliate lastLocation.tocItem) → tô + cuộn trong bảng mục lục.
+      tocLabel: (toc.label || ''),
+      tocHref: (toc.href || ''),
     })
   } catch (err) { reportError('relocate', err) }
+}
+
+// Link TRONG sách: foliate phát 'link' (cancelable) rồi TỰ goTo nếu không ai preventDefault. Ta KHÔNG
+// chặn (để foliate điều hướng), chỉ báo CFI HIỆN TẠI để Kotlin đẩy vào ngăn xếp "quay lại".
+function onLink() {
+  try {
+    const cfi = view && view.lastLocation ? (view.lastLocation.cfi || '') : ''
+    post('link', { cfi })
+  } catch (err) { reportError('link', err) }
+}
+
+// Dựng cây mục lục {label, href, level, children} từ view.book.toc (foliate: {label, href, subitems}).
+function tocTree(items, level) {
+  return (items || []).map(function (it) {
+    return {
+      label: String((it && it.label) || '').trim(),
+      href: (it && it.href) || '',
+      level: level,
+      children: tocTree(it && it.subitems, level + 1),
+    }
+  })
+}
+
+function getToc() {
+  try {
+    const items = (view && view.book && view.book.toc) ? view.book.toc : []
+    post('toc', { items: tocTree(items, 1) })
+  } catch (e) { reportError('getToc', e) }
 }
 
 // Lấy phần tử iframe (trong khung TRANG CHỦ) chứa một document của section.
@@ -241,6 +274,7 @@ async function open(url, cfi) {
     ;(document.body || document.documentElement).appendChild(view)
     view.addEventListener('relocate', onRelocate)
     view.addEventListener('load', onLoad)
+    view.addEventListener('link', onLink) // link trong sách → báo CFI cũ cho ngăn xếp quay lại
     // Highlight: màu khi vẽ; vẽ lại khi section mới nạp; báo khi chạm.
     view.addEventListener('draw-annotation', onDrawAnnotation)
     view.addEventListener('create-overlay', redrawHighlights)
@@ -268,6 +302,8 @@ async function open(url, cfi) {
 }
 
 async function goTo(cfi) { try { if (view) await view.goTo(cfi) } catch (e) { reportError('goTo', e) } }
+async function goToHref(href) { try { if (view) await view.goTo(href) } catch (e) { reportError('goToHref', e) } }
+async function goToStart() { try { if (view) await view.goToTextStart() } catch (e) { reportError('goToStart', e) } }
 async function goToFraction(f) { try { if (view) await view.goToFraction(Number(f) || 0) } catch (e) { reportError('goToFraction', e) } }
 async function next() { try { if (view) await view.next() } catch (e) { reportError('next', e) } }
 async function prev() { try { if (view) await view.prev() } catch (e) { reportError('prev', e) } }
@@ -412,8 +448,8 @@ function sendReady(attempt) {
 
 // ping(): Kotlin gọi sau onPageFinished để yêu cầu gửi lại bridgeReady (phòng khi tín hiệu đầu mất).
 window.sepia = {
-  open, goTo, goToFraction, next, prev, applyStyle, reAnchor, clearSelection,
-  setHighlights, removeHighlight,
+  open, goTo, goToHref, goToStart, goToFraction, next, prev, applyStyle, reAnchor, clearSelection,
+  setHighlights, removeHighlight, getToc,
   ping: function () { sendReady(0) },
 }
 

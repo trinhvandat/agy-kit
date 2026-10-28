@@ -147,6 +147,64 @@ class ReaderEventParserTest {
     }
 
     @Test
+    fun parsesTocTreeWithLevelsAndChildren() {
+        val json = """
+            {"items":[
+              {"label":"Phần I","href":"p1.xhtml","level":1,"children":[
+                {"label":"Giác hơi","href":"p1.xhtml#a","level":2}
+              ]},
+              {"label":"Phần II","href":"p2.xhtml","level":1}
+            ]}
+        """.trimIndent()
+        val event = assertIs<ReaderEvent.Toc>(ReaderEventParser.parse("toc", json))
+        assertEquals(2, event.items.size)
+        assertEquals("Phần I", event.items[0].label)
+        assertEquals(1, event.items[0].level)
+        assertEquals("Giác hơi", event.items[0].children.single().label)
+        assertEquals(2, event.items[0].children.single().level)
+        assertEquals(0, event.items[1].children.size)
+    }
+
+    @Test
+    fun parsesEmptyToc() {
+        val event = assertIs<ReaderEvent.Toc>(ReaderEventParser.parse("toc", """{"items":[]}"""))
+        assertEquals(0, event.items.size)
+    }
+
+    @Test
+    fun parsesLinkJump() {
+        val event = assertIs<ReaderEvent.LinkJump>(
+            ReaderEventParser.parse("link", """{"cfi":"epubcfi(/6/8!/2)"}"""),
+        )
+        assertEquals("epubcfi(/6/8!/2)", event.fromCfi)
+    }
+
+    @Test
+    fun relocatedCarriesTocLabelAndHref() {
+        val event = assertIs<ReaderEvent.Relocated>(
+            ReaderEventParser.parse(
+                "relocated",
+                """{"cfi":"c","fraction":0.3,"snippet":"s","prefix":"p","suffix":"x",
+                   "tocLabel":"Chương 2","tocHref":"c2.xhtml"}""",
+            ),
+        )
+        assertEquals("Chương 2", event.tocLabel)
+        assertEquals("c2.xhtml", event.tocHref)
+    }
+
+    @Test
+    fun relocatedWithoutTocFieldsDefaultsEmpty() {
+        val event = assertIs<ReaderEvent.Relocated>(
+            ReaderEventParser.parse(
+                "relocated",
+                """{"cfi":"c","fraction":0.5,"snippet":"s","prefix":"p","suffix":"x"}""",
+            ),
+        )
+        assertEquals("", event.tocLabel)
+        assertEquals("", event.tocHref)
+    }
+
+    @Test
     fun readyWithoutCfiFailedFieldDefaultsFalse() {
         // Tương thích ngược: thông điệp 'ready' cũ (trước fix) không có field này vẫn phải parse được.
         assertEquals(
