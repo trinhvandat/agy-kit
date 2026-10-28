@@ -20,7 +20,7 @@ object ReaderEventParser {
     fun parse(method: String, params: String): ReaderEvent? = when (method) {
         "bridgeReady" -> ReaderEvent.BridgeReady
         "ready" -> decode<ReadyDto>(method, params) {
-            ReaderEvent.Ready(it.restoredCfi.ifEmpty { null })
+            ReaderEvent.Ready(it.restoredCfi.ifEmpty { null }, it.cfiFailed)
         }
         "relocated" -> decode<RelocatedDto>(method, params) {
             ReaderEvent.Relocated(it.cfi, it.fraction, it.snippet, it.prefix, it.suffix)
@@ -73,7 +73,7 @@ object ReaderEventParser {
             .getOrElse { ReaderEvent.Failure(method, "payload lỗi: ${it.message}") }
 
     @Serializable
-    private data class ReadyDto(val restoredCfi: String = "")
+    private data class ReadyDto(val restoredCfi: String = "", val cfiFailed: Boolean = false)
 
     @Serializable
     private data class RelocatedDto(

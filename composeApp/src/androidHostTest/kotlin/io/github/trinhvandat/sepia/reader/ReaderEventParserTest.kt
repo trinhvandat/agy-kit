@@ -135,4 +135,23 @@ class ReaderEventParserTest {
         )
         assertEquals(0, event.candidates.size)
     }
+
+    @Test
+    fun readyWithCfiFailedTrueParsesFlag() {
+        // bridge.js open() báo cfiFailed=true khi CFI lưu cũ không còn khớp DOM (content-pack đổi) →
+        // Kotlin phải thấy được cờ này để kích hoạt re-anchor dự phòng (ADR-008).
+        assertEquals(
+            ReaderEvent.Ready(null, cfiFailed = true),
+            ReaderEventParser.parse("ready", """{"restoredCfi":"","cfiFailed":true}"""),
+        )
+    }
+
+    @Test
+    fun readyWithoutCfiFailedFieldDefaultsFalse() {
+        // Tương thích ngược: thông điệp 'ready' cũ (trước fix) không có field này vẫn phải parse được.
+        assertEquals(
+            ReaderEvent.Ready("epubcfi(/2)", cfiFailed = false),
+            ReaderEventParser.parse("ready", """{"restoredCfi":"epubcfi(/2)"}"""),
+        )
+    }
 }
