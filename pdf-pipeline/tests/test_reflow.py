@@ -337,17 +337,84 @@ def test_drop_printed_toc_run() -> None:
     assert any("thân bài bình thường" in getattr(b, "text", "") for b in kept)
 
 
-def test_toc_single_line_kept() -> None:
+def test_toc_single_strong_line_dropped() -> None:
+    # Dòng lẻ có dãy chấm DÀY (≥6) + số trang = mục lục in sẵn "mạnh" → bỏ dù đứng một mình
+    # (Việc 2).
     from sepia_pipeline.reflow import drop_printed_toc
 
-    # Dòng lẻ có chấm dẫn (không thành chuỗi) → KHÔNG bị bỏ.
     blocks = [
         Paragraph(text="Xem thêm phần phụ lục ........ 99", page=1),
         Paragraph(text="Một đoạn văn thường sau đó, dài và bình thường.", page=1),
     ]
     kept, removed = drop_printed_toc(blocks)
+    assert removed == 1
+    assert any("thường sau đó" in getattr(b, "text", "") for b in kept)
+
+
+def test_toc_body_line_with_trailing_number_kept() -> None:
+    # Đoạn thân bài kết thúc bằng số (không có dấu dẫn) → KHÔNG bị nhầm là mục lục.
+    from sepia_pipeline.reflow import drop_printed_toc
+
+    blocks = [
+        Paragraph(text="Cơ thể người có tất cả 12 kinh mạch chính và 365 huyệt vị.", page=1),
+        Paragraph(text="Mỗi huyệt có công dụng riêng, cần học thuộc dần trong 30 ngày.", page=1),
+    ]
+    kept, removed = drop_printed_toc(blocks)
     assert removed == 0
     assert len(kept) == 2
+
+
+def test_drop_printed_toc_strong_heading_with_underscore_num() -> None:
+    # Mục lục phần bị Docling gán nhầm thành Heading (kết thúc "_ <số>") → vẫn bỏ; heading thật còn.
+    from sepia_pipeline.reflow import drop_printed_toc
+
+    blocks = [
+        Heading(text="Phương pháp giác hơi tăng cường sức khỏe _ 132", level=1, page=10),
+        Heading(text="PHƯƠNG PHÁP GIÁC HƠI TĂNG CƯỜNG SỨC KHỎE", level=1, page=20),
+        Paragraph(text="Giác hơi là liệu pháp dùng sức hút của bầu giác lên da.", page=20),
+    ]
+    kept, removed = drop_printed_toc(blocks)
+    kept_texts = [getattr(b, "text", "") for b in kept]
+    assert "Phương pháp giác hơi tăng cường sức khỏe _ 132" not in kept_texts  # bản mục lục bỏ
+    assert "PHƯƠNG PHÁP GIÁC HƠI TĂNG CƯỜNG SỨC KHỎE" in kept_texts  # heading thật còn
+
+
+def test_drop_printed_toc_underscore_leader() -> None:
+    # Mục lục in sẵn với dấu dẫn "_" (OCR của dãy chấm) + số trang cuối dòng — phải bỏ (Việc 2).
+    from sepia_pipeline.reflow import drop_printed_toc
+
+    blocks = [
+        Paragraph(text="Đôi nét về lịch sử Đông y _ 22", page=21),
+        Paragraph(text="Âm dương chi phối sinh mệnh_ 24", page=21),
+        Paragraph(text="Kinh mạch là gì?_ 36", page=21),
+        Paragraph(text="Bào chế thuốc cần chú ý hỏa hầu_66", page=21),
+        Paragraph(text="Đây là đoạn thân bài bình thường, không có số trang cuối dòng.", page=22),
+    ]
+    kept, removed = drop_printed_toc(blocks)
+    assert removed == 4
+    assert any("thân bài bình thường" in getattr(b, "text", "") for b in kept)
+
+
+def test_tidy_bullet_markers_leading_guillemet_and_registered() -> None:
+    # Việc 3: "»"/"®" đứng riêng = gạch đầu mục OCR sai → "• "; dấu dính liền chữ (nháy đóng) giữ.
+    from sepia_pipeline.reflow import tidy_bullet_markers
+
+    blocks = [
+        Paragraph(text="» Xoa bóp trợ tim an thần", page=7),
+        Paragraph(text="® Đặt tay lên bàn, có", page=56),
+        Paragraph(text="• » Xoa bóp giúp thanh phế", page=7),  # list_item + dấu nhân đôi → "• "
+        Paragraph(text="bụng thả lỏng. ® Khi cần điều trị", page=56),  # giữa đoạn do ghép dòng
+        Paragraph(text="Trích «câu nói» rồi tiếp tục", page=8),  # » dính chữ (nháy) → GIỮ
+        Heading(text="» Mục đầu", level=2, page=9),
+    ]
+    out = tidy_bullet_markers(blocks)
+    texts = [getattr(b, "text", "") for b in out]
+    assert texts[0] == "• Xoa bóp trợ tim an thần"
+    assert texts[1] == "• Đặt tay lên bàn, có"
+    assert texts[2] == "• Xoa bóp giúp thanh phế"  # không nhân đôi bullet
+    assert texts[3] == "bụng thả lỏng. • Khi cần điều trị"  # dấu giữa đoạn cũng đổi
+    assert texts[4] == "Trích «câu nói» rồi tiếp tục"  # nháy đóng dính chữ không đổi
+    assert texts[5] == "• Mục đầu"
 
 
 def test_drop_garbage_blocks_removes_ocr_junk_heading() -> None:

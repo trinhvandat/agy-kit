@@ -28,6 +28,7 @@ from .reflow import (
     drop_printed_toc,
     drop_running_headers,
     is_image_page,
+    tidy_bullet_markers,
 )
 from .vietnamese import looks_vietnamese
 
@@ -216,6 +217,9 @@ def convert_pdf(
     # Docling) VÀ (b) sách là tiếng Việt. Sách born-digital (text_unicode, legacy sau chuyển mã)
     # và sách không phải tiếng Việt KHÔNG lọc — để không bỏ oan nội dung thật (vd heading tiếng Anh
     # chấm 0 điểm âm tiết Việt). Xem docs/03 §8.
+    # Đổi dấu đầu dòng OCR sai (»/®) → "• " trước khi lọc rác/mục lục (Việc 3, issue #20).
+    blocks = tidy_bullet_markers(blocks)
+
     is_ocr_source = is_scan_ocr or engine_used == "docling"
     book_text = " ".join(b.text for b in blocks if isinstance(b, Heading | Paragraph))
     if is_ocr_source and looks_vietnamese(book_text):

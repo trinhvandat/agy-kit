@@ -24,6 +24,13 @@ extract/reflow/build_epub thuộc Mốc 1 (xem docs/07-roadmap.md).
 #     ở ranh giới heading (coarsest, vd h1; cấp sâu hơn chỉ tách khi gần trần), không cắt đôi
 #     đoạn/bảng/ảnh. Trước đây chỉ ~7 file ~50k ký tự; nay ~40–80 file. Chỉ đổi ranh giới file XHTML
 #     (nội dung block/bất biến A/B không đổi) → đầu ra đổi (nhánh display-qa).
-PIPELINE_VERSION = 8
+# v9: SẠCH HIỂN THỊ (nhánh clean-display, issue #20). (1) Bỏ ĐỒ ĐẠC (tiêu đề chạy + số trang) ngay ở
+#     mức DÒNG VISION theo bbox, trước khi gán khối — route hybrid trước đây để lọt ~79 dòng/trang
+#     vào thân bài (khối Docling không mang top_ratio nên drop_running_headers không chạy). Bất biến
+#     B mở thành assigned + floating + **furniture** = tổng dòng cache. (2) drop_printed_toc nhận
+#     thêm dấu dẫn "_" (OCR của dãy chấm) → bỏ mục lục in sẵn p21/p61/p85. (3) "»"/"®" dẫn đầu dòng
+#     → "• " (gạch đầu dòng OCR sai). (4) Bảng ≥4 cột: hàng đầu = <thead>, ô mang data-label →
+#     app hiện dạng "thẻ" trên màn hẹp; tr break-inside avoid. → đầu ra đổi.
+PIPELINE_VERSION = 9
 
 __all__ = ["PIPELINE_VERSION"]

@@ -57,8 +57,10 @@ def _css(font_family: str) -> str:
         "img { max-width: 100%; height: auto; }\n"
         "figure { margin: 1em 0; text-align: center; }\n"
         "figcaption { font-size: 0.9em; font-style: italic; }\n"
-        "table { border-collapse: collapse; margin: 1em 0; }\n"
-        "td { border: 1px solid #999; padding: 2px 6px; vertical-align: top; }\n"
+        "table { border-collapse: collapse; margin: 1em 0; width: 100%; table-layout: fixed; }\n"
+        "tr { break-inside: avoid; }\n"
+        "th, td { border: 1px solid #999; padding: 2px 5px; vertical-align: top;"
+        " text-align: left; word-break: break-word; overflow-wrap: anywhere; }\n"
     )
 
 
@@ -140,12 +142,34 @@ def _process_image(png: bytes) -> tuple[bytes, str, str] | None:
     return out.getvalue(), "jpg", "image/jpeg"
 
 
+# Bảng từ ``_TABLE_CARD_MIN_COLS`` cột trở lên: hàng đầu coi là tiêu đề, mỗi ô thân mang
+# ``data-label`` (tên cột) + ``<table class="wide">`` để **app** (SepiaTheme) hiện dạng "thẻ" trên
+# màn hẹp. Bảng ít cột hơn giữ nguyên dạng cũ (đã vừa màn hình). Xem docs/03 §8 Việc 4 (issue #20).
+_TABLE_CARD_MIN_COLS = 4
+
+
 def _table_html(t: Table) -> str:
-    rows = []
-    for r in t.rows:
-        cells = "".join(f"<td>{_esc(c)}</td>" for c in r)
-        rows.append(f"<tr>{cells}</tr>")
-    return "<table>" + "".join(rows) + "</table>"
+    if not t.rows:
+        return ""
+    n_cols = max(len(r) for r in t.rows)
+    if n_cols < _TABLE_CARD_MIN_COLS:
+        rows = ["<tr>" + "".join(f"<td>{_esc(c)}</td>" for c in r) + "</tr>" for r in t.rows]
+        return "<table>" + "".join(rows) + "</table>"
+    # Bảng rộng: hàng đầu = <thead>; ô thân gắn data-label từ tên cột (dạng thẻ trên màn hẹp).
+    header = t.rows[0]
+    thead = "<thead><tr>" + "".join(f"<th>{_esc(c)}</th>" for c in header) + "</tr></thead>"
+    body_rows = []
+    for r in t.rows[1:]:
+        cells = "".join(
+            (
+                f'<td data-label="{_attr(header[i])}">{_esc(c)}</td>'
+                if i < len(header) and header[i]
+                else f"<td>{_esc(c)}</td>"
+            )
+            for i, c in enumerate(r)
+        )
+        body_rows.append(f"<tr>{cells}</tr>")
+    return f'<table class="wide">{thead}<tbody>' + "".join(body_rows) + "</tbody></table>"
 
 
 def _block_html(b: Block, images: list[tuple[str, bytes, str]]) -> str:
