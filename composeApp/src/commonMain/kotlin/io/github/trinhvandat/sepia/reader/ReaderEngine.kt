@@ -37,6 +37,9 @@ sealed interface ReaderEvent {
         val snippet: String,
         val prefix: String,
         val suffix: String,
+        /** Mục lục đang đọc (từ `lastLocation.tocItem`) — để tô + cuộn tới trong bảng mục lục. */
+        val tocLabel: String = "",
+        val tocHref: String = "",
     ) : ReaderEvent
     data class ReanchorResult(
         val token: String,
@@ -62,6 +65,12 @@ sealed interface ReaderEvent {
     /** Chạm trúng một highlight đã vẽ → mở thanh đổi màu / sao chép / xoá (Mốc 3b). */
     data class HighlightTap(val id: String, val rect: SelectionRect) : ReaderEvent
 
+    /** Mục lục cuốn sách (đáp lại `getToc`), dạng cây có cấp — để dựng bảng mục lục. */
+    data class Toc(val items: List<TocItem>) : ReaderEvent
+
+    /** Sắp theo một **link trong sách** — báo CFI hiện tại để Kotlin đẩy vào ngăn xếp "quay lại". */
+    data class LinkJump(val fromCfi: String) : ReaderEvent
+
     data class Failure(val where: String, val message: String) : ReaderEvent
 }
 
@@ -86,7 +95,12 @@ class ReaderController {
         eval("window.sepia.open(${js(ReaderUrls.bookUrl(cacheKey))}, ${jsOrNull(startCfi)})")
 
     fun goTo(cfi: String) = eval("window.sepia.goTo(${js(cfi)})")
+    fun goToHref(href: String) = eval("window.sepia.goToHref(${js(href)})")
+    fun goToStart() = eval("window.sepia.goToStart()")
     fun goToFraction(fraction: Float) = eval("window.sepia.goToFraction($fraction)")
+
+    /** Yêu cầu JS gửi lại mục lục (phát ReaderEvent.Toc). */
+    fun requestToc() = eval("window.sepia.getToc()")
     fun next() = eval("window.sepia.next()")
     fun prev() = eval("window.sepia.prev()")
     fun applyStyle(css: String) = eval("window.sepia.applyStyle(${js(css)})")

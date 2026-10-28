@@ -23,8 +23,10 @@ object ReaderEventParser {
             ReaderEvent.Ready(it.restoredCfi.ifEmpty { null }, it.cfiFailed)
         }
         "relocated" -> decode<RelocatedDto>(method, params) {
-            ReaderEvent.Relocated(it.cfi, it.fraction, it.snippet, it.prefix, it.suffix)
+            ReaderEvent.Relocated(it.cfi, it.fraction, it.snippet, it.prefix, it.suffix, it.tocLabel, it.tocHref)
         }
+        "toc" -> decode<TocDto>(method, params) { ReaderEvent.Toc(it.items.map(::toTocItem)) }
+        "link" -> decode<LinkDto>(method, params) { ReaderEvent.LinkJump(it.cfi) }
         "reanchorResult" -> decode<ReanchorDto>(method, params) { dto ->
             ReaderEvent.ReanchorResult(
                 dto.token,
@@ -57,6 +59,13 @@ object ReaderEventParser {
         else -> null
     }
 
+    private fun toTocItem(dto: TocNodeDto): TocItem = TocItem(
+        label = dto.label,
+        href = dto.href,
+        level = dto.level,
+        children = dto.children.map(::toTocItem),
+    )
+
     private fun parseZone(zone: String): ReaderEvent = when (zone) {
         "left" -> ReaderEvent.Tap(TapZone.LEFT)
         "center" -> ReaderEvent.Tap(TapZone.CENTER)
@@ -82,7 +91,23 @@ object ReaderEventParser {
         val snippet: String = "",
         val prefix: String = "",
         val suffix: String = "",
+        val tocLabel: String = "",
+        val tocHref: String = "",
     )
+
+    @Serializable
+    private data class TocDto(val items: List<TocNodeDto> = emptyList())
+
+    @Serializable
+    private data class TocNodeDto(
+        val label: String = "",
+        val href: String = "",
+        val level: Int = 1,
+        val children: List<TocNodeDto> = emptyList(),
+    )
+
+    @Serializable
+    private data class LinkDto(val cfi: String = "")
 
     @Serializable
     private data class ReanchorDto(
