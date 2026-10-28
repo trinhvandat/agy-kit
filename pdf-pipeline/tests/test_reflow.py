@@ -495,3 +495,85 @@ def test_drop_printed_toc_table() -> None:
     kept, removed = drop_printed_toc(blocks)
     assert removed == 3  # 3 hàng
     assert len(kept) == 1
+
+
+def test_drop_printed_toc_underscore_mid_text_not_toc_leader() -> None:
+    # "_" lạc giữa câu (vd "bảng 3_1") + số trang cuối dòng KHÔNG được coi là dấu dẫn mục lục — chỉ
+    # dãy "_{2,}" hoặc "_" đứng NGAY TRƯỚC số trang cuối dòng mới tính (issue #20 review Fix 1).
+    from sepia_pipeline.reflow import _is_toc_entry_text
+
+    assert not _is_toc_entry_text("Chi tiết xem bảng 3_1 và phần trang 12")
+
+
+def test_drop_printed_toc_page_density_keeps_stray_underscore_prose() -> None:
+    # Mechanism 3 (mật độ trang): một trang có ≥2 đoạn văn xuôi thật chứa "_" lạc giữa câu + số
+    # trang cuối dòng KHÔNG bị gộp bỏ — trước fix, "_" đơn lẻ bất kỳ đâu sẽ bị mechanism 3 quét bỏ
+    # nhầm nếu đủ mật độ trên trang.
+    from sepia_pipeline.reflow import drop_printed_toc
+
+    blocks = [
+        Paragraph(text="Chi tiết xem bảng 3_1 và phần trang 12", page=1),
+        Paragraph(text="Tham khảo thêm mục 4_2 ở trang 30", page=1),
+    ]
+    kept, removed = drop_printed_toc(blocks)
+    assert removed == 0
+    assert len(kept) == 2
+
+
+def test_drop_printed_toc_page_density_still_drops_real_toc_leaders() -> None:
+    # Đối chứng dương: trang mục lục in sẵn thật (dấu dẫn "_" trước số trang) vẫn bị mechanism 3 bỏ
+    # dù không đạt toc_run_min liên tiếp (xen một đoạn thân bài giữa — vẫn đủ mật độ ≥50%).
+    from sepia_pipeline.reflow import ReflowConfig, drop_printed_toc
+
+    blocks = [
+        Paragraph(text="Đôi nét về lịch sử Đông y _ 22", page=1),
+        Paragraph(text="Âm dương chi phối sinh mệnh_ 24", page=1),
+        Paragraph(text="Kinh mạch là gì?_ 36", page=1),
+    ]
+    kept, removed = drop_printed_toc(blocks, ReflowConfig())
+    assert removed == 3
+    assert len(kept) == 0
+
+
+def test_arrow_survives_tidy_bullet_markers_and_drop_printed_toc() -> None:
+    # "→" (U+2192) không phải dấu dẫn/gạch đầu mục OCR sai — phải sống sót qua cả hai bước lọc.
+    from sepia_pipeline.reflow import drop_printed_toc, tidy_bullet_markers
+
+    blocks = [
+        Heading(text="béo phì → mệt mỏi → đói", level=2, page=5),
+        Paragraph(text="Quy trình: béo phì → mệt mỏi → đói, cần điều chỉnh ăn uống.", page=5),
+    ]
+    tidied = tidy_bullet_markers(blocks)
+    tidied_texts = [getattr(b, "text", "") for b in tidied]
+    assert tidied_texts == [getattr(b, "text", "") for b in blocks]  # không đổi gì
+
+    kept, removed = drop_printed_toc(tidied)
+    assert removed == 0
+    kept_texts = [getattr(b, "text", "") for b in kept]
+    assert "béo phì → mệt mỏi → đói" in kept_texts
+    assert any("béo phì → mệt mỏi → đói" in t for t in kept_texts)
+
+
+def test_tidy_bullet_markers_gated_to_ocr_source_in_convert() -> None:
+    # Việc 2 (review): tidy_bullet_markers là sửa lỗi OCR (»/® → "• ") — KHÔNG nên chạy cho sách
+    # born-digital có "»"/"®" THẬT (vd nháy kiểu Pháp «...», hoặc nhãn hiệu đăng ký ®). Ở mức
+    # reflow.py, tidy_bullet_markers bản thân vẫn luôn đổi (không biết nguồn OCR hay không) — việc
+    # "gate" theo is_ocr_source nằm ở convert.py (chỉ gọi tidy_bullet_markers khi
+    # is_ocr_source = is_scan_ocr or engine_used == "docling", xem convert.py quanh dòng gọi
+    # tidy_bullet_markers). Test này xác nhận hành vi không-gate của tidy_bullet_markers tại mức
+    # reflow (đổi cả khi được gọi trực tiếp) để làm rõ ranh giới: lớp reflow luôn đổi, lớp convert
+    # chịu trách nhiệm chỉ gọi nó khi nguồn là OCR.
+    from sepia_pipeline.reflow import tidy_bullet_markers
+
+    # "®" đứng riêng (có khoảng trắng trước) sau tên nhãn hiệu thật trong sách born-digital — KHÔNG
+    # phải gạch đầu mục OCR sai, nhưng reflow.tidy_bullet_markers vẫn đổi vì hàm này không tự biết
+    # nguồn gốc (OCR hay born-digital).
+    born_digital_registered_trademark = Paragraph(
+        text="Thương hiệu Sâm Ngọc Linh ® chính hãng", page=3
+    )
+    out = tidy_bullet_markers([born_digital_registered_trademark])
+    # reflow.tidy_bullet_markers luôn đổi "®" đứng riêng bất kể nguồn — convert.py mới là nơi
+    # quyết định có gọi hàm này hay không, dựa trên is_ocr_source (is_scan_ocr or
+    # engine_used == "docling"). Đây là lý do Fix 2 (review) phải gate ở convert.py, không phải
+    # sửa tidy_bullet_markers.
+    assert getattr(out[0], "text", "") == "Thương hiệu Sâm Ngọc Linh • chính hãng"

@@ -218,9 +218,12 @@ def convert_pdf(
     # và sách không phải tiếng Việt KHÔNG lọc — để không bỏ oan nội dung thật (vd heading tiếng Anh
     # chấm 0 điểm âm tiết Việt). Xem docs/03 §8.
     # Đổi dấu đầu dòng OCR sai (»/®) → "• " trước khi lọc rác/mục lục (Việc 3, issue #20).
-    blocks = tidy_bullet_markers(blocks)
-
+    # CHỈ áp cho nguồn OCR — sách born-digital có thể dùng »/® thật (vd nháy đóng, đăng ký nhãn
+    # hiệu) và không nên bị viết lại.
     is_ocr_source = is_scan_ocr or engine_used == "docling"
+    if is_ocr_source:
+        blocks = tidy_bullet_markers(blocks)
+
     book_text = " ".join(b.text for b in blocks if isinstance(b, Heading | Paragraph))
     if is_ocr_source and looks_vietnamese(book_text):
         garbage = drop_garbage_blocks(blocks, config.reflow)

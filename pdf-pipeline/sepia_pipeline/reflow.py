@@ -291,10 +291,12 @@ def build_blocks(doc: Document, config: ReflowConfig | None = None) -> list[Bloc
 # --- Bỏ trang/khối mục lục in sẵn (áp cho cả hai engine) ----------------------
 
 # Dòng mục lục in sẵn: có **dấu dẫn** VÀ kết thúc bằng số trang. Dấu dẫn = ≥4 dấu chấm, ký tự `…`,
-# HOẶC gạch dưới `_` (OCR thường đọc dãy chấm dẫn mảnh thành `_`, vd "Đôi nét về lịch sử Đông y _
-# 22"). Bare `_` là mẫu lỏng nhưng được chặn kép: (a) phải có số trang cuối dòng, (b) chỉ bỏ khi
-# thành **chuỗi ≥ toc_run_min khối liên tiếp** (xem :func:`drop_printed_toc`).
-_TOC_ENTRY_RE = re.compile(r"(\.\s*){4,}|…|_")
+# HOẶC gạch dưới `_` theo **hình dạng dấu dẫn cuối dòng** (OCR thường đọc dãy chấm dẫn mảnh thành
+# `_`, vd "Đôi nét về lịch sử Đông y _ 22"): `_` lặp (dãy ≥2) HOẶC `_` đứng ngay trước số trang cuối
+# dòng (vd "Âm dương chi phối sinh mệnh_ 24", "Mệt mỏi: Do chính khí không đủ _ 242"). KHÔNG khớp
+# `_` lạc giữa câu văn xuôi (vd "Chi tiết xem bảng 3_1 và phần trang 12") vì ở đó `_` không nằm
+# ngay trước số cuối dòng.
+_TOC_ENTRY_RE = re.compile(r"(\.\s*){4,}|…|_{2,}|_\s*\d+\s*$")
 _TRAILING_NUM_RE = re.compile(r"\d+\s*$")
 
 
