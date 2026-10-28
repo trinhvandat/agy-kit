@@ -185,6 +185,10 @@ chạy trên máy tác giả (như `convert`/`ocr`), gói nhiều PDF thành m�
   `pipelineVersion` của từng sách.
 - **Tất định**: chạy lại trên cùng đầu vào → EPUB + manifest **giống byte-for-byte** (nhờ `convert`
   tất định + sách **sắp theo `bookUid`** + JSON ghi `sort_keys=True` và kết thúc bằng dòng trống).
+- **Thư mục gói do `pack` quản lý**: mỗi lần chạy, `pack` **xoá các `.epub` mồ côi** (không còn
+  trong manifest vì PDF nguồn bị xoá/đổi) khỏi `--out` trước khi đóng gói, để gói không lẫn sách cũ
+  và không phình APK. ⚠️ Vì vậy **đừng trỏ `--out` vào thư mục chứa `.epub` khác** — chỉ dùng làm
+  thư mục gói chuyên dụng (`manifest.json` và file không phải `.epub` không bị đụng).
 - **Cảnh báo kích thước**: khi tổng dung lượng `.epub` trong gói **vượt 150 MB**, in cảnh báo ra
   stderr (Play Store giới hạn APK/AAB tải trực tiếp **~200 MB**; vượt nhiều cần **Play Asset
   Delivery** về sau — chưa làm ở giai đoạn này).
