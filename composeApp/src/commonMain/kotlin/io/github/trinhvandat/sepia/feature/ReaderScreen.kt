@@ -142,8 +142,15 @@ fun ReaderContent(
                 }
                 is ReaderEvent.Ready -> {
                     ready = true
-                    if (needsReAnchor) book.readingAnchor()?.let { a ->
-                        controller.reAnchor("pos", AnchorText.fullQuery(a), AnchorText.snippetQuery(a), a.progress)
+                    val mustReAnchor = needsReAnchor || event.cfiFailed
+                    val anchor = book.readingAnchor()
+                    if (mustReAnchor && anchor != null) {
+                        // CFI cũ hỏng (nội dung đổi giữa các bản build) hoặc import cần định vị lại →
+                        // re-close khoá lưu để không ghi đè progress thật bằng vị trí tạm lúc mở ở đầu.
+                        reanchorSettled = false
+                        controller.reAnchor("pos", AnchorText.fullQuery(anchor), AnchorText.snippetQuery(anchor), anchor.progress)
+                    } else {
+                        reanchorSettled = true
                     }
                 }
                 is ReaderEvent.Relocated -> relocations.value = event

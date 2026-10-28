@@ -250,8 +250,20 @@ async function open(url, cfi) {
     await view.open(url)
     try { view.renderer.setAttribute('flow', 'paginated') } catch (_) {}
     applyStyleNow()
-    await view.init({ lastLocation: cfi || null, showTextStart: !cfi })
-    post('ready', { restoredCfi: cfi || '' })
+    let cfiFailed = false
+    if (cfi) {
+      try {
+        await view.init({ lastLocation: cfi, showTextStart: false })
+      } catch (cfiErr) {
+        // CFI mất hiệu lực (nội dung đổi giữa các bản build) → mở ở đầu + báo để Kotlin
+        // định vị lại bằng snippet (ADR-008). Không ném ra ngoài → không hiện banner lỗi.
+        cfiFailed = true
+        await view.init({ lastLocation: null, showTextStart: true })
+      }
+    } else {
+      await view.init({ lastLocation: null, showTextStart: true })
+    }
+    post('ready', { restoredCfi: cfiFailed ? '' : (cfi || ''), cfiFailed: cfiFailed })
   } catch (e) { reportError('open', e) }
 }
 

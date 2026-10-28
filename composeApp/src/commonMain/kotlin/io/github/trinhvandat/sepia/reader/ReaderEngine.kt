@@ -30,7 +30,7 @@ data class SelectionRect(val x: Float, val y: Float, val w: Float, val h: Float)
 /** Sự kiện từ WebView/foliate-js về Kotlin (JS→Kotlin qua kmpJsBridge). */
 sealed interface ReaderEvent {
     data object BridgeReady : ReaderEvent
-    data class Ready(val restoredCfi: String?) : ReaderEvent
+    data class Ready(val restoredCfi: String?, val cfiFailed: Boolean = false) : ReaderEvent
     data class Relocated(
         val cfi: String,
         val fraction: Float,
