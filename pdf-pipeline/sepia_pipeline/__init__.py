@@ -31,6 +31,12 @@ extract/reflow/build_epub thuộc Mốc 1 (xem docs/07-roadmap.md).
 #     thêm dấu dẫn "_" (OCR của dãy chấm) → bỏ mục lục in sẵn p21/p61/p85. (3) "»"/"®" dẫn đầu dòng
 #     → "• " (gạch đầu dòng OCR sai). (4) Bảng ≥4 cột: hàng đầu = <thead>, ô mang data-label →
 #     app hiện dạng "thẻ" trên màn hẹp; tr break-inside avoid. → đầu ra đổi.
-PIPELINE_VERSION = 9
+# v10: PHÂN CẤP MỤC LỤC (nhánh toc-hierarchy, issue #20). Route Vision-OCR cho mọi heading cùng cỡ →
+#     trước đây 715 heading đều cấp 1 (nav phẳng). Nay PARSE mục lục in sẵn thành cây (Chương/Phần/
+#     caps = cấp 1; "1." = cấp 2; "•"/"»" = cấp 3; bỏ số trang/dấu dẫn) trước khi drop_printed_toc,
+#     KHỚP từng mục với heading thân bài (bỏ dấu, gần đúng) → đặt cấp heading. Heading không khớp →
+#     cấp sâu nhất + NGOÀI nav (Heading.in_nav=False). nav.xhtml lồng 3 cấp; _NAV_MAX_LEVEL 2→3.
+#     Không có mục lục in sẵn → giữ cấp theo cỡ chữ (fallback) + cảnh báo. → đầu ra đổi.
+PIPELINE_VERSION = 10
 
 __all__ = ["PIPELINE_VERSION"]
