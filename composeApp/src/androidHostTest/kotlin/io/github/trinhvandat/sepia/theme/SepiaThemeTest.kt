@@ -49,6 +49,19 @@ class SepiaThemeTest {
     }
 
     @Test
+    fun wideTablesBecomeCardsOnNarrowScreen() {
+        val c = css()
+        // Việc 4: bảng rộng (class "wide") → dạng "thẻ" trên màn hẹp; mỗi ô kèm nhãn cột.
+        assertTrue(c.contains("@media (max-width: 560px)"), "có media query màn hẹp")
+        assertTrue(c.contains("table.wide"), "nhắm bảng rộng class wide")
+        assertTrue(
+            c.contains("content: attr(data-label)"),
+            "ô hiện nhãn cột từ data-label",
+        )
+        assertTrue(c.contains("break-inside: avoid"), "không cắt hàng qua trang")
+    }
+
+    @Test
     fun multiWordFontFamilyQuoted() {
         assertTrue(css().contains("\"Noto Serif\""), "font nhiều từ phải bọc nháy")
     }

@@ -31,6 +31,9 @@ object SepiaTheme {
     const val TableFontEm = 0.8
     const val TableLineHeight = 1.35
     const val TableBorderHex = "#B9A38A" // viền nâu nhạt hợp nền sepia (thay #999 xám của EPUB)
+    // Màn hẹp hơn ngưỡng này → bảng rộng (class "wide") hiện dạng "thẻ" (mỗi hàng một khối). Phủ
+    // mọi điện thoại (cột foliate ~360–410px CSS px); máy tính bảng/màn rộng vẫn giữ bảng lưới.
+    const val TableCardMaxWidthPx = 560
 
     /**
      * CSS tiêm vào từng tài liệu chương (foliate renderer.setStyles), **ghi đè CSS của sách**.
@@ -87,6 +90,7 @@ object SepiaTheme {
                 line-height: $TableLineHeight !important;
                 margin: 1em 0 !important;
             }
+            tr { break-inside: avoid !important; page-break-inside: avoid !important; }
             td, th {
                 border: 1px solid $TableBorderHex !important;
                 padding: 3px 5px !important;
@@ -95,6 +99,29 @@ object SepiaTheme {
                 word-break: break-word !important;
                 overflow-wrap: anywhere !important;
                 hyphens: none !important;
+            }
+            /* Bảng rộng (pipeline gắn class "wide" cho ≥4 cột): trên màn HẸP hiện dạng "thẻ" —
+               mỗi hàng một khối, mỗi ô xuống dòng kèm nhãn cột (data-label). Màn rộng giữ bảng. */
+            @media (max-width: ${TableCardMaxWidthPx}px) {
+                table.wide, table.wide tbody, table.wide tr, table.wide td { display: block !important; width: 100% !important; }
+                table.wide thead { display: none !important; }
+                table.wide tr {
+                    margin: 0 0 0.7em !important;
+                    border: 1px solid $TableBorderHex !important;
+                    border-radius: 4px !important;
+                    overflow: hidden !important;
+                }
+                table.wide td {
+                    border: none !important;
+                    border-bottom: 1px solid $TableBorderHex !important;
+                    padding: 4px 8px !important;
+                }
+                table.wide td:last-child { border-bottom: none !important; }
+                table.wide td[data-label]::before {
+                    content: attr(data-label) ": " !important;
+                    font-weight: 600 !important;
+                    opacity: 0.7 !important;
+                }
             }
             a, a:visited { color: $ForegroundHex !important; }
         """.trimIndent()

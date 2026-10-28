@@ -12,6 +12,7 @@ Hàm thuần trên mô hình :mod:`model` (không đụng PyMuPDF). Nguyên tắ
 
 from __future__ import annotations
 
+import dataclasses
 import re
 import statistics
 import unicodedata
@@ -44,6 +45,11 @@ class ReflowConfig:
     indent_tolerance: float = 14.0
     multicolumn_min_lines: int = 4
     toc_run_min: int = 3  # ≥ bấy nhiêu mục-lục-in-sẵn liên tiếp mới bỏ (tránh bỏ nhầm dòng lẻ)
+    # Trang có ≥ ``toc_page_fraction`` khối (đoạn/bảng) là mục lục in sẵn VÀ ≥ 2 khối như vậy → bỏ
+    # cả cụm (khớp "trang có ≥ 60% dòng dạng đó", issue #20 Việc 2): bắt mục lục rải rác không liên
+    # tiếp mà run_min bỏ sót. Blob mục lục gộp (≥ 2 dãy chấm dẫn trong một khối) bỏ riêng (không cần
+    # run/trang) — xem :func:`drop_printed_toc`.
+    toc_page_fraction: float = 0.5
     # Tiêu đề thật ngắn: ≤ bấy nhiêu dòng liên tiếp cùng cấp. Nhiều hơn (vd lời giới thiệu in chữ
     # to nhiều dòng) → coi là ĐOẠN VĂN, không phải chuỗi heading.
     max_heading_lines: int = 2
@@ -284,13 +290,46 @@ def build_blocks(doc: Document, config: ReflowConfig | None = None) -> list[Bloc
 
 # --- Bỏ trang/khối mục lục in sẵn (áp cho cả hai engine) ----------------------
 
-# Dòng mục lục: có dãy chấm dẫn (hoặc …) VÀ kết thúc bằng số trang.
-_TOC_ENTRY_RE = re.compile(r"(\.\s*){4,}|…")
+# Dòng mục lục in sẵn: có **dấu dẫn** VÀ kết thúc bằng số trang. Dấu dẫn = ≥4 dấu chấm, ký tự `…`,
+# HOẶC gạch dưới `_` theo **hình dạng dấu dẫn cuối dòng** (OCR thường đọc dãy chấm dẫn mảnh thành
+# `_`, vd "Đôi nét về lịch sử Đông y _ 22"): `_` lặp (dãy ≥2) HOẶC `_` đứng ngay trước số trang cuối
+# dòng (vd "Âm dương chi phối sinh mệnh_ 24", "Mệt mỏi: Do chính khí không đủ _ 242"). KHÔNG khớp
+# `_` lạc giữa câu văn xuôi (vd "Chi tiết xem bảng 3_1 và phần trang 12") vì ở đó `_` không nằm
+# ngay trước số cuối dòng.
+_TOC_ENTRY_RE = re.compile(r"(\.\s*){4,}|…|_{2,}|_\s*\d+\s*$")
 _TRAILING_NUM_RE = re.compile(r"\d+\s*$")
 
 
 def _is_toc_entry_text(text: str) -> bool:
     return bool(_TOC_ENTRY_RE.search(text) and _TRAILING_NUM_RE.search(text))
+
+
+# Dấu gạch đầu mục OCR sai: trên sách mẫu, MỌI "»"/"®" là ký hiệu gạch đầu mục (◦/▪) bị OCR đọc sai
+# — đứng đầu dòng, sau "• " của list_item, hoặc giữa đoạn do ghép dòng. Nhận diện khi dấu **đứng
+# riêng** (đầu chuỗi hoặc có khoảng trắng phía trước) → đổi thành "• ". KHÔNG đụng "»" dính liền chữ
+# phía trước (vd nháy đóng «…»: "nội dung»") để giữ đúng khi sách khác dùng « » làm dấu nháy thật.
+_BULLET_MARK_RE = re.compile(r"(?:^|(?<=\s))[»®]\s*")
+_MULTI_BULLET_RE = re.compile(r"(?:•\s*){2,}")
+
+
+def tidy_bullet_markers(blocks: list[Block]) -> list[Block]:
+    """Đổi dấu `»`/`®` (gạch đầu mục OCR sai) thành `• ` trong Heading/Paragraph.
+
+    Trả danh sách mới (immutable).
+
+    Chỉ đổi dấu **đứng riêng** (xem khối chú thích trên); gộp "• •" nhân đôi về một "• ". `»`/`®`
+    dính liền chữ (nghi nháy đóng) giữ nguyên. Xem docs/03 §8, issue #20 Việc 3.
+    """
+    out: list[Block] = []
+    for b in blocks:
+        if isinstance(b, Heading | Paragraph) and ("»" in b.text or "®" in b.text):
+            t = _BULLET_MARK_RE.sub("• ", b.text)
+            t = _MULTI_BULLET_RE.sub("• ", t)  # "• • X" → "• X"
+            t = collapse_ws(t)
+            out.append(dataclasses.replace(b, text=t))
+        else:
+            out.append(b)
+    return out
 
 
 def _block_is_toc(block: Block) -> tuple[bool, int]:
@@ -304,33 +343,83 @@ def _block_is_toc(block: Block) -> tuple[bool, int]:
     return (False, 0)
 
 
+# Blob mục lục gộp: một đoạn chứa ≥ 2 **dãy chấm dẫn** (`....`/`…`) → chắc chắn là mục lục dồn nhiều
+# mục (OCR/Docling gộp cả trang mục lục thành một khối). Chấm dẫn dày không xuất hiện trong văn
+# xuôi.
+_DOT_LEADER_RE = re.compile(r"\.{4,}|…")
+
+
+def _toc_marker_count(text: str) -> int:
+    return len(_DOT_LEADER_RE.findall(text))
+
+
+# "Mạnh" = chắc chắn là mục lục dù đứng một mình: có dãy ≥ 6 chấm (không hề có trong văn xuôi), HOẶC
+# kết thúc bằng **dấu dẫn `_`/`…` + số trang** (vd "… 132", "_ 142", "_174"). Dạng sau bắt cả
+# mục lục
+# bị Docling gán nhầm thành Heading (ngưỡng mật độ/chuỗi bỏ sót vì không đếm Heading). An toàn: tiêu
+# đề chương thật không kết thúc bằng "_<số>"/"…<số>" (đã xác minh có bản heading sạch song song).
+_STRONG_TOC_RE = re.compile(r"\.{6,}|[_…]\s*\d+\s*$")
+
+
+def _is_strong_toc(text: str) -> bool:
+    return bool(_STRONG_TOC_RE.search(text))
+
+
 def drop_printed_toc(
     blocks: list[Block], config: ReflowConfig | None = None
 ) -> tuple[list[Block], int]:
-    """Bỏ **mục lục in sẵn** (khối/đoạn nhiều dòng chấm-dẫn + số trang) khỏi nội dung.
+    """Bỏ **mục lục in sẵn** (dòng chấm/gạch-dưới-dẫn + số trang) khỏi nội dung.
 
-    Chỉ bỏ khi là **chuỗi ≥ ``toc_run_min`` khối mục lục liên tiếp** (một bảng mục lục cũng tính)
-    để không xóa nhầm dòng lẻ. Trả ``(blocks_còn_lại, số_dòng_mục_lục_đã_bỏ)``.
+    Ba cơ chế bổ trợ (một khối trúng bất kỳ cái nào → bỏ):
+    1. **Blob gộp**: đoạn chứa ≥ 2 dãy chấm dẫn → mục lục dồn nhiều mục trong một khối.
+    2. **Chuỗi liên tiếp**: ≥ ``toc_run_min`` khối mục lục kề nhau (một bảng mục lục tính luôn).
+    3. **Mật độ trang**: trang có ≥ 2 khối (đoạn/bảng) mục lục VÀ chiếm ≥ ``toc_page_fraction`` số
+       khối đoạn/bảng của trang → bỏ cả cụm (bắt mục lục rải rác không liên tiếp).
+
+    Trả ``(blocks_còn_lại, số_dòng_mục_lục_đã_bỏ)``.
     """
     config = config or ReflowConfig()
     flags = [_block_is_toc(b) for b in blocks]
+    is_toc = [f[0] for f in flags]
     drop = [False] * len(blocks)
+
+    # 1) Blob gộp (≥ 2 dãy chấm dẫn) hoặc mục lục "mạnh" (≥6 chấm / kết thúc "_|…<số>") — bỏ dù đứng
+    #    một mình, áp cho cả Heading (mục lục bị gán nhầm heading).
+    for k, b in enumerate(blocks):
+        text = getattr(b, "text", "")
+        if isinstance(b, Paragraph) and _toc_marker_count(text) >= 2:
+            drop[k] = True
+        elif isinstance(b, Heading | Paragraph) and _is_strong_toc(text):
+            drop[k] = True
+
+    # 2) Chuỗi liên tiếp ≥ toc_run_min (hoặc có bảng mục lục trong chuỗi).
     i = 0
-    removed = 0
     while i < len(blocks):
-        if flags[i][0]:
+        if is_toc[i]:
             j = i
-            while j < len(blocks) and flags[j][0]:
+            while j < len(blocks) and is_toc[j]:
                 j += 1
-            run = j - i
-            # Bảng mục lục (một khối gộp cả trang) cũng đủ điều kiện dù chỉ 1 khối.
-            if run >= config.toc_run_min or any(isinstance(blocks[k], Table) for k in range(i, j)):
+            if (j - i) >= config.toc_run_min or any(
+                isinstance(blocks[k], Table) for k in range(i, j)
+            ):
                 for k in range(i, j):
                     drop[k] = True
-                    removed += flags[k][1]
             i = j
         else:
             i += 1
+
+    # 3) Mật độ trang: trang mục-lục-dày → bỏ mọi khối mục lục trên trang đó.
+    page_text_idx: dict[int, list[int]] = {}
+    for k, b in enumerate(blocks):
+        if isinstance(b, Paragraph | Table):
+            page_text_idx.setdefault(getattr(b, "page", 0), []).append(k)
+    for idxs in page_text_idx.values():
+        toc_idxs = [k for k in idxs if is_toc[k]]
+        if len(toc_idxs) >= 2 and len(toc_idxs) / len(idxs) >= config.toc_page_fraction:
+            for k in toc_idxs:
+                drop[k] = True
+
+    removed = sum(flags[k][1] for k in range(len(blocks)) if drop[k])
     kept = [b for b, d in zip(blocks, drop, strict=True) if not d]
     return kept, removed
 

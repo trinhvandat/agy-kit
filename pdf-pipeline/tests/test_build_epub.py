@@ -200,6 +200,34 @@ def test_table_and_caption_rendered(tmp_path: Path) -> None:
         body = z.read(next(n for n in z.namelist() if n.endswith("chap_0001.xhtml"))).decode()
     assert "<figcaption>Hình 1: sơ đồ kinh lạc</figcaption>" in body
     assert "<table>" in body and "<td>Hợp cốc</td>" in body
+    # Bảng hẹp (2 cột) giữ nguyên dạng cũ — KHÔNG class "wide", không thead.
+    assert 'class="wide"' not in body and "<thead>" not in body
+
+
+def test_wide_table_emits_cards_markup(tmp_path: Path) -> None:
+    # Bảng ≥4 cột (Việc 4): hàng đầu = <thead><th>, ô thân mang data-label (nhãn cột) để app hiện
+    # dạng "thẻ" trên màn hẹp. Hàng tiêu đề KHÔNG lặp trong <tbody>.
+    from sepia_pipeline.model import Table
+
+    blocks = [
+        Table(
+            rows=(
+                ("Huyệt", "Vị trí", "Công dụng", "Cách bấm"),
+                ("Hợp cốc", "mu bàn tay", "giảm đau", "day 1 phút"),
+            ),
+            page=1,
+        ),
+    ]
+    out = tmp_path / "book.epub"
+    build_epub(_doc(), blocks, out)
+    with zipfile.ZipFile(out) as z:
+        body = z.read(next(n for n in z.namelist() if n.endswith("chap_0001.xhtml"))).decode()
+    # ebooklib in đẹp (thêm xuống dòng giữa thẻ) → kiểm từng mảnh, không yêu cầu liền mạch.
+    assert '<table class="wide">' in body
+    assert "<thead>" in body and "<th>Huyệt</th>" in body
+    assert '<td data-label="Vị trí">mu bàn tay</td>' in body
+    assert body.count("<tbody>") == 1
+    assert body.count("Hợp cốc") == 1  # hàng dữ liệu còn; tiêu đề không nhân đôi
 
 
 def test_font_profile_default_is_serif() -> None:

@@ -12,6 +12,9 @@ Cần extra ``docling`` để lấy bố cục.
 
 from __future__ import annotations
 
+import re
+import unicodedata
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -24,7 +27,7 @@ from .docling_adapter import (
 )
 from .model import Block, Heading, ImageBlock, Paragraph, Table
 from .ocr_cache import BBox, OcrCache, OcrLine
-from .reflow import normalize_text
+from .reflow import collapse_ws, is_page_number_line, normalize_text
 
 _HEADING_LABELS = {"section_header", "title"}
 _PARA_LABELS = {"text", "paragraph", "list_item", "footnote", "code", "formula"}
@@ -34,6 +37,115 @@ _SKIP_LABELS = {"page_header", "page_footer"}
 _MIN_OVERLAP = 0.2
 # Picture có ≥ ngưỡng ký tự Vision gán vào → coi là KHUNG CHỮ (xuất đoạn), ít hơn → ảnh + caption.
 TEXT_IN_PICTURE_MIN_CHARS = 80
+
+# --- "Đồ đạc" trang (furniture): tiêu đề chạy + số trang — bỏ theo bbox DÒNG VISION (Việc 1) ---
+# Vì sao ở đây (không dùng reflow.drop_running_headers): route hybrid dựng khối từ bố cục Docling,
+# khối Heading/Paragraph **không mang** ``top_ratio`` → drop_running_headers (xét top_ratio) không
+# bao giờ chạy. Dòng Vision trong cache LẠI có bbox chuẩn hoá chính xác → bỏ furniture ngay ở mức
+# dòng, TRƯỚC khi gán vào khối (nên không lọt vào thân bài, không tạo đoạn trôi).
+#
+# dải mép = 0.08 (gốc trên-trái): nhãn mục thật trong sách tra cứu ("Tên gọi:", "LẤY HUYỆT") nằm ở
+# top_ratio 0.10–0.17 (spike-4 §v4) → ngoài dải, không bị bỏ nhầm. Ngưỡng LẶP tuyệt đối ≥ 3 trang
+# (KHÔNG theo tỷ lệ %): trên sách mẫu 292 trang, OCR làm vỡ tiêu đề chạy thành nhiều biến thể, mỗi
+# biến thể < 10% số trang — ngưỡng theo % (vd 20%) bỏ sót tất cả. Một dòng ở **mép** trang lặp trên
+# ≥ 3 trang gần như chắc chắn là đồ đạc, bất kể sách dài bao nhiêu.
+FURNITURE_BAND_RATIO = 0.08
+FURNITURE_MIN_PAGES = 3
+FURNITURE_KEY_WORDS = 2  # khoá = 2 từ-chữ đầu → gộp biến thể OCR chỉ khác phần đuôi
+FURNITURE_MIN_LETTERS = 4  # dòng quá ít chữ cái → không làm khoá (để pass ký hiệu lo)
+
+_LETTER_WORD_RE = re.compile(r"[^\W\d_]+", re.UNICODE)
+
+
+def _letters_len(text: str) -> int:
+    return sum(1 for ch in text if ch.isalpha())
+
+
+def _furniture_key(text: str, n_words: int = FURNITURE_KEY_WORDS) -> str:
+    """Khoá so khớp đồ đạc: NFC + hạ thường, bỏ chữ số, lấy ``n_words`` **từ-chữ đầu**.
+
+    Gộp biến thể OCR chỉ khác phần ĐUÔI (vd "...Cứu mối ngải" / "...Cứu mỗi ngài") về một khoá, và
+    bỏ **từ một-chữ-cái dẫn đầu** (rác máng lề OCR: "J Chương…", "/ Chương…") để không tách khoá.
+    """
+    t = unicodedata.normalize("NFC", text).lower()
+    t = re.sub(r"\d+", "", t)
+    words = _LETTER_WORD_RE.findall(t)
+    while words and len(words[0]) == 1:  # bỏ chữ-cái-đơn dẫn đầu (rác OCR)
+        words.pop(0)
+    return " ".join(words[:n_words])
+
+
+def _in_band(bbox: BBox, band_ratio: float) -> bool:
+    _x0, y0, _x1, y1 = bbox
+    return y0 < band_ratio or y1 > 1 - band_ratio
+
+
+@dataclass(frozen=True)
+class FurnitureResult:
+    """Kết quả bỏ đồ đạc trang: dòng giữ theo trang, số dòng bỏ, danh sách đồ đạc (duy nhất)."""
+
+    kept_by_page: dict[int, list[OcrLine]]
+    removed: int
+    examples: tuple[str, ...]  # "text (×số trang)" cho mỗi đồ đạc duy nhất (nhiều→ít)
+
+
+def detect_furniture(
+    lines_by_page: dict[int, list[OcrLine]],
+    *,
+    band_ratio: float = FURNITURE_BAND_RATIO,
+    min_pages: int = FURNITURE_MIN_PAGES,
+    n_words: int = FURNITURE_KEY_WORDS,
+    min_letters: int = FURNITURE_MIN_LETTERS,
+) -> FurnitureResult:
+    """Bỏ **tiêu đề chạy + số trang** khỏi các dòng Vision, theo bbox dòng (xem khối docstring).
+
+    Ứng viên = dòng trong **dải mép** (trên ``band_ratio`` hoặc dưới ``1-band_ratio``). Dòng **số
+    trang** ("12", "- 13 -", "Trang 12") trong dải → bỏ luôn. Dòng khác: tính khoá
+    (:func:`_furniture_key`); khoá xuất hiện ở dải mép trên **≥ ``min_pages`` trang** → mọi dòng
+    mang khoá đó (trong dải) bị bỏ. Trả :class:`FurnitureResult` (giữ thứ tự dòng còn lại mỗi
+    trang).
+    """
+    # Pass 1: đếm số TRANG mỗi khoá xuất hiện ở dải mép.
+    key_pages: dict[str, set[int]] = {}
+    for page, lines in lines_by_page.items():
+        for ln in lines:
+            if not _in_band(ln.bbox, band_ratio) or is_page_number_line(ln.text):
+                continue
+            if _letters_len(ln.text) < min_letters:
+                continue
+            key = _furniture_key(ln.text, n_words)
+            if key:
+                key_pages.setdefault(key, set()).add(page)
+    repeating = {k for k, pgs in key_pages.items() if len(pgs) >= min_pages}
+
+    # Pass 2: bỏ (số trang trong dải) + (dòng mang khoá lặp trong dải). Giữ phần còn lại.
+    kept_by_page: dict[int, list[OcrLine]] = {}
+    removed = 0
+    pagenum_removed = 0
+    key_count: Counter[str] = Counter()
+    key_text: dict[str, str] = {}
+    for page, lines in lines_by_page.items():
+        kept: list[OcrLine] = []
+        for ln in lines:
+            if _in_band(ln.bbox, band_ratio):
+                if is_page_number_line(ln.text):
+                    removed += 1
+                    pagenum_removed += 1
+                    continue
+                if _letters_len(ln.text) >= min_letters:
+                    key = _furniture_key(ln.text, n_words)
+                    if key in repeating:
+                        removed += 1
+                        key_count[key] += 1
+                        key_text.setdefault(key, collapse_ws(ln.text))
+                        continue
+            kept.append(ln)
+        kept_by_page[page] = kept
+
+    examples = [f"{key_text[k]} (×{n})" for k, n in key_count.most_common()]
+    if pagenum_removed:
+        examples.append(f"[số trang] (×{pagenum_removed})")
+    return FurnitureResult(kept_by_page=kept_by_page, removed=removed, examples=tuple(examples))
 
 
 @dataclass(frozen=True)
@@ -46,6 +158,8 @@ class HybridReport:
         0  # dòng Vision chồng ≥2 khối (nghi gộp cột) → gán theo chồng lấn lớn nhất
     )
     floating_lines: int = 0  # dòng không chồng khối nào → gom thành đoạn riêng, chèn theo vị trí
+    furniture_lines: int = 0  # dòng đồ đạc (tiêu đề chạy + số trang) bỏ ở mức dòng (Việc 1)
+    furniture_examples: tuple[str, ...] = ()  # đồ đạc duy nhất đã bỏ + số lần (báo cáo)
     dropped_empty_blocks: int = (
         0  # khối chữ trên trang CÓ cache mà không nhận dòng Vision nào → BỎ (không lấy lớp ABBYY)
     )
@@ -463,23 +577,35 @@ def extract_blocks_hybrid(
     # 1) Thu các khối theo thứ tự đọc; khối chữ/picture có bbox → target nhận chữ Vision.
     order_items, targets = _build_targets(doc)
 
-    # 2) Gán dòng Vision vào target theo chồng lấn; dòng trôi để riêng (không nhét khối gần nhất).
-    lines_by_page = {p.page: list(p.lines) for p in cache.pages}
+    # 2) Bỏ ĐỒ ĐẠC (tiêu đề chạy + số trang) ngay ở mức dòng Vision, TRƯỚC khi gán vào khối — nên
+    #    không lọt vào thân bài cũng không tạo đoạn trôi (Việc 1). ``total_lines`` giữ theo cache
+    #    gốc
+    #    để bất biến B = assigned + floating + furniture = tổng dòng cache.
+    orig_lines_by_page = {p.page: list(p.lines) for p in cache.pages}
+    total_lines = sum(len(v) for v in orig_lines_by_page.values())
+    furniture = detect_furniture(orig_lines_by_page)
+    lines_by_page = furniture.kept_by_page
+
+    # 3) Gán dòng Vision (đã bỏ đồ đạc) vào target; dòng trôi để riêng (không nhét khối gần nhất).
     assigned, cross, floating_by_page = _assign_lines(targets, lines_by_page)
     cached_pages = set(lines_by_page)  # 0-based
-    # 3) Gom dòng trôi thành đoạn riêng, chèn vào thứ tự đọc theo vị trí (y).
+    # 4) Gom dòng trôi thành đoạn riêng, chèn vào thứ tự đọc theo vị trí (y).
     order_items, floating = _insert_floating(order_items, floating_by_page)
     fallback_pages = tuple(
         sorted({e["page"] - 1 for e in order_items if (e["page"] - 1) not in cached_pages})
     )
 
-    # 4) Dựng blocks: trang có cache chỉ dùng chữ Vision (khối rỗng → bỏ); thiếu cache → fallback.
+    # 5) Dựng blocks: trang có cache chỉ dùng chữ Vision (khối rỗng → bỏ); thiếu cache → fallback.
     blocks, dropped = _assemble_blocks(
         order_items, doc, cached_pages, text_in_picture_min_chars=text_in_picture_min_chars
     )
 
-    total_lines = sum(len(v) for v in lines_by_page.values())
     warnings: list[str] = []
+    if furniture.removed:
+        warnings.append(
+            f"{furniture.removed} dòng đồ đạc (tiêu đề chạy + số trang) bỏ ở mức dòng Vision: "
+            f"{list(furniture.examples[:8])}{'…' if len(furniture.examples) > 8 else ''}"
+        )
     if cross:
         warnings.append(
             f"{cross} dòng Vision chồng ≥2 khối (nghi gộp cột) — gán theo chồng lấn lớn nhất"
@@ -506,6 +632,8 @@ def extract_blocks_hybrid(
         assigned_lines=assigned,
         cross_block_lines=cross,
         floating_lines=floating,
+        furniture_lines=furniture.removed,
+        furniture_examples=furniture.examples,
         dropped_empty_blocks=dropped,
         fallback_pages=fallback_pages,
         warnings=tuple(warnings),
