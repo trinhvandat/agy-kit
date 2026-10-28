@@ -325,3 +325,30 @@ def test_caption_with_quotes_escaped(tmp_path: Path) -> None:
         from sepia_pipeline.quality import run_epubcheck
 
         assert run_epubcheck(str(out)).startswith("epubcheck: HỢP LỆ")
+
+
+def test_nav_three_levels_and_in_nav_exclusion(tmp_path: Path) -> None:
+    """v10: nav lồng 3 cấp; heading in_nav=False render <h> nhưng KHÔNG vào nav."""
+    blocks = [
+        Heading(text="CHƯƠNG MỘT", level=1, page=1),
+        Heading(text="Mục đánh số", level=2, page=1),
+        Heading(text="Gạch đầu dòng", level=3, page=1),
+        Heading(text="Tiêu đề ngoài mục lục", level=3, page=1, in_nav=False),
+        Paragraph(text="Nội dung thân bài có dấu tiếng Việt đầy đủ ở đây.", page=1),
+    ]
+    out = tmp_path / "book.epub"
+    build_epub(_doc(), blocks, out)
+    with zipfile.ZipFile(out) as z:
+        nav = next(n for n in z.namelist() if n.endswith("nav.xhtml"))
+        html = z.read(nav).decode("utf-8")
+        body = "".join(
+            z.read(n).decode("utf-8") for n in z.namelist() if n.endswith(".xhtml") and n != nav
+        )
+    # Heading ngoài mục lục vẫn render <h3> trong thân bài…
+    assert "Tiêu đề ngoài mục lục" in body
+    # …nhưng KHÔNG xuất hiện trong nav.
+    assert "Tiêu đề ngoài mục lục" not in html
+    # Ba mục còn lại vào nav, lồng nhau (ít nhất 3 <ol> = 3 cấp).
+    for t in ("CHƯƠNG MỘT", "Mục đánh số", "Gạch đầu dòng"):
+        assert t in html
+    assert html.count("<ol") >= 3

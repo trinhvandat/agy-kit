@@ -118,6 +118,9 @@ class Heading:
     confidence: float | None = (
         None  # độ tin OCR (route hybrid); KHÔNG xuất EPUB — dành đánh dấu sau
     )
+    # Có đưa vào nav.xhtml không (PIPELINE_VERSION 10, toc_hierarchy). Mặc định True (giữ hành vi
+    # cũ); tiêu đề KHÔNG khớp mục nào trong mục lục in sẵn → False (vẫn render <hN>, ngoài nav).
+    in_nav: bool = True
 
 
 @dataclass(frozen=True)

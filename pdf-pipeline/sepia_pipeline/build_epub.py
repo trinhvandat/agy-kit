@@ -71,7 +71,7 @@ def _css(font_family: str) -> str:
 # sách vài trăm nghìn ký tự (nhẹ khi mở trên điện thoại). Nav giữ heading tới _NAV_MAX_LEVEL.
 _TARGET_CHARS = 7000  # vượt ngưỡng này → tách ở heading coarsest kế tiếp
 _MAX_CHARS = 10_000  # trần cứng: vượt → cắt ở ranh giới khối kế tiếp (kể cả giữa chương)
-_NAV_MAX_LEVEL = 2
+_NAV_MAX_LEVEL = 3  # v10 (toc_hierarchy): nav tới 3 cấp (chương → mục đánh số → gạch đầu dòng)
 
 # Ảnh: ảnh chụp/scan → JPEG q80, cạnh dài ≤ _IMG_MAX_EDGE; ảnh ít màu (≤ _IMG_PALETTE_MAX màu) giữ
 # PNG. Bỏ ảnh tí hon (cạnh < _IMG_MIN_EDGE px). Pillow là dependency runtime bắt buộc.
@@ -251,7 +251,9 @@ def _blocks_to_chapters(
             frag = f'<h{lvl} id="{anchor}">{_esc(b.text)}</h{lvl}>'
             cur["frags"].append(frag)
             cur["chars"] += _content_len(b)
-            if lvl <= nav_max_level:
+            # v10: chỉ đưa vào nav khi heading KHỚP mục lục in sẵn (``in_nav``); heading không khớp
+            # vẫn render <hN> trong thân bài nhưng KHÔNG vào nav (tránh nav phẳng 715 mục).
+            if getattr(b, "in_nav", True) and lvl <= nav_max_level:
                 nav.append({"ci": len(chapters) - 1, "anchor": anchor, "text": b.text, "lvl": lvl})
             continue
         if cur is None:
@@ -284,20 +286,35 @@ def _blocks_to_chapters(
 
 
 def _build_toc(nav_entries: list[_NavEntry], chapters: list[_Chapter]) -> list:
-    """Nav 2 cấp: heading cấp 1 làm mục, cấp 2 làm mục con. Không có heading → mỗi file một mục."""
+    """Nav **3 cấp lồng nhau** (v10): cấp 1 → cấp 2 → cấp 3. Không có heading → mỗi file một mục.
+
+    Mục con bám vào cha gần nhất ở cấp trên. Mục con mồ côi (chưa có cha) được nâng lên làm cha.
+    """
     if not nav_entries:
         return [epub.Link(c.file_name, c.title, c.file_name) for c in chapters]
-    toc: list = []
+
+    def mk(e: _NavEntry) -> epub.Link:
+        return epub.Link(f"{e.file_name}#{e.anchor}", e.text, f"{e.file_name}_{e.anchor}")
+
+    roots: list[list] = []  # [link, children]
+    cur1: list | None = None
+    cur2: list | None = None
     for e in nav_entries:
-        link = epub.Link(f"{e.file_name}#{e.anchor}", e.text, f"{e.file_name}_{e.anchor}")
-        if e.level <= 1 or not toc:
-            toc.append([link, []])  # mục cha (kèm danh sách con)
-        else:
-            toc[-1][1].append(link)  # mục con của cha gần nhất
-    final: list = []
-    for link, kids in toc:
-        final.append((link, tuple(kids)) if kids else link)
-    return final
+        node: list = [mk(e), []]
+        if e.level <= 1 or cur1 is None:
+            roots.append(node)
+            cur1, cur2 = node, None
+        elif e.level == 2 or cur2 is None:
+            cur1[1].append(node)
+            cur2 = node
+        else:  # cấp 3
+            cur2[1].append(node)
+
+    def finalize(node: list):
+        link, kids = node
+        return link if not kids else (link, tuple(finalize(k) for k in kids))
+
+    return [finalize(r) for r in roots]
 
 
 def _normalize_epub_zip(path: Path) -> None:
