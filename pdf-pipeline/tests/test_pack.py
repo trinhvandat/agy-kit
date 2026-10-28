@@ -147,3 +147,22 @@ def test_pack_writes_ocr_cache_for_scan_ocr_classification(
     pack_pdfs(pdf_dir, out, run_check=False, ocr_cache_dir=cache_dir)
 
     assert list(cache_dir.glob("*.json"))  # OCR cache written before convert
+
+
+def test_pack_prunes_orphan_epub_when_source_removed(tmp_path):
+    """Khi PDF nguồn bị xoá giữa 2 lần pack, .epub mồ côi (không còn trong manifest)
+    phải bị dọn khỏi out_dir — tránh phình APK / lẫn nội dung cũ."""
+    pdf_dir = tmp_path / "src"
+    pdf_dir.mkdir()
+    _make_text_pdf(pdf_dir / "a.pdf", "A", "Nội dung A tiếng Việt đủ dài để không bị coi là scan.")
+    _make_text_pdf(pdf_dir / "b.pdf", "B", "Nội dung B tiếng Việt khác hẳn, cũng đủ dài.")
+    out = tmp_path / "p"
+    pack_pdfs(pdf_dir, out, run_check=False)
+    assert len(list(out.glob("*.epub"))) == 2
+
+    (pdf_dir / "b.pdf").unlink()
+    m2 = pack_pdfs(pdf_dir, out, run_check=False)
+
+    assert len(m2.books) == 1
+    kept = {p.name for p in out.glob("*.epub")}
+    assert kept == {m2.books[0].file}  # chỉ còn epub của sách trong manifest

@@ -179,9 +179,18 @@ def pack_pdfs(
 
     books.sort(key=lambda b: b.book_uid)
     manifest = PackManifest(pack_version=PACK_VERSION, books=tuple(books))
+    _prune_orphans(out_dir, keep={b.file for b in books})
     _write_manifest(out_dir, manifest)
     _warn_size(out_dir, size_warn_bytes)
     return manifest
+
+
+def _prune_orphans(out_dir: Path, keep: set[str]) -> None:
+    """Xoá .epub trong out_dir không còn trong manifest (PDF nguồn bị xoá/đổi) để gói
+    không lẫn sách cũ và không phình APK. Chỉ đụng .epub; manifest.json giữ nguyên."""
+    for epub_file in out_dir.glob("*.epub"):
+        if epub_file.name not in keep:
+            epub_file.unlink()
 
 
 def _write_manifest(out_dir: Path, manifest: PackManifest) -> None:
