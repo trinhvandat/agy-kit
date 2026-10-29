@@ -1,0 +1,66 @@
+name: release
+
+# Đẩy tag v* (vd v0.1.0) → build APK release ĐÃ KÝ (app LÕI, KHÔNG nhúng sách — ADR-010) rồi tạo
+# GitHub Release đính APK. Ký bằng keystore riêng nạp qua secret (xem .omc/RELEASE_RULE.md):
+#   RELEASE_KEYSTORE_BASE64, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD
+# Thiếu secret → assembleRelease ra APK CHƯA ký (build vẫn xanh) nhưng KHÔNG cài đè cập nhật được.
+on:
+  push:
+    tags: ["v*"]
+
+# Cần quyền ghi để tạo Release + upload asset.
+permissions:
+  contents: write
+
+jobs:
+  release-apk:
+    name: build + release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java (AGP 9 cần JDK 17+)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Gradle (có cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      # Giải mã keystore từ secret (base64) ra file tạm; trỏ RELEASE_KEYSTORE_PATH tới nó.
+      # Thiếu secret → bỏ qua (build ra APK chưa ký) để không chặn thử nghiệm.
+      - name: Decode keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/sepia-release.jks"
+            echo "RELEASE_KEYSTORE_PATH=$RUNNER_TEMP/sepia-release.jks" >> "$GITHUB_ENV"
+            echo "✅ Keystore đã giải mã."
+          else
+            echo "⚠️ Thiếu RELEASE_KEYSTORE_BASE64 → APK sẽ CHƯA ký (không cài đè cập nhật được)."
+          fi
+
+      - name: Build release APK
+        env:
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: ./gradlew :androidApp:assembleRelease --stacktrace
+
+      # APK đã ký: androidApp-release.apk; chưa ký: androidApp-release-unsigned.apk.
+      - name: Collect APK
+        run: |
+          mkdir -p dist
+          APK=$(ls androidApp/build/outputs/apk/release/androidApp-release*.apk | head -1)
+          cp "$APK" "dist/sepia-${GITHUB_REF_NAME}.apk"
+          echo "Đóng gói: $APK → dist/sepia-${GITHUB_REF_NAME}.apk"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/sepia-${{ github.ref_name }}.apk
+          generate_release_notes: true
+          fail_on_unmatched_files: true

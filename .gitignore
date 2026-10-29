@@ -39,6 +39,8 @@ local.properties
 *.apk
 *.aab
 *.keystore
+*.jks
+keystore.properties
 captures/
 
 # === Xcode / iOS ===
