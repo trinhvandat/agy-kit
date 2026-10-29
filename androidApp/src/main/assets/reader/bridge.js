@@ -11,15 +11,20 @@
 //              · highlightTap{id, rect:{x,y,w,h}}             (chạm trúng một highlight)
 //              · toc{items:[{label,href,level,children}]}     (đáp getToc) · link{cfi}  (link trong sách)
 //
-// Cử chỉ (Mốc 3a): VUỐT lật trang do paginator.js tự xử lý (touch* trên doc trong iframe) —
-// KHÔNG lặp lại ở đây. TAP đơn được quy về khung nhìn TRANG CHỦ (iframe rộng hơn màn hình theo
-// số cột) rồi báo zone 30/40/30; Kotlin quyết hành động (trái=prev, giữa=toggle thanh, phải=next).
+// Cử chỉ (Mốc 3a/fix-tap-bounce): VUỐT lật trang do paginator.js tự xử lý (touch* trên doc trong
+// iframe) — KHÔNG lặp lại ở đây. TAP đơn (dịch chuyển nhỏ + nhanh + một ngón) được bắt ở PHA CAPTURE
+// trên cửa sổ iframe (doc.defaultView) — chạy TRƯỚC touchend của paginator → stopImmediatePropagation
+// để paginator KHÔNG snap, preventDefault để KHÔNG sinh 'click' (không lật đôi), rồi lật NGAY trong JS
+// (trái=prev, phải=next) + báo zone 30/40/30 cho Kotlin (giữa=toggle thanh). Mỗi cú chạm chỉ MỘT đường
+// lật trang. Tap vào link / đang có vùng chọn / trúng highlight: KHÔNG chặn (để 'click' → onDocClick
+// xử lý như cũ). Lật trang có khoá: đang lật mà có tap mới → xếp tối đa 1 lệnh chờ, không phát song song.
 // Vùng chọn do WebView/paginator theo dõi (tự cuộn sang trang khi chọn vắt trang); ta chỉ đọc +
 // báo CFI (view.getCFI) + neo prefix/suffix (NFC + gộp khoảng trắng, docs/04 §3.1).
 
 import './foliate/view.js' // định nghĩa <foliate-view>
 import { Overlayer } from './foliate/overlayer.js' // vẽ highlight (Overlayer.highlight)
 import { computeAnchor } from './anchor.js' // logic neo thuần, test bằng node
+import { isTap } from './tap.js' // nhận diện chạm đơn (vs vuốt/nhấn giữ) — thuần, test bằng node
 
 const SNIPPET_LEN = 64
 const CTX_LEN = 32
@@ -261,6 +266,52 @@ function onSelectionChange(doc, index) {
   }
 }
 
+// Trạng thái cú chạm đang theo dõi (một cử chỉ một lúc → một biến dùng chung đủ). multi = từng có >1 ngón.
+let tapState = null
+
+// touchstart (pha capture trên cửa sổ iframe): ghi điểm/thời điểm bắt đầu. Ngón thứ hai → đánh dấu multi.
+function onTapTouchStart(e) {
+  const list = e.touches
+  if (list && list.length === 1) {
+    const t = list[0]
+    tapState = { x: t.clientX, y: t.clientY, t: e.timeStamp, multi: false }
+  } else if (tapState) {
+    tapState.multi = true
+  }
+}
+
+// touchend (pha capture trên cửa sổ iframe — chạy TRƯỚC touchend của paginator trên document):
+// nếu là TAP-lật thì chặn snap + chặn 'click' rồi lật ngay; ngược lại buông để hành vi cũ chạy.
+function onTapTouchEnd(doc, e) {
+  try {
+    const st = tapState
+    tapState = null
+    if (!st) return
+    const t = (e.changedTouches && e.changedTouches[0]) || null
+    const dx = t ? t.clientX - st.x : 0
+    const dy = t ? t.clientY - st.y : 0
+    const dt = e.timeStamp - st.t
+    const touches = st.multi ? 2 : 1
+    if (!isTap({ dx, dy, dt, touches })) return // vuốt thật / nhấn giữ / đa chạm → paginator xử lý
+    // Các ca KHÔNG lật: để nguyên (không chặn) → 'click' tới onDocClick xử lý như cũ.
+    const target = e.target
+    if (target && target.closest && target.closest('a[href]')) return // link/chú thích
+    if (isNonEmpty(selectionOf(doc)) || selectionActive) return // đang chọn chữ → click sẽ bỏ chọn
+    if (Date.now() - selectionClearedAt < TAP_AFTER_CLEAR_GUARD_MS) return // vừa xoá vùng chọn (ca f)
+    const cx = t ? t.clientX : 0
+    const cy = t ? t.clientY : 0
+    if (hitHighlight(doc, { x: cx, y: cy })) return // trúng highlight → view.js phát show-annotation
+    // Tap-lật thực sự: chặn snap của paginator (stopImmediatePropagation) + chặn 'click' (preventDefault,
+    // không lật đôi), rồi lật NGAY (có khoá, không song song) + báo zone cho Kotlin cập nhật UI.
+    e.stopImmediatePropagation()
+    e.preventDefault()
+    const zone = zoneForHostX(toHostX(doc, cx))
+    if (zone === 'left') { perfMark('tap'); flip('prev') }
+    else if (zone === 'right') { perfMark('tap'); flip('next') }
+    post('tap', { zone })
+  } catch (err) { reportError('tap', err) }
+}
+
 function onDocClick(doc, e) {
   try {
     // Link/chú thích: để foliate xử lý (view.js đã preventDefault cho <a[href]>).
@@ -283,14 +334,10 @@ function onDocClick(doc, e) {
       post('selectionCleared', {})
       return
     }
-    const zone = zoneForHostX(toHostX(doc, e.clientX))
-    // Lật trang xử lý NGAY trong JS (bỏ vòng JS→Kotlin→JS cho mượt): trái=prev, phải=next.
-    // Gọi wrapper prev()/next() (tự null-check view + try/catch→reportError; nuốt reject an toàn,
-    // KHÔNG để unhandled rejection ở biên sách / renderer đang huỷ). Rồi mới báo 'tap' để Kotlin cập
-    // nhật UI (ẩn chip…). Kotlin KHÔNG lật lại (tránh lật đôi). Giữa: để Kotlin bật/tắt thanh.
-    if (zone === 'left') { perfMark('tap'); prev() }
-    else if (zone === 'right') { perfMark('tap'); next() }
-    post('tap', { zone })
+    // Chạm đơn để LẬT TRANG (trái/phải) và toggle thanh (giữa) đã được bắt ở touchend pha capture
+    // (onTapTouchEnd) — cú đó preventDefault nên KHÔNG sinh 'click' tới đây. onDocClick chỉ còn là
+    // lưới an toàn cho các ca KHÔNG phải tap-lật (link/selection/highlight ở trên); KHÔNG lật trang
+    // nữa → đảm bảo mỗi cú chạm chỉ có MỘT đường lật (hết race snap↔next, ca #30).
   } catch (err) { reportError('tap', err) }
 }
 
@@ -303,6 +350,16 @@ function onLoad(e) {
     if (!doc) return
     doc.addEventListener('click', function (ev) { onDocClick(doc, ev) })
     doc.addEventListener('selectionchange', function () { onSelectionChange(doc, index) })
+    // Bắt TAP ở PHA CAPTURE trên cửa sổ iframe — chạy TRƯỚC touchend (pha bubble) của paginator trên
+    // document → quyết định chặn-snap/chặn-click trước khi paginator kịp snap. passive:false vì có
+    // preventDefault. Vuốt/nhấn-giữ không đạt ngưỡng tap sẽ không bị chặn (xem onTapTouchEnd).
+    try {
+      const win = doc.defaultView
+      if (win) {
+        win.addEventListener('touchstart', onTapTouchStart, { capture: true, passive: true })
+        win.addEventListener('touchend', function (ev) { onTapTouchEnd(doc, ev) }, { capture: true, passive: false })
+      }
+    } catch (err) { reportError('tapListen', err) }
     // Đo perf (debug): gắn đồng hồ ở touchend cho MỌI cử chỉ (chạm lẫn vuốt) — kind theo có di chuyển
     // hay không. Tap còn được tái gắn ở onDocClick (sát thời điểm quyết định hơn). onRendererRelocate
     // lọc no-op bằng fraction nên chạm không lật trang sẽ không bị tính.
@@ -367,6 +424,22 @@ async function goToStart() { try { if (view) await view.goToTextStart() } catch 
 async function goToFraction(f) { try { if (view) await view.goToFraction(Number(f) || 0) } catch (e) { reportError('goToFraction', e) } }
 async function next() { try { if (view) await view.next() } catch (e) { reportError('next', e) } }
 async function prev() { try { if (view) await view.prev() } catch (e) { reportError('prev', e) } }
+
+// Khoá lật trang: next()/prev() có hiệu ứng trượt (await ~300ms). Nếu đang lật mà có tap mới tới,
+// KHÔNG phát song song (hai lệnh đua nhau → trượt rồi bị kéo về); xếp TỐI ĐA 1 lệnh chờ rồi chạy khi
+// lệnh hiện tại xong. Tap nhanh liên tiếp chỉ giữ lệnh CUỐI (bỏ giữa chừng) — đủ cho đọc sách.
+let flipping = false
+let queuedFlip = null // 'next' | 'prev' | null
+async function flip(dir) {
+  if (flipping) { queuedFlip = dir; return }
+  flipping = true
+  try {
+    if (dir === 'next') await next(); else await prev()
+  } finally {
+    flipping = false
+    if (queuedFlip) { const d = queuedFlip; queuedFlip = null; flip(d) }
+  }
+}
 
 function applyStyle(css) { styleCss = css || ''; applyStyleNow() }
 
