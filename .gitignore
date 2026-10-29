@@ -70,3 +70,6 @@ pdf-pipeline/.ocr_cache/
 # Anchored to repo root (/) nên CHỈ bỏ qua thư mục gói ở gốc, không đụng package
 # nguồn Kotlin tên "content" (…/sepia/content/).
 /content/
+
+# Artefact build cục bộ (APK đã sao lưu, ảnh chụp máy thật…) — không commit.
+/out/
