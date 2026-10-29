@@ -108,6 +108,7 @@ private class NoSelectionMenuWebView(context: Context) : AndroidWebView(context)
 private val BRIDGE_METHODS = listOf(
     "bridgeReady", "ready", "relocated", "reanchorResult",
     "tap", "selection", "selectionCleared", "highlightTap", "error",
+    "toc", "link",
 )
 
 private fun handler(name: String, onMsg: (String) -> Unit): IJsMessageHandler =

@@ -71,10 +71,21 @@ def format_convert(report: ConvertReport) -> str:
         f"  mục lục bỏ  : {q.printed_toc_removed} dòng",
         f"  epubcheck   : {q.epubcheck or '(chưa chạy)'}",
     ]
+    tree = report.epub.nav_tree
+    if tree:
+        lines.append(f"  nav cấp 1   : {len(tree)} mục")
+        lines += [f"    • {n.label}  →  {n.href}  ({n.n_children} con)" for n in tree]
     if report.warnings:
         lines.append("  cảnh báo:")
         lines += [f"    - {w}" for w in report.warnings]
     return "\n".join(lines)
+
+
+def format_nav_tree(report: ConvertReport) -> str:
+    """Cây nav cấp 1 cho file soát (out/<ver>/nav_tree.txt): nhãn → href → số con."""
+    tree = report.epub.nav_tree
+    head = f"{report.pdf_name}  (pipeline v{report.pipeline_version})  — {len(tree)} mục cấp 1\n"
+    return head + "\n".join(f"{n.label}\t{n.href}\t{n.n_children} con" for n in tree) + "\n"
 
 
 def _cmd_convert(args: argparse.Namespace) -> int:

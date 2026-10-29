@@ -118,6 +118,13 @@ class Heading:
     confidence: float | None = (
         None  # độ tin OCR (route hybrid); KHÔNG xuất EPUB — dành đánh dấu sau
     )
+    # Có đưa vào nav.xhtml không (PIPELINE_VERSION 10, toc_hierarchy). Mặc định True (giữ hành vi
+    # cũ); tiêu đề KHÔNG khớp mục nào trong mục lục in sẵn → False (vẫn render <hN>, ngoài nav).
+    in_nav: bool = True
+    # Nhãn hiển thị trong nav (PIPELINE_VERSION 11). None → dùng ``text``. Khi khớp mục lục in sẵn,
+    # đặt bằng CHỮ của mục lục in sẵn (dấu thường đúng hơn heading in hoa OCR). KHÔNG đổi ``text``
+    # (chữ thân bài giữ nguyên) — chỉ build_epub đọc nav_label để ghi nhãn nav.
+    nav_label: str | None = None
 
 
 @dataclass(frozen=True)

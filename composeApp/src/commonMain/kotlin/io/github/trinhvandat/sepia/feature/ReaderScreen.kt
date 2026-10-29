@@ -46,11 +46,13 @@ import io.github.trinhvandat.sepia.domain.Highlight
 import io.github.trinhvandat.sepia.domain.HighlightStatus
 import io.github.trinhvandat.sepia.domain.ReAnchorSelector
 import io.github.trinhvandat.sepia.reader.HighlightDraw
+import io.github.trinhvandat.sepia.reader.ReaderBackStack
 import io.github.trinhvandat.sepia.reader.ReaderController
 import io.github.trinhvandat.sepia.reader.ReaderEvent
 import io.github.trinhvandat.sepia.reader.ReaderSurface
 import io.github.trinhvandat.sepia.reader.SelectionRect
 import io.github.trinhvandat.sepia.reader.TapZone
+import io.github.trinhvandat.sepia.reader.TocItem
 import io.github.trinhvandat.sepia.theme.HighlightColor
 import io.github.trinhvandat.sepia.theme.SepiaTheme
 import io.github.trinhvandat.sepia.data.BookRepository
@@ -102,6 +104,19 @@ fun ReaderContent(
     var reanchorSettled by remember(book.id) { mutableStateOf(!needsReAnchor) }
     val relocations = remember(book.id) { MutableStateFlow<ReaderEvent.Relocated?>(null) }
 
+    // Điều hướng (PR reader-navigation): mục lục + thanh tiến độ + ngăn xếp "quay lại".
+    val backStack = remember(book.id) { ReaderBackStack() }
+    var canGoBack by remember(book.id) { mutableStateOf(false) }
+    var showBackChip by remember(book.id) { mutableStateOf(false) }
+    var chipToken by remember(book.id) { mutableStateOf(0) }
+    var tocItems by remember(book.id) { mutableStateOf<List<TocItem>>(emptyList()) }
+    var showToc by remember(book.id) { mutableStateOf(false) }
+    // Vị trí hiện tại (CFI/fraction/nhãn mục) cập nhật theo relocate — nguồn cho ngăn xếp + thanh tiến độ.
+    var lastCfi by remember(book.id) { mutableStateOf(book.positionCfi) }
+    var currentFraction by remember(book.id) { mutableStateOf(book.progress) }
+    var currentTocHref by remember(book.id) { mutableStateOf("") }
+    var currentTocLabel by remember(book.id) { mutableStateOf("") }
+
     val clipboard = LocalClipboardManager.current
 
     // Highlight của cuốn này; CHỈ vẽ cái active + đúng contentHash hiện hành (khác hash = re-anchor ở 3e).
@@ -125,6 +140,31 @@ fun ReaderContent(
         appScope.launch { settings.setFontScalePercent(clamped) }
     }
 
+    // Một cú NHẢY (mục lục / Về đầu sách / thanh tiến độ): đẩy vị trí hiện tại vào ngăn xếp + hiện chip.
+    fun recordJump() {
+        backStack.recordJump(lastCfi)
+        canGoBack = backStack.canGoBack
+        showBackChip = true
+        chipToken++
+    }
+
+    // Quay lại vị trí trước cú nhảy. Trả true nếu đã quay (ngăn xếp còn), false nếu rỗng.
+    fun goBack(): Boolean {
+        val cfi = backStack.pop() ?: return false
+        canGoBack = backStack.canGoBack
+        showBackChip = false
+        controller.goTo(cfi)
+        return true
+    }
+
+    // Chip "Quay lại" tự ẩn sau ~8s (chipToken đổi mỗi lần nhảy → khởi động lại đồng hồ).
+    LaunchedEffect(showBackChip, chipToken) {
+        if (showBackChip) {
+            kotlinx.coroutines.delay(8000)
+            showBackChip = false
+        }
+    }
+
     ImmersiveReaderEffect(enabled = !uiVisible)
 
     // Nhận sự kiện từ foliate: mở sách khi bridge sẵn sàng (idempotent), re-anchor khi cần, gom relocate.
@@ -142,6 +182,7 @@ fun ReaderContent(
                 }
                 is ReaderEvent.Ready -> {
                     ready = true
+                    controller.requestToc() // nạp mục lục sớm để bảng mở là có dữ liệu
                     val mustReAnchor = needsReAnchor || event.cfiFailed
                     val anchor = book.readingAnchor()
                     if (mustReAnchor && anchor != null) {
@@ -153,7 +194,21 @@ fun ReaderContent(
                         reanchorSettled = true
                     }
                 }
-                is ReaderEvent.Relocated -> relocations.value = event
+                is ReaderEvent.Relocated -> {
+                    relocations.value = event
+                    if (event.cfi.isNotEmpty()) lastCfi = event.cfi
+                    currentFraction = event.fraction
+                    currentTocHref = event.tocHref
+                    currentTocLabel = event.tocLabel
+                }
+                is ReaderEvent.Toc -> tocItems = event.items
+                is ReaderEvent.LinkJump -> {
+                    // Link trong sách: foliate TỰ điều hướng; ta chỉ đẩy vị trí cũ vào ngăn xếp + hiện chip.
+                    backStack.recordJump(event.fromCfi)
+                    canGoBack = backStack.canGoBack
+                    showBackChip = true
+                    chipToken++
+                }
                 is ReaderEvent.ReanchorResult -> {
                     // Chọn ứng viên GẦN progress cũ nhất (docs/04 §3 bước 3) — KHÔNG lấy khớp đầu
                     // tiên (foliate search bỏ dấu/hoa-thường → snippet khớp nhiều chỗ, chỗ đầu ≈ đầu
@@ -167,9 +222,10 @@ fun ReaderContent(
                     reanchorSettled = true
                 }
                 is ReaderEvent.Tap -> when (event.zone) {
-                    TapZone.LEFT -> controller.prev()
+                    // Lật trang thường → ẩn chip "Quay lại" (ngăn xếp vẫn giữ cho nút Back).
+                    TapZone.LEFT -> { showBackChip = false; controller.prev() }
                     TapZone.CENTER -> uiVisible = !uiVisible
-                    TapZone.RIGHT -> controller.next()
+                    TapZone.RIGHT -> { showBackChip = false; controller.next() }
                 }
                 is ReaderEvent.Selection -> { selection = event; tappedHighlight = null }
                 ReaderEvent.SelectionCleared -> selection = null
@@ -266,6 +322,12 @@ fun ReaderContent(
         onBack()
     }
 
+    // Nút Back của Android: ngăn xếp còn → quay lại; hết → về thư viện. (Bảng mục lục mở thì
+    // ModalBottomSheet tự nuốt Back để đóng — vô hiệu hoá handler này lúc đó.)
+    ReaderBackHandler(enabled = !showToc) {
+        if (!goBack()) flushAndBack()
+    }
+
     BoxWithConstraints(Modifier.fillMaxSize().background(Color(SepiaTheme.BackgroundArgb))) {
         val screenW = maxWidth
         val screenH = maxHeight
@@ -278,10 +340,37 @@ fun ReaderContent(
                 title = book.title,
                 percent = book.progressPercent,
                 fontScale = fontScale,
+                canGoBack = canGoBack,
                 onBack = ::flushAndBack,
+                onGoBack = { goBack() },
+                onToc = { controller.requestToc(); showToc = true },
                 onFontDec = { changeFontScale(fontScale - SepiaTheme.FontScaleStep) },
                 onFontInc = { changeFontScale(fontScale + SepiaTheme.FontScaleStep) },
                 modifier = Modifier.align(Alignment.TopCenter),
+            )
+            ReaderProgressBar(
+                fraction = currentFraction,
+                sectionLabel = currentTocLabel,
+                onSeek = { f -> recordJump(); controller.goToFraction(f) },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
+
+        // Chip "Quay lại trang trước" ở mép dưới — chỉ khi ẩn thanh (vùng Compose nhận được chạm;
+        // overlay đè nội dung iframe foliate bị "nuốt" chạm). Khi hiện thanh → nút "↩ Quay lại" trên
+        // thanh trên; nút Back Android luôn quay lại (dự phòng). Hiện ~8s sau mỗi cú nhảy.
+        if (showBackChip && canGoBack && !uiVisible) {
+            BackChip(onClick = { goBack() }, modifier = Modifier.align(Alignment.BottomStart))
+        }
+
+        // Bảng mục lục (bottom sheet).
+        if (showToc) {
+            TocBottomSheet(
+                items = tocItems,
+                currentHref = currentTocHref,
+                onGoStart = { recordJump(); controller.goToStart(); showToc = false },
+                onPick = { item -> recordJump(); controller.goToHref(item.href); showToc = false },
+                onDismiss = { showToc = false },
             )
         }
 
@@ -400,18 +489,24 @@ private fun ReaderTopBar(
     title: String,
     percent: Int,
     fontScale: Int,
+    canGoBack: Boolean,
     onBack: () -> Unit,
+    onGoBack: () -> Unit,
+    onToc: () -> Unit,
     onFontDec: () -> Unit,
     onFontInc: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val compact = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
     Surface(color = Color(0xF2F2E7D0), modifier = modifier.fillMaxWidth()) {
         Row(
-            Modifier.statusBarsPadding().fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            Modifier.statusBarsPadding().fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = onBack) { Text("‹ Thư viện") }
+            TextButton(onClick = onBack, contentPadding = compact) { Text("‹ Thư viện", fontSize = 13.sp) }
+            // "↩ Quay lại" (vị trí trước cú nhảy) — chỉ hiện khi ngăn xếp còn; nút tin cậy trên thanh.
+            if (canGoBack) TextButton(onClick = onGoBack, contentPadding = compact) { Text("↩", fontSize = 18.sp) }
             Text(
                 title,
                 modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
@@ -421,8 +516,9 @@ private fun ReaderTopBar(
                 fontSize = 15.sp,
             )
             Text("$percent%", color = Color(SepiaTheme.ForegroundArgb), fontSize = 13.sp)
-            TextButton(onClick = onFontDec) { Text("A−", fontSize = 16.sp) }
-            TextButton(onClick = onFontInc) { Text("A+", fontSize = 18.sp) }
+            TextButton(onClick = onToc, contentPadding = compact) { Text("Mục lục", fontSize = 13.sp) }
+            TextButton(onClick = onFontDec, contentPadding = compact) { Text("A−", fontSize = 16.sp) }
+            TextButton(onClick = onFontInc, contentPadding = compact) { Text("A+", fontSize = 18.sp) }
         }
     }
 }

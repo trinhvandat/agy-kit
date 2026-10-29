@@ -30,6 +30,7 @@ from .reflow import (
     is_image_page,
     tidy_bullet_markers,
 )
+from .toc_hierarchy import assign_heading_levels
 from .vietnamese import looks_vietnamese
 
 DEFAULT_OUT_DIR = Path(__file__).resolve().parent.parent / "out"
@@ -230,6 +231,18 @@ def convert_pdf(
         blocks = garbage.kept
     else:
         garbage = GarbageFilterResult(kept=blocks, removed=(), long_low_score=())
+
+    # v10: gán cấp heading theo MỤC LỤC IN SẴN (trước khi bỏ nó). Route Vision-OCR cho mọi heading
+    # cùng cỡ → nếu không có bước này, nav phẳng (mọi mục cấp 1). Không có mục lục in sẵn → giữ cấp
+    # theo cỡ chữ (fallback) + cảnh báo.
+    toc_h = assign_heading_levels(blocks)
+    blocks = toc_h.blocks
+    if toc_h.found_printed_toc:
+        warnings.append(
+            f"toc-hierarchy: {toc_h.anchored_chapters}/{toc_h.n_chapters} chương neo được, "
+            f"cấp {toc_h.level_counts}"
+        )
+    warnings.extend(toc_h.warnings)
 
     blocks, toc_removed = drop_printed_toc(blocks, config.reflow)
     n_image_pages = sum(1 for b in blocks if isinstance(b, ImageBlock))
