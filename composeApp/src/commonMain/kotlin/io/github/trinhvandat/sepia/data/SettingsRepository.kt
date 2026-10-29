@@ -13,4 +13,10 @@ interface SettingsRepository {
 
     /** Lưu cỡ chữ (%) — tự kẹp vào khoảng hợp lệ trước khi ghi. */
     suspend fun setFontScalePercent(percent: Int)
+
+    /** Hiệu ứng trượt lật trang (Trượt/Không). Mặc định bật (Trượt) khi chưa đặt. */
+    suspend fun pageTurnAnimated(): Boolean
+
+    /** Lưu lựa chọn hiệu ứng lật trang. */
+    suspend fun setPageTurnAnimated(enabled: Boolean)
 }
