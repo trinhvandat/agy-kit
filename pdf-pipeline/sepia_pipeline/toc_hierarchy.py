@@ -407,8 +407,7 @@ def assign_heading_levels(blocks: list[Block]) -> TocHierarchyReport:
     anchor_idx = {a: ci for ci, a in enumerate(anchors) if a is not None}
     ordered = sorted(a for a in anchors if a is not None)
     next_of = {
-        a: (ordered[k + 1] if k + 1 < len(ordered) else len(blocks))
-        for k, a in enumerate(ordered)
+        a: (ordered[k + 1] if k + 1 < len(ordered) else len(blocks)) for k, a in enumerate(ordered)
     }
     # Mục con mong đợi của từng chương (match_key → TocEntry), lần đầu thắng.
     want: list[dict[str, TocEntry]] = []
