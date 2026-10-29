@@ -21,9 +21,19 @@ class SettingsRepositoryImpl(
         q.upsert(key = KEY_FONT_SCALE, value = coerce(percent).toString())
     }
 
+    override suspend fun pageTurnAnimated(): Boolean = withContext(dispatcher) {
+        // Mặc định bật (Trượt) khi chưa đặt; chỉ "false" tường minh mới tắt.
+        q.get(KEY_PAGE_ANIMATED).executeAsOneOrNull() != "false"
+    }
+
+    override suspend fun setPageTurnAnimated(enabled: Boolean): Unit = withContext(dispatcher) {
+        q.upsert(key = KEY_PAGE_ANIMATED, value = enabled.toString())
+    }
+
     private fun coerce(p: Int) = p.coerceIn(SepiaTheme.MinFontScale, SepiaTheme.MaxFontScale)
 
     private companion object {
         const val KEY_FONT_SCALE = "reader.fontScalePercent"
+        const val KEY_PAGE_ANIMATED = "reader.pageTurnAnimated"
     }
 }

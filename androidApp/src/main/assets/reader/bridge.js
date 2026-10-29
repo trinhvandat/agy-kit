@@ -1,7 +1,7 @@
 // Cầu nối foliate-js ↔ Kotlin cho Sepia (SPIKE-1, docs/02 §6, ADR-001/008, Mốc 3a).
 //
 // Kotlin → JS: window.sepia.open(url, cfi?) / goTo(cfi) / goToHref(href) / goToStart() / goToFraction(f)
-//              / next() / prev() / applyStyle(css) / reAnchor(fullQuery, snippetQuery, targetFraction)
+//              / next() / prev() / applyStyle(css) / setPageAnimation(on) / reAnchor(fullQuery, snippetQuery, targetFraction)
 //              / clearSelection() / setHighlights([{id,cfi,color}]) / removeHighlight(id) / getToc()
 // JS → Kotlin (qua window.kmpJsBridge.callNative của compose-webview-multiplatform):
 //              ready{} · relocated{cfi,fraction,snippet,prefix,suffix,tocLabel,tocHref} · error{where,message}
@@ -34,6 +34,41 @@ const TAP_AFTER_CLEAR_GUARD_MS = 400
 
 let view = null
 let styleCss = '' // CSS theme hiện hành (Sepia…) do Kotlin đẩy xuống
+
+// --- Đo hiệu năng lật trang (CHỈ bản debug; Kotlin đặt window.__sepiaPerf=true khi debuggable) ------
+// Gắn đồng hồ từ lúc chạm/vuốt (perfMark) → relocate của paginator (view.renderer) → requestAnimationFrame
+// (khung mới đã vẽ). Mỗi relocate ghi MỘT dòng '[Perf]' (reason: page=tap trong chương, snap=vuốt,
+// anchor=qua ranh giới chương). KHÔNG đổi hành vi; chỉ console.log → logcat (tag chromium). Mốc 3 perf.
+let perfArmedAt = 0 // performance.now() lúc chạm/vuốt (touchend/click); 0 = chưa gắn
+let perfKind = '' // 'tap' | 'swipe'
+let perfLastFraction = -1 // fraction lần relocate trước — lọc 'snap' no-op (trang KHÔNG đổi)
+const PERF_MAX_DT = 3000 // dt > ngưỡng = đồng hồ cũ/nhiễu → bỏ (không trang nào lật mất 3s)
+function perfOn() { return !!window.__sepiaPerf }
+function perfMark(kind) { if (perfOn()) { perfArmedAt = performance.now(); perfKind = kind } }
+// Nghe 'relocate' THÔ của paginator (reason: page=tap trong chương, snap=vuốt, anchor=qua ranh giới;
+// index=section; fraction=tiến độ). CHỈ đo khi trang THỰC SỰ đổi (fraction đổi hoặc qua chương) để bỏ
+// cú chạm no-op (paginator snap về đúng trang hiện tại). Không tiêu thụ đồng hồ → một cử chỉ qua ranh
+// giới ghi cả 'page' (trang cuối) lẫn 'anchor' (nạp chương) cùng t0; cử chỉ kế tái gắn qua touchend/click.
+function onRendererRelocate(e) {
+  if (!perfOn()) return
+  const d = (e && e.detail) || {}
+  const frac = typeof d.fraction === 'number' ? d.fraction : perfLastFraction
+  const reason = d.reason || ''
+  const changed = perfLastFraction >= 0 && Math.abs(frac - perfLastFraction) > 1e-6
+  const crossed = reason === 'anchor'
+  perfLastFraction = frac
+  if (!perfArmedAt || !(changed || crossed)) return
+  const t0 = perfArmedAt
+  const kind = perfKind
+  const index = typeof d.index === 'number' ? d.index : -1
+  requestAnimationFrame(function () { // chờ KHUNG kế để tính cả thời gian vẽ
+    const dt = Number((performance.now() - t0).toFixed(1))
+    if (dt < 0 || dt > PERF_MAX_DT) return
+    post('perf', { kind: kind, reason: reason, idx: index, dt: dt }) // → logcat tag SepiaPerf
+    // eslint-disable-next-line no-console
+    console.log('[Perf] kind=' + kind + ' reason=' + reason + ' idx=' + index + ' dt=' + dt)
+  })
+}
 let selectionActive = false // đang có vùng chọn không rỗng (đã báo lên Kotlin)?
 let selectionClearedAt = 0 // mốc thời gian (ms) selection chuyển không-rỗng → rỗng
 let selectionTimer = null // debounce post 'selection'
@@ -248,7 +283,14 @@ function onDocClick(doc, e) {
       post('selectionCleared', {})
       return
     }
-    post('tap', { zone: zoneForHostX(toHostX(doc, e.clientX)) })
+    const zone = zoneForHostX(toHostX(doc, e.clientX))
+    // Lật trang xử lý NGAY trong JS (bỏ vòng JS→Kotlin→JS cho mượt): trái=prev, phải=next.
+    // Gọi wrapper prev()/next() (tự null-check view + try/catch→reportError; nuốt reject an toàn,
+    // KHÔNG để unhandled rejection ở biên sách / renderer đang huỷ). Rồi mới báo 'tap' để Kotlin cập
+    // nhật UI (ẩn chip…). Kotlin KHÔNG lật lại (tránh lật đôi). Giữa: để Kotlin bật/tắt thanh.
+    if (zone === 'left') { perfMark('tap'); prev() }
+    else if (zone === 'right') { perfMark('tap'); next() }
+    post('tap', { zone })
   } catch (err) { reportError('tap', err) }
 }
 
@@ -261,6 +303,21 @@ function onLoad(e) {
     if (!doc) return
     doc.addEventListener('click', function (ev) { onDocClick(doc, ev) })
     doc.addEventListener('selectionchange', function () { onSelectionChange(doc, index) })
+    // Đo perf (debug): gắn đồng hồ ở touchend cho MỌI cử chỉ (chạm lẫn vuốt) — kind theo có di chuyển
+    // hay không. Tap còn được tái gắn ở onDocClick (sát thời điểm quyết định hơn). onRendererRelocate
+    // lọc no-op bằng fraction nên chạm không lật trang sẽ không bị tính.
+    if (perfOn()) {
+      let sx = 0, sy = 0, moved = false
+      doc.addEventListener('touchstart', function (ev) {
+        const t = ev.touches && ev.touches[0]
+        sx = t ? t.clientX : 0; sy = t ? t.clientY : 0; moved = false
+      }, { passive: true })
+      doc.addEventListener('touchmove', function (ev) {
+        const t = ev.touches && ev.touches[0]
+        if (t && (Math.abs(t.clientX - sx) > 10 || Math.abs(t.clientY - sy) > 10)) moved = true
+      }, { passive: true })
+      doc.addEventListener('touchend', function () { perfMark(moved ? 'swipe' : 'tap') }, { passive: true })
+    }
   } catch (err) { reportError('load', err) }
 }
 
@@ -283,6 +340,9 @@ async function open(url, cfi) {
     hlByCfi.clear()
     await view.open(url)
     try { view.renderer.setAttribute('flow', 'paginated') } catch (_) {}
+    applyPageAnimationNow() // áp hiệu ứng lật trang hiện hành (mặc định Trượt) cho renderer mới
+    // Đo perf (debug): nghe 'relocate' THÔ của paginator (có reason/index) — không đụng vendor.
+    try { if (perfOn() && view.renderer) view.renderer.addEventListener('relocate', onRendererRelocate) } catch (_) {}
     applyStyleNow()
     let cfiFailed = false
     if (cfi) {
@@ -309,6 +369,21 @@ async function next() { try { if (view) await view.next() } catch (e) { reportEr
 async function prev() { try { if (view) await view.prev() } catch (e) { reportError('prev', e) } }
 
 function applyStyle(css) { styleCss = css || ''; applyStyleNow() }
+
+// Hiệu ứng lật trang (ADR/Mốc 3): bật thuộc tính 'animated' của paginator → foliate TỰ trượt
+// (easeOutQuad 300ms) VÀ bỏ luôn `wait(100)` cứng cho lật trong chương (xem paginator #turnPage:
+// `if (shouldGo || !hasAttribute('animated')) await wait(100)` — có 'animated' thì lật trong chương
+// không còn chờ 100ms → không rớt nhịp khi lật nhanh). Tắt (Không): bỏ thuộc tính → lật tức thì,
+// NHƯNG vendor vẫn `wait(100)` sau mỗi lật (không tránh được nếu không sửa vendor) — xem docs/07.
+let pageAnimated = true
+function applyPageAnimationNow() {
+  try {
+    if (!view || !view.renderer) return
+    if (pageAnimated) view.renderer.setAttribute('animated', '')
+    else view.renderer.removeAttribute('animated')
+  } catch (e) { reportError('setPageAnimation', e) }
+}
+function setPageAnimation(on) { pageAnimated = !!on; applyPageAnimationNow() }
 
 // --- Highlight (Mốc 3b) -----------------------------------------------------------------------
 // foliate addAnnotation({value: cfi}) → khi đến section chứa cfi, phát 'draw-annotation' để ta vẽ
@@ -448,8 +523,8 @@ function sendReady(attempt) {
 
 // ping(): Kotlin gọi sau onPageFinished để yêu cầu gửi lại bridgeReady (phòng khi tín hiệu đầu mất).
 window.sepia = {
-  open, goTo, goToHref, goToStart, goToFraction, next, prev, applyStyle, reAnchor, clearSelection,
-  setHighlights, removeHighlight, getToc,
+  open, goTo, goToHref, goToStart, goToFraction, next, prev, applyStyle, setPageAnimation, reAnchor,
+  clearSelection, setHighlights, removeHighlight, getToc,
   ping: function () { sendReady(0) },
 }
 
