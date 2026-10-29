@@ -97,11 +97,21 @@ class _NavEntry:
 
 
 @dataclass(frozen=True)
+class NavTreeNode:
+    """Một mục nav **cấp 1** cho báo cáo: nhãn hiển thị, đích (file#anchor), số mục con."""
+
+    label: str
+    href: str
+    n_children: int
+
+
+@dataclass(frozen=True)
 class EpubReport:
     path: str
     book_uid: str
     n_chapters: int
     n_images: int
+    nav_tree: tuple[NavTreeNode, ...] = ()  # cây nav cấp 1 (soát số chương/con — issue #20)
 
 
 def _esc(text: str) -> str:
@@ -254,7 +264,11 @@ def _blocks_to_chapters(
             # v10: chỉ đưa vào nav khi heading KHỚP mục lục in sẵn (``in_nav``); heading không khớp
             # vẫn render <hN> trong thân bài nhưng KHÔNG vào nav (tránh nav phẳng 715 mục).
             if getattr(b, "in_nav", True) and lvl <= nav_max_level:
-                nav.append({"ci": len(chapters) - 1, "anchor": anchor, "text": b.text, "lvl": lvl})
+                # v11: nhãn nav = nav_label (chữ mục lục in sẵn) nếu có, else text thân bài.
+                nav_text = getattr(b, "nav_label", None) or b.text
+                nav.append(
+                    {"ci": len(chapters) - 1, "anchor": anchor, "text": nav_text, "lvl": lvl}
+                )
             continue
         if cur is None:
             cur = start_chapter(doc.title or "Mở đầu")
@@ -315,6 +329,19 @@ def _build_toc(nav_entries: list[_NavEntry], chapters: list[_Chapter]) -> list:
         return link if not kids else (link, tuple(finalize(k) for k in kids))
 
     return [finalize(r) for r in roots]
+
+
+def _nav_tree_level1(nav_entries: list[_NavEntry]) -> tuple[NavTreeNode, ...]:
+    """Tóm tắt cây nav **cấp 1**: mỗi mục cấp 1 + số mục con (tới mục cấp 1 kế) cho báo cáo."""
+    nodes: list[list] = []  # [_NavEntry, n_children]
+    for e in nav_entries:
+        if e.level <= 1 or not nodes:
+            nodes.append([e, 0])
+        else:
+            nodes[-1][1] += 1
+    return tuple(
+        NavTreeNode(label=e.text, href=f"{e.file_name}#{e.anchor}", n_children=n) for e, n in nodes
+    )
 
 
 def _normalize_epub_zip(path: Path) -> None:
@@ -403,4 +430,5 @@ def build_epub(
         book_uid=doc.book_uid,
         n_chapters=len(chapters),
         n_images=len(images),
+        nav_tree=_nav_tree_level1(nav_entries),
     )

@@ -37,6 +37,14 @@ extract/reflow/build_epub thuộc Mốc 1 (xem docs/07-roadmap.md).
 #     KHỚP từng mục với heading thân bài (bỏ dấu, gần đúng) → đặt cấp heading. Heading không khớp →
 #     cấp sâu nhất + NGOÀI nav (Heading.in_nav=False). nav.xhtml lồng 3 cấp; _NAV_MAX_LEVEL 2→3.
 #     Không có mục lục in sẵn → giữ cấp theo cỡ chữ (fallback) + cảnh báo. → đầu ra đổi.
-PIPELINE_VERSION = 10
+# v11: SỬA NAV CẤP 1 (nhánh toc-fix, issue #20). v10 khớp TỪNG heading với mục lục nên lần nhắc tên
+#     chương trong lời giới thiệu + tiêu đề loạt lặp (vd "ĐÔNG Y VÀ BÍ QUYẾT…" ×3) đều thành mục cấp
+#     1 → nav đầu sách đầy mục rỗng/trùng. Nay cấp 1 = đúng các CHƯƠNG của mục lục in sẵn
+#     ("Chương N: <tên>"), mỗi chương neo MỘT heading thân bài (lần sau mục lục; không thấy heading
+#     tên chương → neo vào mục con đầu). Nhãn nav lấy CHỮ mục lục in sẵn (dấu đúng hơn OCR in hoa);
+#     thêm Heading.nav_label — KHÔNG đổi chữ thân bài. So khớp bỏ dấu câu (match_key) để chịu OCR
+#     ',' → '.'. Mục con khớp mục lục → cấp 2/3 (khử trùng trong mỗi chương). → nav đổi, CHỮ THÂN
+#     BÀI KHÔNG ĐỔI so với v10.
+PIPELINE_VERSION = 11
 
 __all__ = ["PIPELINE_VERSION"]

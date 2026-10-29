@@ -1,18 +1,19 @@
-"""Bước 2c — Gán **cấp heading theo mục lục in sẵn** (PIPELINE_VERSION 10, issue #20).
+"""Bước 2c — Gán **cấp + nhãn nav cho heading theo mục lục in sẵn** (PIPELINE_VERSION 11, #20).
 
-Vấn đề: route Vision-OCR cho ra **mọi heading cùng một cỡ chữ** → `toc.heading_level` trả cấp 1
-cho tất cả → mục lục app **phẳng** (715 mục cấp 1, vô dụng). Sách có **mục lục in sẵn** mang cấu
-trúc thật (chương / mục đánh số / gạch đầu dòng). Module này:
+Vấn đề: route Vision-OCR cho ra **mọi heading cùng một cỡ chữ** → mục lục app **phẳng**. v10 khớp
+TỪNG heading với mục lục nên lần nhắc tên chương trong lời giới thiệu + tiêu đề loạt lặp đều thành
+mục cấp 1 → nav đầu sách đầy mục rỗng/trùng. Sách có **mục lục in sẵn** mang cấu trúc thật. Module:
 
 1. Nhận diện **vùng mục lục in sẵn** (sau khối "MỤC LỤC", cho tới khi vào thân bài).
-2. **Phân rã** vùng đó thành danh sách **mục** có cấp (dấu hiệu CHUNG, không gắn lĩnh vực):
-   - "Chương/Phần/Chapter/Part N" hoặc dòng TOÀN HOA (tên chương) → **cấp 1**
-   - đánh số "1.", "2." → **cấp 2**
-   - gạch đầu dòng "•", "»", "-" → **cấp 3**
-   - bỏ số trang + dấu dẫn (chấm/gạch-dưới).
-3. **Khớp** từng mục với heading trong thân bài (chuẩn hoá NFC + bỏ dấu + gộp khoảng trắng, so gần
-   đúng) → đặt cấp cho heading đó. Heading **không khớp** mục nào → cấp sâu nhất và **ngoài nav**.
-4. Không có mục lục in sẵn → giữ nguyên blocks (fallback), gọi bên ngoài tự cảnh báo.
+2. :func:`parse_chapters` — rút danh sách **chương** (dòng 'Chương/Phần/Chapter/Part N'; tên = các
+   khối in hoa ngay sau marker — OCR hay tách rời) + mục con của từng chương.
+3. :func:`assign_heading_levels` — **cấp 1 = chương**: mỗi chương neo đúng MỘT heading thân bài
+   (lần SAU vùng mục lục, không phải lần nhắc trong lời giới thiệu; không thấy heading tên chương →
+   neo vào mục con đầu). Nhãn nav = 'Chương N: <tên>' lấy CHỮ mục lục in sẵn (:class:`Heading`
+   ``nav_label`` — dấu đúng hơn OCR in hoa; **KHÔNG đổi** ``text`` thân bài). Mục con khớp mục lục →
+   cấp 2/3 (khử trùng trong mỗi chương). Heading không khớp (kể cả tiêu đề loạt lặp) → ngoài nav.
+4. So khớp bỏ dấu + bỏ dấu câu (:func:`match_key`) để chịu OCR đổi ',' → '.'. Không có mục lục in
+   sẵn → giữ nguyên blocks (fallback) + cảnh báo.
 
 Thuần (chỉ phụ thuộc :mod:`.model`) → tất định, test được không cần PDF.
 """
@@ -51,15 +52,31 @@ class TocEntry:
 
 
 @dataclass(frozen=True)
+class Chapter:
+    """Một **chương** rút từ mục lục in sẵn (dòng 'Chương/Phần/Chapter/Part N')."""
+
+    number: int  # số chương (arabic hoặc đã quy từ số La Mã)
+    marker: str  # chữ marker gốc, vd 'Chương 1' (dùng dựng nhãn nav)
+    title: str  # tên chương (các khối in hoa ngay sau marker)
+    children: tuple[TocEntry, ...] = ()  # mục con (cấp 2/3) để fallback neo khi thiếu heading tên
+
+    @property
+    def label(self) -> str:
+        """Nhãn hiển thị trong nav: 'Chương N: <tên>' (hoặc chỉ marker nếu không có tên)."""
+        return f"{self.marker}: {self.title}" if self.title else self.marker
+
+
+@dataclass(frozen=True)
 class TocHierarchyReport:
-    """Kết quả gán cấp: blocks mới + số liệu để đo + danh sách mục KHÔNG khớp heading nào."""
+    """Kết quả gán cấp: blocks mới + số liệu để đo + cảnh báo chương không neo được."""
 
     blocks: list[Block]
     found_printed_toc: bool
-    toc_entries: int
-    matched_headings: int
-    level_counts: dict[int, int]  # cấp → số heading được đặt vào cấp đó (có trong nav)
-    unmatched_toc_titles: tuple[str, ...]  # mục lục có mà không tìm thấy heading (in để soát)
+    n_chapters: int  # số chương rút từ mục lục in sẵn
+    anchored_chapters: int  # số chương neo được vào thân bài (qua tên hoặc mục con đầu)
+    level_counts: dict[int, int]  # cấp → số heading trong nav ở cấp đó
+    chapter_labels: tuple[str, ...]  # nhãn cấp 1 theo thứ tự sách (để soát)
+    warnings: tuple[str, ...]  # chương neo qua mục con / không neo được / nhãn trùng
 
 
 # --- Chuẩn hoá để so khớp -----------------------------------------------------
@@ -78,6 +95,19 @@ def canon(s: str) -> str:
     s = strip_diacritics(unicodedata.normalize("NFC", s))
     s = _WS_RE.sub(" ", s).strip().lower()
     return s.strip(" .·…_-–—•»*:")
+
+
+_PUNCT_RE = re.compile(r"[^\w\s]", re.UNICODE)
+
+
+def match_key(s: str) -> str:
+    """Khoá so khớp heading↔mục lục: như :func:`canon` nhưng bỏ MỌI dấu câu bên trong (., : ; …).
+
+    OCR hay đổi ',' thành '.' hoặc rơi dấu hai chấm giữa tiêu đề in hoa (vd 'ĐAU ĐẦU. NÓNG' vs
+    'ĐAU ĐẦU, NÓNG') → so bằng ``canon`` sẽ trượt. Bỏ dấu câu + gộp khoảng trắng để khớp bền hơn.
+    """
+    s = _PUNCT_RE.sub(" ", canon(s))
+    return _WS_RE.sub(" ", s).strip()
 
 
 def _strip_page_and_leaders(s: str) -> str:
@@ -211,77 +241,243 @@ def _classify_segment(seg: str, out: list[TocEntry]) -> None:
         out.append(TocEntry(title=title, level=level))
 
 
+# --- Rút CHƯƠNG (cấp 1) từ mục lục in sẵn ------------------------------------
+_CHUONG_NUM_RE = re.compile(r"^\s*(chương|phần|chapter|part)\s+([0-9ivxlcdm]+)\b", re.IGNORECASE)
+_ROMAN = {"i": 1, "v": 5, "x": 10, "l": 50, "c": 100, "d": 500, "m": 1000}
+
+
+def _parse_num(tok: str) -> int | None:
+    """Số chương: arabic ('1') hoặc La Mã ('IV'); None nếu không đọc được."""
+    if tok.isdigit():
+        return int(tok)
+    tok = tok.lower()
+    if not tok or any(c not in _ROMAN for c in tok):
+        return None
+    total, prev = 0, 0
+    for c in reversed(tok):
+        v = _ROMAN[c]
+        total += -v if v < prev else v
+        prev = max(prev, v)
+    return total or None
+
+
+def _is_title_part(text: str) -> bool:
+    """Khối có phải mảnh TÊN chương (in hoa, đứng ngay sau marker 'Chương N') không.
+
+    Loại khối bắt đầu bằng số thứ tự / gạch đầu dòng / cột số trang / có dấu dẫn / marker khác.
+    """
+    t = text.strip()
+    if not t or _ONLY_PAGENUMS_RE.match(t) or _LEAD_PAGE_RE.match(t):
+        return False
+    if _NUM_RE.match(t) or _BULLET_RE.match(t) or _LEADER_RE.search(t) or _CHUONG_NUM_RE.match(t):
+        return False
+    return _is_caps_title(t)
+
+
+def parse_chapters(region_blocks: list[Block]) -> list[Chapter]:
+    """Rút danh sách **chương** theo thứ tự từ vùng mục lục in sẵn.
+
+    Mỗi 'Chương/Phần/Chapter/Part N' là một chương; tên = các khối in hoa ngay sau marker (OCR hay
+    tách marker và tên thành hai khối). Các mục đánh số/gạch đầu dòng sau đó (tới chương kế) là
+    **mục con** của chương — giữ lại để fallback neo khi không thấy heading tên chương trong thân.
+    Khối TRƯỚC chương đầu (lời nói đầu, tiêu đề loạt) KHÔNG thuộc chương nào → bỏ.
+    """
+    texts = [_text_of(b).strip() for b in region_blocks]
+    chapters: list[dict] = []
+    i, n = 0, len(texts)
+    while i < n:
+        m = _CHUONG_NUM_RE.match(texts[i])
+        num = _parse_num(m.group(2)) if m else None
+        if m and num is not None:
+            marker = texts[i][m.start() : m.end()].strip()
+            rest = texts[i][m.end() :].strip(" :.-–—")
+            parts = [rest] if _is_caps_title(rest) else []
+            j = i + 1
+            while j < n and _is_title_part(texts[j]):
+                parts.append(texts[j])
+                j += 1
+            title = _strip_page_and_leaders(" ".join(p for p in parts if p))
+            chapters.append({"number": num, "marker": marker, "title": title, "children": []})
+            i = j
+            continue
+        if chapters:  # mục con của chương hiện tại (bỏ khối trước chương đầu)
+            for seg in _split_inline_entries(texts[i]):
+                _classify_segment(seg, chapters[-1]["children"])
+        i += 1
+    return [
+        Chapter(
+            number=c["number"], marker=c["marker"], title=c["title"], children=tuple(c["children"])
+        )
+        for c in chapters
+    ]
+
+
+# --- Khớp heading thân bài với mục lục ----------------------------------------
+def _matches(key: str, target: str) -> bool:
+    """``match_key`` khớp: bằng nhau, hoặc chuỗi ngắn (đủ dài) nằm trọn trong chuỗi kia."""
+    if not key or not target:
+        return False
+    if key == target:
+        return True
+    short, long = (key, target) if len(key) <= len(target) else (target, key)
+    return len(short) >= 10 and short in long
+
+
+def _anchor_chapters(
+    chapters: list[Chapter], body: list[tuple[int, str]], region_end: int
+) -> tuple[list[int | None], list[bool]]:
+    """Neo mỗi chương vào MỘT heading thân bài (chỉ số khối). Trả (anchors, anchored_via_child).
+
+    Pass 1 — khớp theo TÊN chương: lấy heading SAU vùng mục lục khớp tên, lần xuất hiện ĐẦU (tức
+    điểm vào chương thật, trước mọi mục con của nó — không phải lần nhắc trong lời giới thiệu vì các
+    lần đó nằm trong/ trước vùng mục lục). Neo tăng dần theo thứ tự chương.
+    Pass 2 — fallback: chương không thấy heading tên → neo vào heading của **mục con đầu tiên** (tìm
+    trong khoảng giữa chương trước và chương sau đã neo).
+    """
+    anchors: list[int | None] = [None] * len(chapters)
+    via_child: list[bool] = [False] * len(chapters)
+    used: set[int] = set()
+    lower = region_end
+    for ci, ch in enumerate(chapters):
+        ck = match_key(ch.title)
+        if not ck:
+            continue
+        hit = next(
+            (idx for idx, hk in body if idx >= lower and idx not in used and _matches(hk, ck)),
+            None,
+        )
+        if hit is not None:
+            anchors[ci], lower = hit, hit + 1
+            used.add(hit)
+    for ci, ch in enumerate(chapters):
+        if anchors[ci] is not None:
+            continue
+        prev = max(
+            (anchors[k] for k in range(ci) if anchors[k] is not None), default=region_end - 1
+        )
+        nxt = min(
+            (anchors[k] for k in range(ci + 1, len(chapters)) if anchors[k] is not None),
+            default=10**9,
+        )
+        for child in ch.children:
+            ck = match_key(child.title)
+            if len(ck) < 3:
+                continue
+            hit = next(
+                (i for i, hk in body if prev < i < nxt and i not in used and _matches(hk, ck)), None
+            )
+            if hit is not None:
+                anchors[ci], via_child[ci] = hit, True
+                used.add(hit)
+                break
+    return anchors, via_child
+
+
 # --- Gán cấp cho heading thân bài ---------------------------------------------
 def assign_heading_levels(blocks: list[Block]) -> TocHierarchyReport:
-    """Đặt cấp heading theo mục lục in sẵn; heading không khớp → cấp sâu nhất + ngoài nav.
+    """Đặt cấp + nhãn nav cho heading theo mục lục in sẵn (PIPELINE_VERSION 11).
 
-    Trả [TocHierarchyReport]. KHÔNG sửa blocks tại chỗ (immutable: dùng ``dataclasses.replace``).
+    Cấp 1 = các **chương** của mục lục in sẵn, mỗi chương neo đúng MỘT heading thân bài + nhãn
+    'Chương N: <tên>' lấy từ mục lục (dấu đúng hơn OCR). Mục con khớp mục lục → cấp 2/3 trong nav.
+    Heading không khớp (kể cả tiêu đề loạt/lần nhắc lặp) → cấp sâu nhất + NGOÀI nav. KHÔNG sửa
+    ``text`` thân bài (immutable: dùng ``dataclasses.replace``, chỉ đổi level/in_nav/nav_label).
     """
     region = find_toc_region(blocks)
     if region is None:
         return TocHierarchyReport(
             blocks=blocks,
             found_printed_toc=False,
-            toc_entries=0,
-            matched_headings=0,
+            n_chapters=0,
+            anchored_chapters=0,
             level_counts={},
-            unmatched_toc_titles=(),
+            chapter_labels=(),
+            warnings=("toc-hierarchy: KHÔNG thấy mục lục in sẵn → giữ cấp heading theo cỡ chữ",),
         )
     region_blocks = blocks[region[0] : region[1]]
-    entries = parse_toc_entries(region_blocks)
-    level_by_canon: dict[str, int] = {canon(e.title): e.level for e in entries}
+    chapters = parse_chapters(region_blocks)
+    region_end = region[1]
+    body = [
+        (i, match_key(b.text))
+        for i, b in enumerate(blocks)
+        if isinstance(b, Heading) and i >= region_end
+    ]
+    anchors, via_child = _anchor_chapters(chapters, body, region_end)
+
+    # Chỉ số neo → chương; và khoảng [neo_ci, neo_kế) để gán mục con đúng chương.
+    anchor_idx = {a: ci for ci, a in enumerate(anchors) if a is not None}
+    ordered = sorted(a for a in anchors if a is not None)
+    next_of = {
+        a: (ordered[k + 1] if k + 1 < len(ordered) else len(blocks))
+        for k, a in enumerate(ordered)
+    }
+    # Mục con mong đợi của từng chương (match_key → TocEntry), lần đầu thắng.
+    want: list[dict[str, TocEntry]] = []
+    for ch in chapters:
+        w: dict[str, TocEntry] = {}
+        for e in ch.children:
+            k = match_key(e.title)
+            if len(k) >= 3 and k not in w:
+                w[k] = e
+        want.append(w)
 
     out: list[Block] = []
-    matched = 0
-    matched_titles: set[str] = set()
-    level_counts: dict[int, int] = {1: 0, 2: 0, 3: 0}
-    for b in blocks:
+    level_counts = {1: 0, 2: 0, 3: 0}
+    consumed: list[set[str]] = [set() for _ in chapters]
+    cur_ci: int | None = None
+    cur_end = -1
+    for i, b in enumerate(blocks):
         if not isinstance(b, Heading):
             out.append(b)
             continue
-        key = canon(b.text)
-        lvl = level_by_canon.get(key)
-        if lvl is None:
-            lvl = _fuzzy_level(key, level_by_canon)
-        if lvl is not None:
-            matched += 1
-            matched_titles.add(_nearest_entry_key(key, level_by_canon))
-            level_counts[lvl] = level_counts.get(lvl, 0) + 1
-            out.append(dataclasses.replace(b, level=lvl, in_nav=True))
-        else:
-            out.append(dataclasses.replace(b, level=MAX_LEVEL, in_nav=False))
+        if i in anchor_idx:  # heading neo chương → cấp 1
+            ci = anchor_idx[i]
+            cur_ci, cur_end = ci, next_of[i]
+            level_counts[1] += 1
+            out.append(dataclasses.replace(b, level=1, in_nav=True, nav_label=chapters[ci].label))
+            continue
+        if cur_ci is not None and i < cur_end:  # trong thân một chương → thử làm mục con
+            hk = match_key(b.text)
+            hit = next(
+                (k for k in want[cur_ci] if k not in consumed[cur_ci] and _matches(hk, k)), None
+            )
+            if hit is not None:
+                consumed[cur_ci].add(hit)
+                e = want[cur_ci][hit]
+                lvl = min(max(e.level, 2), MAX_LEVEL)
+                level_counts[lvl] += 1
+                out.append(dataclasses.replace(b, level=lvl, in_nav=True, nav_label=e.title))
+                continue
+        out.append(dataclasses.replace(b, level=MAX_LEVEL, in_nav=False, nav_label=None))
 
-    unmatched = tuple(e.title for e in entries if canon(e.title) not in matched_titles)
+    warnings = _chapter_warnings(chapters, anchors, via_child)
+    labels = tuple(chapters[ci].label for ci in sorted(anchor_idx.values()))
     return TocHierarchyReport(
         blocks=out,
         found_printed_toc=True,
-        toc_entries=len(entries),
-        matched_headings=matched,
+        n_chapters=len(chapters),
+        anchored_chapters=sum(1 for a in anchors if a is not None),
         level_counts=level_counts,
-        unmatched_toc_titles=unmatched,
+        chapter_labels=labels,
+        warnings=warnings,
     )
 
 
-def _fuzzy_level(key: str, level_by_canon: dict[str, int]) -> int | None:
-    """Khớp gần đúng: một chuỗi chứa trọn chuỗi kia (đủ dài) → lấy cấp mục lục."""
-    if len(key) < 6:
-        return None
-    best_lvl = None
-    best_len = 0
-    for ek, lvl in level_by_canon.items():
-        if len(ek) < 6:
+def _chapter_warnings(
+    chapters: list[Chapter], anchors: list[int | None], via_child: list[bool]
+) -> tuple[str, ...]:
+    out: list[str] = []
+    for ci, ch in enumerate(chapters):
+        if anchors[ci] is None:
+            out.append(f"  {ch.label}: KHÔNG neo được vào thân bài → bỏ khỏi nav")
+        elif via_child[ci]:
+            out.append(f"  {ch.label}: không thấy heading tên chương → neo vào mục con đầu")
+    seen: dict[str, str] = {}
+    for ci, ch in enumerate(chapters):
+        if anchors[ci] is None:
             continue
-        if key == ek or (len(ek) >= 10 and (ek in key or key in ek)):
-            if len(ek) > best_len:
-                best_len = len(ek)
-                best_lvl = lvl
-    return best_lvl
-
-
-def _nearest_entry_key(key: str, level_by_canon: dict[str, int]) -> str:
-    if key in level_by_canon:
-        return key
-    for ek in level_by_canon:
-        if len(ek) >= 10 and (ek in key or key in ek):
-            return ek
-    return key
+        key = match_key(ch.title)
+        if key and key in seen:
+            out.append(f"  nhãn cấp 1 TRÙNG: {ch.label!r} ~ {seen[key]!r} (2 chương trùng tên?)")
+        elif key:
+            seen[key] = ch.label
+    return tuple(out)

@@ -239,17 +239,10 @@ def convert_pdf(
     blocks = toc_h.blocks
     if toc_h.found_printed_toc:
         warnings.append(
-            f"toc-hierarchy: {toc_h.matched_headings} heading khớp mục lục in sẵn "
-            f"({toc_h.toc_entries} mục), cấp {toc_h.level_counts}; "
-            f"{len(toc_h.unmatched_toc_titles)} mục lục không khớp heading nào"
+            f"toc-hierarchy: {toc_h.anchored_chapters}/{toc_h.n_chapters} chương neo được, "
+            f"cấp {toc_h.level_counts}"
         )
-        for t in toc_h.unmatched_toc_titles:
-            warnings.append(f"  mục lục không khớp: {t}")
-    else:
-        warnings.append(
-            "toc-hierarchy: KHÔNG thấy mục lục in sẵn → giữ cấp heading theo cỡ chữ "
-            "(nav có thể phẳng)"
-        )
+    warnings.extend(toc_h.warnings)
 
     blocks, toc_removed = drop_printed_toc(blocks, config.reflow)
     n_image_pages = sum(1 for b in blocks if isinstance(b, ImageBlock))
