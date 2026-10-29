@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 // Module launcher Android mỏng (AGP 9 có Kotlin tích hợp sẵn) — chỉ dựng UI chung từ :composeApp.
@@ -19,6 +20,17 @@ kotlin {
     }
 }
 
+// Ký APK release: đọc từ keystore.properties (dev cục bộ, gitignored) hoặc biến môi trường (CI
+// release.yml). Thiếu cả hai → KHÔNG cấu hình ký: assembleRelease ra APK CHƯA ký, còn
+// assembleDebug/test không cần key → job test CI vẫn chạy không cần secret. Xem .omc/RELEASE_RULE.md.
+val keystorePropsFile = rootProject.file("keystore.properties")
+val keystoreProps = Properties().apply {
+    if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
+}
+fun signingSecret(propKey: String, envKey: String): String? =
+    (keystoreProps.getProperty(propKey) ?: System.getenv(envKey))?.takeIf { it.isNotBlank() }
+val releaseStorePath = signingSecret("storeFile", "RELEASE_KEYSTORE_PATH")
+
 android {
     namespace = "io.github.trinhvandat.sepia"
     compileSdk = libs.versions.compileSdk.get().toInt()
@@ -29,6 +41,28 @@ android {
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1
         versionName = "0.1.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            if (releaseStorePath != null) {
+                storeFile = file(releaseStorePath)
+                storePassword = signingSecret("storePassword", "RELEASE_STORE_PASSWORD")
+                keyAlias = signingSecret("keyAlias", "RELEASE_KEY_ALIAS")
+                keyPassword = signingSecret("keyPassword", "RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            // R8/shrink TẮT cho v0.1.0 — foliate/WebView dùng reflection, bật minify dễ vỡ; để sau
+            // khi có thời gian viết proguard-rules. debuggable=false (mặc định) → tắt __sepiaPerf +
+            // WebView debugging (gated theo FLAG_DEBUGGABLE ở ReaderSurface.android.kt).
+            isMinifyEnabled = false
+            // Chỉ gắn ký khi có keystore (local hoặc CI); không có thì để APK chưa ký.
+            if (releaseStorePath != null) signingConfig = signingConfigs.getByName("release")
+        }
     }
 }
 
