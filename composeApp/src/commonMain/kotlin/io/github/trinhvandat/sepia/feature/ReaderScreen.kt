@@ -92,6 +92,8 @@ fun ReaderContent(
     var uiVisible by remember { mutableStateOf(true) }
     // Cỡ chữ bền: nạp giá trị đã lưu khi mở; A−/A+ lưu lại ngay. Mặc định cho tới khi nạp xong.
     var fontScale by remember { mutableStateOf(SepiaTheme.DefaultFontScale) }
+    // Hiệu ứng lật trang (Trượt/Không) bền; mặc định Trượt cho tới khi nạp xong.
+    var pageAnimated by remember { mutableStateOf(true) }
     var failure by remember(book.id) { mutableStateOf<String?>(null) }
     // Vùng chọn chữ hiện hành (Mốc 3a: nhận từ JS; Mốc 3b: dựng Highlight). null = không chọn.
     var selection by remember(book.id) { mutableStateOf<ReaderEvent.Selection?>(null) }
@@ -130,14 +132,25 @@ fun ReaderContent(
 
     val css = SepiaTheme.css(fontScale, variant.fontFallback)
 
-    // Nạp cỡ chữ đã lưu (một lần). css đổi → LaunchedEffect(css, opened) tiêm lại CSS; CFI giữ nguyên.
-    LaunchedEffect(Unit) { fontScale = settings.fontScalePercent() }
+    // Nạp cỡ chữ + hiệu ứng lật đã lưu (một lần). css đổi → LaunchedEffect(css, opened) tiêm lại CSS.
+    LaunchedEffect(Unit) {
+        fontScale = settings.fontScalePercent()
+        pageAnimated = settings.pageTurnAnimated()
+    }
 
     // Đổi cỡ chữ: kẹp vào khoảng hợp lệ, cập nhật UI, và LƯU bền ngay (appScope sống lâu hơn màn hình).
     fun changeFontScale(next: Int) {
         val clamped = next.coerceIn(SepiaTheme.MinFontScale, SepiaTheme.MaxFontScale)
         fontScale = clamped
         appScope.launch { settings.setFontScalePercent(clamped) }
+    }
+
+    // Bật/tắt hiệu ứng trượt lật trang: đổi state (LaunchedEffect(pageAnimated, opened) tự đẩy xuống
+    // JS — một nguồn chân lý, tránh gọi setPageAnimation hai lần) + lưu bền.
+    fun togglePageAnimation() {
+        val next = !pageAnimated
+        pageAnimated = next
+        appScope.launch { settings.setPageTurnAnimated(next) }
     }
 
     // Một cú NHẢY (mục lục / Về đầu sách / thanh tiến độ): đẩy vị trí hiện tại vào ngăn xếp + hiện chip.
@@ -222,10 +235,11 @@ fun ReaderContent(
                     reanchorSettled = true
                 }
                 is ReaderEvent.Tap -> when (event.zone) {
-                    // Lật trang thường → ẩn chip "Quay lại" (ngăn xếp vẫn giữ cho nút Back).
-                    TapZone.LEFT -> { showBackChip = false; controller.prev() }
+                    // Lật trang đã xử lý NGAY trong JS (bridge.js: trái=prev, phải=next) cho mượt →
+                    // Kotlin KHÔNG lật lại (tránh lật đôi), chỉ ẩn chip "Quay lại" (ngăn xếp vẫn giữ cho nút Back).
+                    TapZone.LEFT -> showBackChip = false
                     TapZone.CENTER -> uiVisible = !uiVisible
-                    TapZone.RIGHT -> { showBackChip = false; controller.next() }
+                    TapZone.RIGHT -> showBackChip = false
                 }
                 is ReaderEvent.Selection -> { selection = event; tappedHighlight = null }
                 ReaderEvent.SelectionCleared -> selection = null
@@ -249,6 +263,9 @@ fun ReaderContent(
 
     // Đổi cỡ chữ → tiêm lại CSS (chỉ sau khi bridge sẵn sàng; tránh gọi window.sepia khi chưa định nghĩa).
     LaunchedEffect(css, opened) { if (opened) controller.applyStyle(css) }
+
+    // Đẩy lựa chọn hiệu ứng lật trang xuống JS khi bridge sẵn sàng / khi đổi (bridge mặc định Trượt).
+    LaunchedEffect(pageAnimated, opened) { if (opened) controller.setPageAnimation(pageAnimated) }
 
     // Đẩy tập highlight xuống JS để vẽ (sau 'ready'); đổi danh sách (thêm/xoá/đổi màu) → đẩy lại.
     LaunchedEffect(drawable, ready) { if (ready) controller.setHighlights(drawable) }
@@ -346,6 +363,8 @@ fun ReaderContent(
                 onToc = { controller.requestToc(); showToc = true },
                 onFontDec = { changeFontScale(fontScale - SepiaTheme.FontScaleStep) },
                 onFontInc = { changeFontScale(fontScale + SepiaTheme.FontScaleStep) },
+                pageAnimated = pageAnimated,
+                onToggleAnim = { togglePageAnimation() },
                 modifier = Modifier.align(Alignment.TopCenter),
             )
             ReaderProgressBar(
@@ -495,6 +514,8 @@ private fun ReaderTopBar(
     onToc: () -> Unit,
     onFontDec: () -> Unit,
     onFontInc: () -> Unit,
+    pageAnimated: Boolean,
+    onToggleAnim: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val compact = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
@@ -517,6 +538,10 @@ private fun ReaderTopBar(
             )
             Text("$percent%", color = Color(SepiaTheme.ForegroundArgb), fontSize = 13.sp)
             TextButton(onClick = onToc, contentPadding = compact) { Text("Mục lục", fontSize = 13.sp) }
+            // Hiệu ứng lật trang: Trượt (⇄) / Không (⇥). Chạm để đổi; lưu bền.
+            TextButton(onClick = onToggleAnim, contentPadding = compact) {
+                Text(if (pageAnimated) "Trượt" else "Tắt", fontSize = 13.sp)
+            }
             TextButton(onClick = onFontDec, contentPadding = compact) { Text("A−", fontSize = 16.sp) }
             TextButton(onClick = onFontInc, contentPadding = compact) { Text("A+", fontSize = 18.sp) }
         }

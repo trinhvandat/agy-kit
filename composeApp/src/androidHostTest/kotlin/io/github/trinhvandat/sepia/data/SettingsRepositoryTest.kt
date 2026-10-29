@@ -8,6 +8,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class SettingsRepositoryTest {
     private fun driver(): SqlDriver =
@@ -43,5 +45,19 @@ class SettingsRepositoryTest {
         repo(d).setFontScalePercent(130)
         // repo mới trên cùng driver/DB → đọc lại giá trị đã lưu (bền).
         assertEquals(130, repo(d).fontScalePercent())
+    }
+
+    @Test
+    fun pageTurnAnimatedDefaultsTrue() = runTest {
+        assertTrue(repo(driver()).pageTurnAnimated())
+    }
+
+    @Test
+    fun pageTurnAnimatedSetAndPersist() = runTest {
+        val d = driver()
+        repo(d).setPageTurnAnimated(false)
+        assertFalse(repo(d).pageTurnAnimated()) // bền qua instance mới
+        repo(d).setPageTurnAnimated(true)
+        assertTrue(repo(d).pageTurnAnimated())
     }
 }

@@ -142,7 +142,14 @@ graph TD
 - [ ] **iOS shell (SPIKE-2 phần iOS)** — dựng `.xcodeproj`, chạy vỏ `iosApp` trên simulator → **[issue #3](https://github.com/trinhvandat/sepia/issues/3)**. *Không nhất thiết chờ tới Mốc 5+: nên làm **song song/sớm khi có Xcode**, và **trước phần iOS của SPIKE-1** (Mốc 2).*
 - [ ] Hoàn thiện **iOS** (WKURLSchemeHandler ổn định, cử chỉ, hiệu năng) → dùng hằng ngày trên iPhone. *(cộng giờ — lần đầu iOS)*
 - [ ] Tinh chỉnh pipeline theo lỗi sách thật (font cũ sót, trang ảnh, bảng).
-- [ ] Hiệu ứng lật trang (nếu mượt) + tối ưu NFR-1.
+- [x] **Hiệu ứng lật trang mượt** (nhánh `smooth-paging`): bật `animated` của paginator → trượt
+  `easeOutQuad` 300ms + **bỏ `wait(100)` cứng** cho lật trong chương; cài đặt **Trượt/Tắt** (bền qua
+  `SettingsRepository`, mặc định Trượt); **tap lật thẳng trong JS** (bridge.js, bỏ vòng JS→Kotlin→JS,
+  Kotlin không lật lại — tránh lật đôi). Đo emulator: lật trong chương 13–15ms (« mục tiêu 100ms), jank
+  23.6%→6.8%. **Hai giới hạn còn lại (đã cân nhắc, không hack vendor):** (a) **không tiền nạp section kế**
+  vì `section.load()` của epub.js có đếm tham chiếu → tiền nạp từ bridge rò rỉ blob mỗi lần qua chương
+  (NFR-4) → qua ranh giới vẫn ~90–120ms; (b) chế độ **Tắt** vẫn dính `wait(100)` của vendor sau mỗi lật
+  (lật rất nhanh bị giới hạn ~10 lần/giây). Đo đầy đủ: `out/perf/RESULTS.md`.
 - [ ] Ổn định `ReaderEngine`; cân nhắc tách Gradle module/flavor nếu chuẩn bị app thứ hai (ADR-007).
 - [ ] **OCR (US-A7)** — nếu SPIKE-0 đã báo nhiều scan thì phần này **đã nằm ở giai đoạn đầu**, không chờ tới đây.
 - **Giai đoạn sau (đóng băng lúc đầu)**: gom ghi chú theo **nhãn/chủ đề người dùng** (US-F1, thêm lại Tag/Topic); **điểm mở rộng tra cứu/từ điển theo lĩnh vực** (US-F2, bật bằng flag); xem PDF gốc trong app (US-F4); **app tự nhận PDF trực tiếp** (bỏ qua chạy `sepia-pipeline` trên máy tính — đường hiện tại vẫn là content pack đóng gói lúc build, ADR-010, + nhập EPUB tay qua SAF); **nhân bản sang biến thể khác**. *(Tính năng đặc thù & thương mại hóa của biến thể Đông y — vd tra huyệt, tra Hán Việt, bán cho sinh viên — thuộc [variants/dongy.md](./variants/dongy.md), không phải lõi.)*

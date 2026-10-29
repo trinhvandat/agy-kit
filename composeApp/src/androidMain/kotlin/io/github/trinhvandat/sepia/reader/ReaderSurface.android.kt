@@ -34,6 +34,8 @@ actual fun ReaderSurface(
 ) {
     val context = LocalContext.current
     val bookPath = rememberUpdatedState(currentBookPath)
+    // Debug build: bật chrome://inspect + bật đo perf lật trang trong bridge.js (tắt ở release).
+    val debuggable = remember { (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0 }
 
     // WebViewAssetLoader: /assets/ → asset app (foliate-js, reader.html, bridge.js);
     // /books/ → file EPUB hiện hành. Origin https → foliate-js fetch được, không dính CORS file://.
@@ -62,6 +64,7 @@ actual fun ReaderSurface(
     // Khi trang reader.html tải xong → yêu cầu bridge gửi lại bridgeReady (backup cho race, review #2).
     LaunchedEffect(state.loadingState) {
         if (state.loadingState is LoadingState.Finished) {
+            if (debuggable) navigator.evaluateJavaScript("window.__sepiaPerf = true;")
             navigator.evaluateJavaScript("window.sepia && window.sepia.ping && window.sepia.ping();")
         }
     }
@@ -76,6 +79,8 @@ actual fun ReaderSurface(
                 },
             )
         }
+        // Debug-only: đo perf lật trang (bridge.js post('perf', …)) → logcat tag "SepiaPerf". Tắt ở release.
+        if (debuggable) jsBridge.register(handler("perf") { params -> android.util.Log.i("SepiaPerf", params) })
     }
 
     WebView(
@@ -84,9 +89,8 @@ actual fun ReaderSurface(
         captureBackPresses = false,
         navigator = navigator,
         webViewJsBridge = jsBridge,
-        onCreated = { webView ->
+        onCreated = {
             // Debug build: bật chrome://inspect để soi console/network foliate-js.
-            val debuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
             if (debuggable) AndroidWebView.setWebContentsDebuggingEnabled(true)
         },
         platformWebViewParams = PlatformWebViewParams(client = client),

@@ -101,9 +101,16 @@ class ReaderController {
 
     /** Yêu cầu JS gửi lại mục lục (phát ReaderEvent.Toc). */
     fun requestToc() = eval("window.sepia.getToc()")
+
+    // Lật trang qua CHẠM nay xử lý thẳng trong JS (bridge.js onDocClick) cho mượt — KHÔNG đi qua đây.
+    // next()/prev() giữ cho lật bằng lệnh (vd phím/điều khiển ngoài sau này), không gọi khi nhận Tap.
     fun next() = eval("window.sepia.next()")
     fun prev() = eval("window.sepia.prev()")
     fun applyStyle(css: String) = eval("window.sepia.applyStyle(${js(css)})")
+
+    /** Bật/tắt hiệu ứng trượt lật trang (Trượt/Không). */
+    fun setPageAnimation(enabled: Boolean) = eval("window.sepia.setPageAnimation($enabled)")
+
     fun clearSelection() = eval("window.sepia.clearSelection()")
 
     /** Thay toàn bộ tập highlight đang vẽ. */
